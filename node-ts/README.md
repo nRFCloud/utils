@@ -2,7 +2,7 @@
 
 The main use of these scripts is with the [ProvisionDevices endpoint](https://api.nrfcloud.com/v1#operation/ProvisionDevices), which allows you to upload a CSV file containing one or more deviceIds and ES256 certificates in PEM format, created with your own CA certificate. These scripts demonstrate how you can programmatically generate a CA cert and corresponding device certificates that will work on nRF Cloud.
 
-See the top of each file and the params in for example.
+See the top of each file for example usage.
 
 ## CA Certificate Creator
 ```
