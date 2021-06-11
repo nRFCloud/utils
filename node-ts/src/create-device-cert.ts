@@ -30,20 +30,27 @@ const args = yargs
     alias: 'cd',
     type: 'string',
     description:
-      'The absolute path to the directory for saving the created cert files.',
+      'The absolute path to the directory for storing the created CSR and certificate files.',
     default: defaultCertDir,
   })
+  .option('csrFileName', {
+    alias: 'csr',
+    type: 'string',
+    description: 'Name of your CSR pem file.',
+  })
   .option('caCertKeyFileName', {
+    alias: 'cak',
     type: 'string',
     description: 'Name of your CA private key pem file',
-    default: `ca-cert.key.pem`,
+    default: 'ca-cert.key.pem',
   })
   .option('caCertPemFileName', {
+    alias: 'cac',
     type: 'string',
     description: 'Name of your CA certificate pem file',
-    default: `ca-cert.crt.pem`,
+    default: 'ca-cert.crt.pem',
   })
-  .demandOption(['cnSubject'])
+  .demandOption(['cnSubject', 'caCertKeyFileName', 'caCertPemFileName'])
   .help().argv;
 
 handler(args).catch(console.error);
@@ -51,24 +58,28 @@ handler(args).catch(console.error);
 async function handler({
   deviceId,
   cnSubject,
+  certDir,
+  csrFileName,
   caCertKeyFileName,
   caCertPemFileName,
-  certDir,
 }: typeof args) {
-  const certPath = `${certDir}/${deviceId}.crt.pem`;
-  const keyPath = `${certDir}/${deviceId}.key.pem`;
+  const deviceCertPath = `${certDir}/${deviceId}.crt.pem`;
+  const deviceKeyPath = `${certDir}/${deviceId}.key.pem`;
   // Use ECC (ES256) instead of RSA. ECC is 50-100x faster:
   // http://ww1.microchip.com/downloads/en/DeviceDoc/00003442A.pdf
   execSync(
-    `openssl ecparam -out ${keyPath} -name prime256v1 -genkey`,
+    `openssl ecparam -out ${deviceKeyPath} -name prime256v1 -genkey`,
     process.env,
   );
+  if (!csrFileName) {
+    csrFileName = `${deviceId}.csr.pem`;
+    execSync(
+      `openssl req -new -key ${deviceKeyPath} -out ${certDir}/${csrFileName} -subj "${cnSubject}/CN=${deviceId}"`,
+      process.env,
+    );
+  }
   execSync(
-    `openssl req -new -key ${keyPath} -out ${certDir}/${deviceId}.csr.pem -subj "${cnSubject}/CN=${deviceId}"`,
-    process.env,
-  );
-  execSync(
-    `openssl x509 -req -in ${certDir}/${deviceId}.csr.pem -CA ${certDir}/${caCertPemFileName} -CAkey ${certDir}/${caCertKeyFileName} -CAcreateserial -out ${certPath} -days 10950 -sha256`,
+    `openssl x509 -req -in ${certDir}/${csrFileName} -CA ${certDir}/${caCertPemFileName} -CAkey ${certDir}/${caCertKeyFileName} -CAcreateserial -out ${deviceCertPath} -days 10950 -sha256`,
     process.env,
   );
   console.log(
