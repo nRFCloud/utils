@@ -5,9 +5,7 @@
  * This script creates ECC 256 device certificates.
  *
  * Example usage:
- * export CA_CERT_KEY_PATH=<path to your CA cert's private key PEM file>
- * export CA_CERT_PEM_PATH=<path to your CA cert's certificate PEM file>
- * node dist/create-device-cert-offline.js --cnSubject '/C=NO/ST=Trondelag/L=Trondheim/O=Nordic Semiconductor ASA' --caCertKeyPath $CA_CERT_KEY_PATH --caCertPemPath $CA_CERT_PEM_PATH
+ * node dist/create-device-cert.js
  */
 
 import { execSync } from 'child_process';
@@ -26,14 +24,17 @@ const args = yargs
   })
   .option('cnSubject', {
     type: 'string',
+    default: '/C=NO/ST=Trondelag/L=Trondheim/O=Nordic Semiconductor ASA',
   })
   .option('caCertKeyPath', {
     type: 'string',
     description: 'Absolute path to your CA private key pem file',
+    default: `${defaultCertDir}/ca-cert.key.pem`,
   })
   .option('caCertPemPath', {
     type: 'string',
     description: 'Absolute path to your CA certificate pem file',
+    default: `${defaultCertDir}/ca-cert.crt.pem`,
   })
   .option('certDir', {
     alias: 'cd',
@@ -42,7 +43,7 @@ const args = yargs
       'The absolute path to the directory to save the created cert files.',
     default: defaultCertDir,
   })
-  .demandOption(['cnSubject', 'caCertKeyPath', 'caCertPemPath'])
+  .demandOption(['cnSubject'])
   .help().argv;
 
 handler(args).catch(console.error);
@@ -70,5 +71,7 @@ async function handler({
     `openssl x509 -req -in ${certDir}/${deviceId}.csr.pem -CA ${caCertPemPath} -CAkey ${caCertKeyPath} -CAcreateserial -out ${certPath} -days 10950 -sha256`,
     process.env,
   );
-  console.log(`Device cert files for ${deviceId} written to ${certDir}.`);
+  console.log(
+    `Device cert files for deviceId ${deviceId} written to ${certDir}.`,
+  );
 }
