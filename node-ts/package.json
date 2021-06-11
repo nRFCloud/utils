@@ -27,11 +27,9 @@
     "aws-sdk": "^2.653.0",
     "chalk": "^2.4.2",
     "colors": "^1.3.3",
-    "commitizen": "^4.1.2",
     "constructs": "^3.3.75",
     "cz-conventional-changelog": "^3.2.0",
     "glob": "^7.1.4",
-    "husky": "^4.2.5",
     "prettier": "^2.0.5",
     "strip-ansi": "^6.0.0",
     "tmp": "^0.1.0",
@@ -49,11 +47,5 @@
   },
   "browserslist": [
     "node 10"
-  ],
-  "husky": {
-    "hooks": {
-      "pre-commit": "yarn lint",
-      "prepare-commit-msg": "exec < /dev/tty && git cz --hook || true"
-    }
-  }
+  ]
 }
