@@ -26,22 +26,22 @@ const args = yargs
     type: 'string',
     default: '/C=NO/ST=Trondelag/L=Trondheim/O=Nordic Semiconductor ASA',
   })
-  .option('caCertKeyPath', {
-    type: 'string',
-    description: 'Absolute path to your CA private key pem file',
-    default: `${defaultCertDir}/ca-cert.key.pem`,
-  })
-  .option('caCertPemPath', {
-    type: 'string',
-    description: 'Absolute path to your CA certificate pem file',
-    default: `${defaultCertDir}/ca-cert.crt.pem`,
-  })
   .option('certDir', {
     alias: 'cd',
     type: 'string',
     description:
-      'The absolute path to the directory to save the created cert files.',
+      'The absolute path to the directory for saving the created cert files.',
     default: defaultCertDir,
+  })
+  .option('caCertKeyFileName', {
+    type: 'string',
+    description: 'Name of your CA private key pem file',
+    default: `ca-cert.key.pem`,
+  })
+  .option('caCertPemFileName', {
+    type: 'string',
+    description: 'Name of your CA certificate pem file',
+    default: `ca-cert.crt.pem`,
   })
   .demandOption(['cnSubject'])
   .help().argv;
@@ -51,8 +51,8 @@ handler(args).catch(console.error);
 async function handler({
   deviceId,
   cnSubject,
-  caCertKeyPath,
-  caCertPemPath,
+  caCertKeyFileName,
+  caCertPemFileName,
   certDir,
 }: typeof args) {
   const certPath = `${certDir}/${deviceId}.crt.pem`;
@@ -68,7 +68,7 @@ async function handler({
     process.env,
   );
   execSync(
-    `openssl x509 -req -in ${certDir}/${deviceId}.csr.pem -CA ${caCertPemPath} -CAkey ${caCertKeyPath} -CAcreateserial -out ${certPath} -days 10950 -sha256`,
+    `openssl x509 -req -in ${certDir}/${deviceId}.csr.pem -CA ${certDir}/${caCertPemFileName} -CAkey ${certDir}/${caCertKeyFileName} -CAcreateserial -out ${certPath} -days 10950 -sha256`,
     process.env,
   );
   console.log(
