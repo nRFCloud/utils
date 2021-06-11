@@ -240,7 +240,7 @@ def parse_attesttoken_output(atokout_str):
     # Print parsed CBOR
     print("---------------")
     print("Msg Type:    " + msg_type_dict[body_obj[0]])
-    print("Dev UUID:    " + body_obj[1].hex())
+    print("Dev UUID:    " + body_obj[1].hex().upper())
     print("Dev Type:    " + device_type_dict.get(body_obj[2]))
     print("FW UUID:     " + body_obj[3].hex())
     print("---------------")
