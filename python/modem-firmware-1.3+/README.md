@@ -1,22 +1,24 @@
-# Python Utilities to Support Working with Modem Firmware v1.3+
+# Python Utilities for Working with Modem Firmware v1.3+
+
+[Modem firmware v1.3 and later](https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK/Download#infotabs) provide new [AT security commands](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fref_at_commands%2FREF%2Fat_commands%2Fintro.html), including `KEYGEN` and `ATTESTTOKEN`, which are the focus of these Python scripts.
 
 ## Modem Credential Parser Example
 
 ```
 usage: at_keygen_credentials_parser.py [-h] [-k KEYGEN] [-a ATTEST]
 
-Modem Credential Parser
+Modem Credentials Parser
 
 optional arguments:
-  -h, --help            show this help message and exit
+  -h, --help                  show this help message and exit
   -k KEYGEN, --keygen KEYGEN
-                        base64url string: KEYGEN output
+                              base64url string: KEYGEN output
   -a ATTEST, --attest ATTEST
-                        base64url string: ATTESTTOKEN output
-  -s, --save            Save PEM file(s): <UUID>_<sec_tag>_<type>.pem
-  -p PATH, --path PATH  Path to save PEM file. Selects -s
+                              base64url string: ATTESTTOKEN output
+  -s, --save                  Save PEM file(s): <UUID>_<sec_tag>_<type>.pem
+  -p PATH, --path PATH        Path to save PEM file. Selects -s
   -f FILEPREFIX, --fileprefix FILEPREFIX
-                        Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s
+                              Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s
 ```
 
 Parse modem keygen output; with or without COSE portion:
@@ -29,18 +31,17 @@ Parse modem keygen output and save PEM file(s); COSE portion is required:
 
 `python3 at_keygen_credentials_parser.py -k <base64url AT%KEYGEN output> -p <my_output_path> -f <my_file_prefix>`
 
-Parse modem attestation token output; with or without COSE portion:
+Parse [modem attestation token output](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/include/modem/modem_attest_token.html); with or without COSE portion:
 
 `python3 at_keygen_credentials_parser.py -a <base64url AT%ATTESTTOKEN output>`
 
+## Examples
 
-Examples:
-
-AT%KEYGEN: CSR
+### AT%KEYGEN: CSR
 ```
 python3 at_keygen_credentials_parser.py -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud
 
-Parsing AT%KEYGEN output:
+Parsed output of `AT%KEYGEN`:
 
 -----BEGIN CERTIFICATE REQUEST-----
 MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0x
@@ -79,11 +80,11 @@ COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ```
 
-AT%KEYGEN: device public key
+### AT%KEYGEN: device public key
 ```
 python3 at_keygen_credentials_parser.py -k MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZKgDx0O0FKa7i1yFoxYngNdV5Csyi4rEPHcFTfeBVtkkJX-G0QZs-yesfzIaPs91b4x5xYN_g28k63gkeVMJwA.0oRDoQEmoQRBIVhL2dn3hQhQUDYxVDkxRPCAIhIbZAFifUEQWCDlovwqMVoJ1W-x93Tqypy2v_1ALv3-GCF1R9gYIy2WVlBQXvxKqA9JTveFh3nVwce-WEAMltwSSkVh8jSBPhP79ndSG0HJTOaTF9SExIq-FstjdLUW2inxdvVfqzLa05rgXqxshN5vfQIs22QT-swCt30h
 
-Parsing AT%KEYGEN output:
+Parsed output of `AT%KEYGEN`:
 
 Device public key:
 -----BEGIN PUBLIC KEY-----
@@ -113,11 +114,11 @@ COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ```
 
-AT%ATTESTTOKEN:
+### AT%ATTESTTOKEN
 ```
 python3 at_keygen_credentials_parser.py -a 2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY
 
-Parsing AT%ATTESTTOKEN output:
+Parsed output of `AT%ATTESTTOKEN`:
 
 ---------------
 Msg Type:    Device identity message v1
@@ -138,11 +139,11 @@ COSE:
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ```
 
-AT%KEYGEN: CSR with file save
+### AT%KEYGEN: CSR with file save
 ```
 python3 at_keygen_credentials_parser.py -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud -p /my_devices/pem_files -f hw_rev2-
 
-Parsing AT%KEYGEN output:
+Parsed output of `AT%KEYGEN`:
 
 -----BEGIN CERTIFICATE REQUEST-----
 MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0x

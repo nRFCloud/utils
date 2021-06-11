@@ -1,4 +1,4 @@
-nRF Cloud Utilities
+# nRF Cloud Utilities
 
 This repository contains scripts that support certain use cases of nRF Cloud, mainly endpoints in [the Device API](https://api.nrfcloud.com/v1).
 
