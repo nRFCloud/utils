@@ -1,4 +1,4 @@
-# ModeJS (Typescript) Utilities for Working with nRF Cloud
+# NodeJS (Typescript) Utilities for Working with nRF Cloud
 
 The main use of these scripts is with the [ProvisionDevices endpoint](https://api.nrfcloud.com/v1#operation/ProvisionDevices), which allows you to upload a CSV file containing one or more deviceIds and ES256 certificates in PEM format, created with your own CA certificate. These scripts demonstrate how you can programmatically generate a CA cert and corresponding device certificates that will work on nRF Cloud.
 
