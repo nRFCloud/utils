@@ -6,6 +6,7 @@
     "strict": true,
     "outDir": "dist/",
     "rootDir": "src",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "declaration": true,
     "skipLibCheck": true,
     "sourceMap": true,
