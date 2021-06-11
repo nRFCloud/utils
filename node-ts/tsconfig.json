@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "module": "commonjs",
+    "target": "es2020",
+    "strict": true,
+    "outDir": "dist/",
+    "rootDir": "src",
+    "declaration": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "composite": true,
+    "noImplicitAny": true,
+    "alwaysStrict": true,
+    "noUnusedParameters": true,
+    "noUnusedLocals": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "*.ts",
+    "src/**/*.ts",
+    "src/**/*.json",
+  ]
+}
