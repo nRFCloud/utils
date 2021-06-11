@@ -6,7 +6,6 @@ See the top of each file and the params in for example.
 
 ## CA Certificate Creator
 ```
---version                   Show version number [boolean]
 --cnSubjectPrefix           The prefix for the cert Subject. [string] [required]
 --ouName, --ou              The Organizational Unit (OU) name of the cert Subject. [string] [required]
 --certFileNamePrefix, --fn  The prefix for the CA cert files. [string] [default: "ca-cert"]
