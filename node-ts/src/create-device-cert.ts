@@ -15,7 +15,6 @@ import { join } from 'path';
 import * as yargs from 'yargs';
 import { v4 } from 'uuid';
 
-// Must first create this directory, or provide a different path via the cd option, below.
 const defaultCertDir = join(__dirname, '../certs');
 
 const args = yargs

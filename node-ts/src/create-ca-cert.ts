@@ -12,7 +12,6 @@ import { execSync } from 'child_process';
 import { join } from 'path';
 import * as yargs from 'yargs';
 
-// Must first create this directory, or provide a different path via the cd option, below.
 const defaultCertDir = join(__dirname, '../certs');
 
 const args = yargs
@@ -27,12 +26,18 @@ const args = yargs
     type: 'string',
     description: 'The Organizational Unit (OU) name of the cert Subject.',
   })
+  .option('certFileNamePrefix', {
+    alias: 'fn',
+    type: 'string',
+    description: 'The prefix for the CA cert files.',
+    default: 'ca-cert',
+  })
   .option('certDir', {
     alias: 'cd',
     type: 'string',
-    default: defaultCertDir,
     description:
       'The absolute path to the directory to save the created cert files.',
+    default: defaultCertDir,
   })
   .demandOption(['cnSubjectPrefix', 'ouName'])
   .help().argv;
@@ -40,11 +45,14 @@ const args = yargs
 /* tslint:disable-next-line:no-floating-promises */
 handler(args);
 
-async function handler({ cnSubjectPrefix, ouName, certDir }: typeof args) {
+async function handler({
+  cnSubjectPrefix,
+  ouName,
+  certFileNamePrefix,
+  certDir,
+}: typeof args) {
   const subject = `${cnSubjectPrefix}/OU=${ouName}`;
-  const certPath = `${certDir}/ca-cert${subject
-    .replace(/\//g, '_')
-    .replace(/\s/g, '-')}`;
+  const certPath = `${certDir}/${certFileNamePrefix}`;
 
   execSync(`openssl ecparam -out ${certPath}.key.pem -name prime256v1 -genkey`);
   execSync(
