@@ -11,14 +11,17 @@ See the top of each file for example usage.
 --certFileNamePrefix, --fn  The prefix for the CA cert files. [string] [default: "ca-cert"]
 --certDir, --cd             The absolute path to the directory to save the created cert files. 
                             [string] [default: "/path/to/utils/node-ts/certs"]
+--help                      Show help [boolean]                            
 ```
 
 ## Device Certificate Creator
 ```
-  --deviceId                [string] [default: "4a28b11a-04b8-47e3-9632-df0e89159550"]
-  --cnSubject               [string] [required] [default: "/C=NO/ST=Trondelag/L=Trondheim/O=Nordic Semiconductor ASA"]
-  --caCertKeyPath           Name of your CA private key pem file [string] [default: "ca-cert.key.pem"]
-  --caCertPemPath           Name of your CA certificate pem file [string] [default: "ca-cert.crt.pem"]
-  --certDir, --cd           The absolute path to the directory for saving the created cert files. 
-                            [string] [default: "/path/to/utils/node-ts/certs"]
+--deviceId                  [string] [default: "e7570b93-65cd-45ce-8c01-813fc3feb96e"]
+--cnSubject                 [string] [required] [default: "/C=NO/ST=Trondelag/L=Trondheim/O=Nordic Semiconductor ASA"]
+--certDir, --cd             The absolute path to the directory for storing the
+                            created CSR and certificate files. [string] [default: "/path/to/utils/node-ts/certs"]
+--csrFileName, --csr        Name of your CSR pem file. [string]
+--caCertKeyFileName, --cak  Name of your CA private key pem file [string] [required] [default: "ca-cert.key.pem"]
+--caCertPemFileName, --cac  Name of your CA certificate pem file [string] [required] [default: "ca-cert.crt.pem"]
+--help                      Show help [boolean]
 ```                                                         
