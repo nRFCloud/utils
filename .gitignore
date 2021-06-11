@@ -4,8 +4,3 @@
 .ez-cache
 .vscode
 .DS_Store
-/node-ts/dist
-/node-ts/certs/*
-/node-ts/node_modules
-/node-ts/yarn-error.log
-bundle
