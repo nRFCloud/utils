@@ -6,12 +6,6 @@ The scripts are gathered from various teams and organized according to their pro
 
 Please see the README in each folder for more information.
 
-How to obtain the device's UUID:
-
-The device contains a UUID which can be used as the nRF Cloud device ID (MQTT client ID).
-The UUID is found in the device identity attestation token, which is a base64 encoded CBOR object.
-
-
 ## How to obtain the nRF9160's UUID:
 
 The nRF9160 contains a UUID which can be used as the nRF Cloud device ID (MQTT client ID).
