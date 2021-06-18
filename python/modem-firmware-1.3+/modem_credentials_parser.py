@@ -199,12 +199,12 @@ def parse_keygen_output(keygen_str):
 
     except OpenSSL.crypto.Error:
         # Handle public key only
-        pub_key = OpenSSL.crypto.load_publickey(OpenSSL.crypto.FILETYPE_ASN1,body_bytes)
+        pub_key = OpenSSL.crypto.load_publickey(OpenSSL.crypto.FILETYPE_ASN1, body_bytes)
         pub_key_bytes = OpenSSL.crypto.dump_publickey(FILETYPE_PEM, pub_key)
 
     else:
         # CSR loaded, print it
-        csr_pem_bytes = OpenSSL.crypto.dump_certificate_request(FILETYPE_PEM,csr_asn1)
+        csr_pem_bytes = OpenSSL.crypto.dump_certificate_request(FILETYPE_PEM, csr_asn1)
         csr_pem_list = str(csr_pem_bytes.decode()).split('\n')
         for line in csr_pem_list:
             print(line)
