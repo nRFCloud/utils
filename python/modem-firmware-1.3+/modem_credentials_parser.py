@@ -60,6 +60,11 @@ def base64_decode(string):
     string = string + ("=" * padding)
     return base64.urlsafe_b64decode(string)
 
+def format_uuid(hex_str):
+    return '{0}-{1}-{2}-{3}-{4}'.format(hex_str[:8],    hex_str[8:12],
+                                        hex_str[12:16], hex_str[16:20],
+                                        hex_str[20:]).lower()
+
 def parse_cose(cose_str):
     """
     parse COSE payload.
@@ -98,8 +103,8 @@ def parse_cose(cose_str):
     if str(cose_obj.value[2]) != "None":
         attest_obj = loads(cose_obj.value[2])
         print("    Payload ID: " + payload_id_dict.get(attest_obj[0]))
-        dev_uuid_hex_str = attest_obj[1].hex().upper()
-        print("    Dev. UUID:  " + dev_uuid_hex_str)
+        dev_uuid_hex_str = format_uuid(attest_obj[1].hex())
+        print("    Dev UUID:   " + dev_uuid_hex_str)
         # sec_tag is another cbor object
         sec_tag = loads(attest_obj[2])
         sec_tag_str = str(sec_tag)
@@ -240,9 +245,9 @@ def parse_attesttoken_output(atokout_str):
     # Print parsed CBOR
     print("---------------")
     print("Msg Type:    " + msg_type_dict[body_obj[0]])
-    print("Dev UUID:    " + body_obj[1].hex().upper())
+    print("Dev UUID:    " + format_uuid(body_obj[1].hex()))
     print("Dev Type:    " + device_type_dict.get(body_obj[2]))
-    print("FW UUID:     " + body_obj[3].hex())
+    print("FW UUID:     " + format_uuid(body_obj[3].hex()))
     print("---------------")
 
     # Get optional cose

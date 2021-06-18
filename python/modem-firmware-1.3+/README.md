@@ -21,7 +21,7 @@ optional arguments:
                               Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s
 ```
 
-Parse modem keygen output; with or without COSE portion:
+Parse modem [KEYGEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/keygen_set.html) output; with or without COSE portion:
 
 `python3 modem_credentials_parser.py -k <base64url AT%KEYGEN output>`
 
@@ -31,17 +31,17 @@ Parse modem keygen output and save PEM file(s); COSE portion is required:
 
 `python3 modem_credentials_parser.py -k <base64url AT%KEYGEN output> -p <my_output_path> -f <my_file_prefix>`
 
-Parse [modem attestation token output](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/include/modem/modem_attest_token.html); with or without COSE portion:
+Parse modem [ATTESTTOKEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/attesttoken_set.html) output; with or without COSE portion:
 
 `python3 modem_credentials_parser.py -a <base64url AT%ATTESTTOKEN output>`
 
 ## Examples
 
-### AT%KEYGEN: CSR
+### KEYGEN - Certificate Signing Request (CSR): `AT%KEYGEN=17,2,0`
 ```
 python3 modem_credentials_parser.py -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud
 
-Parsed output of `AT%KEYGEN`:
+Parsing AT%KEYGEN output:
 
 -----BEGIN CERTIFICATE REQUEST-----
 MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0x
@@ -68,7 +68,7 @@ COSE:
   ---------------
   Attestation:
     Payload ID: CSR_msg_v1
-    Dev. UUID:  50363154393144f08022121b6401627d
+    Dev UUID:  50363154-3931-44f0-8022-121b6401627d
     sec_tag:    17
     SHA256:     702a3d56f05b2f72531d650825e20041e2e9d9318c34b6853ab9066e5c72e80c
     Nonce:      1b8722ee1deb581566e2cb1359b27cd2
@@ -80,11 +80,11 @@ COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ```
 
-### AT%KEYGEN: device public key
+### KEYGEN - Public Key: `AT%KEYGEN=16,2,1`
 ```
 python3 modem_credentials_parser.py -k MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZKgDx0O0FKa7i1yFoxYngNdV5Csyi4rEPHcFTfeBVtkkJX-G0QZs-yesfzIaPs91b4x5xYN_g28k63gkeVMJwA.0oRDoQEmoQRBIVhL2dn3hQhQUDYxVDkxRPCAIhIbZAFifUEQWCDlovwqMVoJ1W-x93Tqypy2v_1ALv3-GCF1R9gYIy2WVlBQXvxKqA9JTveFh3nVwce-WEAMltwSSkVh8jSBPhP79ndSG0HJTOaTF9SExIq-FstjdLUW2inxdvVfqzLa05rgXqxshN5vfQIs22QT-swCt30h
 
-Parsed output of `AT%KEYGEN`:
+Parsing AT%KEYGEN output:
 
 Device public key:
 -----BEGIN PUBLIC KEY-----
@@ -102,7 +102,7 @@ COSE:
   ---------------
   Attestation:
     Payload ID: pubkey_msg_v2
-    Dev. UUID:  50363154393144f08022121b6401627d
+    Dev UUID:   50363154-3931-44f0-8022-121b6401627d
     sec_tag:    16
     SHA256:     e5a2fc2a315a09d56fb1f774eaca9cb6bffd402efdfe18217547d818232d9656
     Nonce:      505efc4aa80f494ef7858779d5c1c7be
@@ -118,13 +118,13 @@ COSE digest matches payload
 ```
 python3 modem_credentials_parser.py -a 2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY
 
-Parsed output of `AT%ATTESTTOKEN`:
+Parsing AT%ATTESTTOKEN output:
 
 ---------------
 Msg Type:    Device identity message v1
-Dev UUID:    50363154393144f08022121b6401627d
+Dev UUID:    50363154-3931-44f0-8022-121b6401627d
 Dev Type:    NRF9160 SIAA
-FW UUID:     1aff3acbf1a64764a2634c2646c1c654
+FW UUID:     1aff3acb-f1a6-4764-a263-4c2646c1c654
 ---------------
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 COSE:
@@ -139,11 +139,11 @@ COSE:
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ```
 
-### AT%KEYGEN: CSR with file save
+### KEYGEN - Certificate Signing Request (CSR) + File Save: `AT%KEYGEN=17,2,0`
 ```
 python3 modem_credentials_parser.py -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud -p /my_devices/pem_files -f hw_rev2-
 
-Parsed output of `AT%KEYGEN`:
+Parsing AT%KEYGEN output:
 
 -----BEGIN CERTIFICATE REQUEST-----
 MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0x
@@ -170,7 +170,7 @@ COSE:
   ---------------
   Attestation:
     Payload ID: CSR_msg_v1
-    Dev. UUID:  50363154393144F08022121B6401627D
+    Dev UUID:   50363154-3931-44f0-8022-121b6401627d
     sec_tag:    17
     SHA256:     702a3d56f05b2f72531d650825e20041e2e9d9318c34b6853ab9066e5c72e80c
     Nonce:      1b8722ee1deb581566e2cb1359b27cd2
@@ -181,6 +181,6 @@ COSE:
 COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 Argument -s has been selected since path/fileprefix was specified
-File created: /my_devices/pem_files/hw_rev2-50363154393144F08022121B6401627D_17_csr.pem
-File created: /my_devices/pem_files/hw_rev2-50363154393144F08022121B6401627D_17_pub.pem
+File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_csr.pem
+File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_pub.pem
 ```
