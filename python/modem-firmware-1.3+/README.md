@@ -2,7 +2,8 @@
 
 [Modem firmware v1.3 and later](https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK/Download#infotabs) provide new [AT security commands](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fref_at_commands%2FREF%2Fat_commands%2Fintro.html), including `KEYGEN` and `ATTESTTOKEN`, which are the focus of these Python scripts.
 
-## Modem Credential Parser Example
+## Modem Credentials Parser
+This script parses the output of `AT%KEYGEN` and `AT%ATTESTTOKEN`.  The parsed data is displayed in the output.  When providing `AT%KEYGEN` output,  PEM files can be optionally saved.
 
 ```
 usage: modem_credentials_parser.py [-h] [-k KEYGEN] [-a ATTEST]
@@ -183,4 +184,91 @@ COSE digest matches payload
 Argument -s has been selected since path/fileprefix was specified
 File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_csr.pem
 File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_pub.pem
+```
+
+## Create CA Cert
+This script creates a self-signed CA certificate and an associated EC keypair.   The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials.
+
+The output file name format is as follows:
+`<your_prefix><CA_serial_number_hex>_ca.pem`
+`<your_prefix><CA_serial_number_hex>_prv.pem`
+`<your_prefix><CA_serial_number_hex>_pub.pem`
+
+```
+usage: create_ca_cert.py [-h] -c,  C,  [-st ST] [-l L] [-o O] [-ou OU] [-cn CN] [-dv DV] [-e EMAIL] [-p PATH] [-f FILEPREFIX]
+
+Create CA Certificate
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c,  C,               2 character country code
+  -st ST                State or Province
+  -l L                  Locality
+  -o O                  Organization
+  -ou OU                Organizational Unit
+  -cn CN                Common Name
+  -dv DV                Number of days valid
+  -e EMAIL, --email EMAIL
+                        E-mail address
+  -p PATH, --path PATH  Path to save PEM files.
+  -f FILEPREFIX, --fileprefix FILEPREFIX
+                        Prefix for output files
+```
+## Example
+```
+python3 create_ca_cert.py -c US -st OR -l Portland -o "My Company" -ou "RD" -cn example.com -e admin@example.com -p /my_ca -f my_company-
+Creating self-signed CA certificate...
+File created: /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem
+File created: /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem
+File created: /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_pub.pem
+```
+
+## Create Device Credentials
+This script creates device credentials for use with nRF Cloud.  It requires a CA certificate and the associated private key as an input.  It optionally accepts a CSR (from `AT%KEYGEN`/modem_credentials_parser.py).
+
+The output file name format is as follows:
+`<your_prefix><CN>_crt.pem`
+`<your_prefix><CN>_pub.pem`
+if no CSR provided:
+`<your_prefix><CN>_prv.pem`
+If no CN (common name) is provided/available, the serial number hex value will be used.
+```
+usage: create_device_credentials.py [-h] -ca CA -ca_key CA_KEY -c C [-st ST] [-l L] [-o O] [-ou OU] [-cn CN] [-e EMAIL] [-dv DV]                                    [-p PATH] [-f FILEPREFIX] [-csr CSR]Create Device Credentials
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -ca CA                Filepath to your CA cert PEM
+  -ca_key CA_KEY        Filepath to your CA's private key PEM
+  -c C                  2 character country code; required if CSR is not provided
+  -st ST                State or Province; ignored if CSR is provided
+  -l L                  Locality; ignored if CSR is provided
+  -o O                  Organization; ignored if CSR is provided
+  -ou OU                Organizational Unit; ignored if CSR is provided
+  -cn CN                Common Name; recommend using device ID; ignored if CSR is provided
+  -e EMAIL, --email EMAIL
+                        E-mail address; ignored if CSR is provided
+  -dv DV                Number of days cert is valid
+  -p PATH, --path PATH  Path to save PEM files.
+  -f FILEPREFIX, --fileprefix FILEPREFIX
+                        Prefix for output files
+  -csr CSR              Filepath to CSR PEM from device
+```
+
+## Examples
+
+### No CSR provided:
+```
+python3 create_device_credentials.py -ca /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem -ca_key /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem -c US -st WA -l Seattle -o "My Company" -ou "Devs" -cn my-unique-device-id -e email@example.com -dv 2000 -p /dev_credentials -f hw_rev2-
+Creating device credentials...
+File created: /dev_credentials/hw_rev2-my-unique-device-id_crt.pem
+File created: /dev_credentials/hw_rev2-my-unique-device-id_pub.pem
+File created: /dev_credentials/hw_rev2-my-unique-device-id_prv.pem
+```
+
+### CSR provided:
+```
+python3 create_device_credentials.py -ca /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem -ca_key /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem -csr /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_csr.pem -dv 2000 -p /dev_credentials -f hw_rev2-
+Creating device credentials...
+File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_crt.pem
+File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_pub.pem
 ```
