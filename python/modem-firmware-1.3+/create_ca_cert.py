@@ -8,16 +8,12 @@ import argparse
 import sys
 from os import path
 from os import makedirs
-import random
-import cryptography
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography import x509
-import base64
 import OpenSSL.crypto
 from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
-import hashlib
 
 from modem_credentials_parser import write_file
 
@@ -29,7 +25,7 @@ def parse_args():
     parser.add_argument("-o", type=str, help="Organization", default="")
     parser.add_argument("-ou", type=str, help="Organizational Unit", default="")
     parser.add_argument("-cn", type=str, help="Common Name", default="")
-    parser.add_argument("-dv", type=int, help="Number of days valid", default=(3 * 365))
+    parser.add_argument("-dv", type=int, help="Number of days valid", default=(10 * 365))
     parser.add_argument("-e", "--email", type=str, help="E-mail address", default="")
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM files.", default="./")
     parser.add_argument("-f", "--fileprefix", type=str, help="Prefix for output files", default="")
@@ -45,7 +41,7 @@ def main():
     if len(args.c) != 2:
         raise RuntimeError("Country code must be 2 characters")
 
-    print("creating CA certificate...")
+    print("Creating self-signed CA certificate...")
 
     # create EC keypair
     private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
@@ -62,7 +58,7 @@ def main():
     # create a self-signed cert
     cert = OpenSSL.crypto.X509()
 
-    cert.set_version(3)
+    cert.set_version(2)
     cert.add_extensions(
         [OpenSSL.crypto.X509Extension(b'subjectKeyIdentifier', False, b'hash', subject=cert),])
     cert.add_extensions([
@@ -111,9 +107,9 @@ def main():
     priv = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, priv_key)
     pub  = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
 
-    write_file(args.path, args.fileprefix + "ca_" + str(sn) + ".PEM", ca)
-    write_file(args.path, args.fileprefix + "prv_" + str(sn) + ".PEM", priv)
-    write_file(args.path, args.fileprefix + "pub_" + str(sn) + ".PEM", pub)
+    write_file(args.path, args.fileprefix + str(hex(sn)) + "_ca.pem", ca)
+    write_file(args.path, args.fileprefix + str(hex(sn)) + "_prv.pem", priv)
+    write_file(args.path, args.fileprefix + str(hex(sn)) + "_pub.pem", pub)
 
     return
 
