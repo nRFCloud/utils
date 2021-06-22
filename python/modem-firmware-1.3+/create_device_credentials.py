@@ -21,14 +21,14 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Create Device Credentials")
     parser.add_argument("-ca", type=str, required=True, help="Filepath to your CA cert PEM", default="")
     parser.add_argument("-ca_key", type=str, required=True, help="Filepath to your CA's private key PEM", default="")
-    parser.add_argument("-c", type=str, required=True, help="2 character country code", default="")
-    parser.add_argument("-st", type=str, help="State or Province", default="")
-    parser.add_argument("-l", type=str, help="Locality", default="")
-    parser.add_argument("-o", type=str, help="Organization", default="")
-    parser.add_argument("-ou", type=str, help="Organizational Unit", default="")
-    parser.add_argument("-cn", type=str, help="Common Name; recommend using device ID", default="")
-    parser.add_argument("-e", "--email", type=str, help="E-mail address", default="")
-    parser.add_argument("-dv", type=int, help="Number of days valid", default=(10 * 365))
+    parser.add_argument("-c", type=str, help="2 character country code; required if CSR is not provided", default="")
+    parser.add_argument("-st", type=str, help="State or Province; ignored if CSR is provided", default="")
+    parser.add_argument("-l", type=str, help="Locality; ignored if CSR is provided", default="")
+    parser.add_argument("-o", type=str, help="Organization; ignored if CSR is provided", default="")
+    parser.add_argument("-ou", type=str, help="Organizational Unit; ignored if CSR is provided", default="")
+    parser.add_argument("-cn", type=str, help="Common Name; recommend using device ID; ignored if CSR is provided", default="")
+    parser.add_argument("-e", "--email", type=str, help="E-mail address; ignored if CSR is provided", default="")
+    parser.add_argument("-dv", type=int, help="Number of days cert is valid", default=(10 * 365))
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM files.", default="./")
     parser.add_argument("-f", "--fileprefix", type=str, help="Prefix for output files", default="")
     parser.add_argument("-csr", type=str, help="Filepath to CSR PEM from device", default="")
@@ -91,8 +91,8 @@ def main():
         raise RuntimeError("No input provided")
 
     args = parse_args()
-    if len(args.c) != 2:
-        raise RuntimeError("Country code must be 2 characters")
+    if (len(args.csr) == 0) and (len(args.c) != 2):
+        raise RuntimeError("Required country code must be 2 characters")
 
     ca_cert = load_ca(args.ca)
     ca_key = load_ca_key(args.ca_key)
@@ -159,18 +159,23 @@ def main():
     device_cert.set_issuer(ca_cert.get_subject())
     device_cert.sign(ca_key, "sha256")
 
+    if len(csr.get_subject().CN) == 0:
+        common_name = str(hex(serial))
+    else:
+        common_name = csr.get_subject().CN
+
     # save device cert
     dev   = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
-    write_file(args.path, args.fileprefix + str(hex(serial)) + "_crt.pem", dev)
+    write_file(args.path, args.fileprefix + common_name + "_crt.pem", dev)
 
     # save public key
     pub  = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
-    write_file(args.path, args.fileprefix + str(hex(serial)) + "_pub.pem", pub)
+    write_file(args.path, args.fileprefix + common_name + "_pub.pem", pub)
 
     # we only have a private key if a CSR was NOT provided
     if (len(args.csr) == 0):
         priv = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, priv_key)
-        write_file(args.path, args.fileprefix + str(hex(serial)) + "_prv.pem", priv)
+        write_file(args.path, args.fileprefix + common_name + "_prv.pem", priv)
 
     return
 
