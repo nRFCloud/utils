@@ -278,6 +278,8 @@ def main():
         print("Argument -s has been selected since path/fileprefix was specified")
 
     if args.save:
+        if (len(args.path) == 0):
+            args.path = "./"
         save_output(args.path, args.fileprefix)
 
     return
