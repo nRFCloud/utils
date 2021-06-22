@@ -4,6 +4,12 @@ The main use of these scripts is with the [ProvisionDevices endpoint](https://ap
 
 See the top of each file for example usage.
 
+## Getting Started
+
+```sh
+yarn && yarn compile
+```
+
 ## CA Certificate Creator
 ```
 --cnSubjectPrefix           The prefix for the cert Subject. [string] [required]
