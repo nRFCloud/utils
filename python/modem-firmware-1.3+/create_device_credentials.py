@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument("-l", type=str, help="Locality; ignored if CSR is provided", default="")
     parser.add_argument("-o", type=str, help="Organization; ignored if CSR is provided", default="")
     parser.add_argument("-ou", type=str, help="Organizational Unit; ignored if CSR is provided", default="")
-    parser.add_argument("-cn", type=str, help="Common Name; recommend using device ID; ignored if CSR is provided", default="")
+    parser.add_argument("-cn", type=str, help="Common Name; use nRF Cloud device ID/MQTT client ID; ignored if CSR is provided", default="")
     parser.add_argument("-e", "--email", type=str, help="E-mail address; ignored if CSR is provided", default="")
     parser.add_argument("-dv", type=int, help="Number of days cert is valid", default=(10 * 365))
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM files.", default="./")
@@ -93,6 +93,9 @@ def main():
     args = parse_args()
     if (len(args.csr) == 0) and (len(args.c) != 2):
         raise RuntimeError("Required country code must be 2 characters")
+
+    if (len(args.csr) == 0) and (len(args.cn) == 0):
+        raise RuntimeError("CN required; use nRF Cloud device ID/MQTT client ID")
 
     ca_cert = load_ca(args.ca)
     ca_key = load_ca_key(args.ca_key)
