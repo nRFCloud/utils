@@ -244,7 +244,7 @@ optional arguments:
   -l L                  Locality; ignored if CSR is provided
   -o O                  Organization; ignored if CSR is provided
   -ou OU                Organizational Unit; ignored if CSR is provided
-  -cn CN                Common Name; recommend using device ID; ignored if CSR is provided
+  -cn CN                Common Name; use nRF Cloud device ID/MQTT client ID; ignored if CSR is provided
   -e EMAIL, --email EMAIL
                         E-mail address; ignored if CSR is provided
   -dv DV                Number of days cert is valid
