@@ -12,6 +12,27 @@ The scripts are gathered from various teams and organized according to their pro
 Please see the README in each folder for more information.
 
 
+## Device Credentials
+
+In order for a device and nRF Cloud to communicate, [credentials](https://docs.paba.nrfcloud.com/Reference/Devices/Security) must be present on the device and on nRF Cloud.  There are multiple ways to generate credentials and provision devices on nRF Cloud.
+
+   * [Generate the private key on the device](https://docs.paba.nrfcloud.com/Guides/GettingStarted/DevicesGSG#securely-generating-credentials-on-the-nrf9160)
+	   * More secure, private key is never exposed.
+	   * The response from the [KEYGEN](https://infocenter.nordicsemi.com/index.jsp?topic=/ref_at_commands/REF/at_commands/security/keygen_set.html) AT command is retrieved from the device and processed externally.
+	   * Public certificates are written to the device using the [CMNG](https://infocenter.nordicsemi.com/index.jsp?topic=/ref_at_commands/REF/at_commands/security/keygen_set.html) AT command.
+	   * Provisioning and association: [single API call](https://docs.paba.nrfcloud.com/Reference/DeviceManagement/Provisioning#non-jitp-pre-connect-provisioning).
+
+  * [Generate all credentials on a computer](https://docs.paba.nrfcloud.com/Guides/GettingStarted/DevicesGSG#generating-credentials-on-a-computer)
+	  * Less-secure, private key is exposed.
+	  * Private key and public certificates are written to the device using the [CMNG](https://infocenter.nordicsemi.com/index.jsp?topic=/ref_at_commands/REF/at_commands/security/keygen_set.html) AT command.
+	  * Provisioning and association: [single API call](https://docs.paba.nrfcloud.com/Reference/DeviceManagement/Provisioning#non-jitp-pre-connect-provisioning).
+
+  * [Request JITP credentials from nRF Cloud](https://api.nrfcloud.com/v1#operation/CreateDeviceCertificate)
+	  * Less-secure, private key is exposed.
+	  * Credentials, per device, are downloaded from nRF Cloud.
+	  * Private key and public certificates are written to the device using the [CMNG](https://infocenter.nordicsemi.com/index.jsp?topic=/ref_at_commands/REF/at_commands/security/keygen_set.html) AT command.
+	  * Provisioning and association: [multiple API calls/device interaction required](https://docs.paba.nrfcloud.com/Reference/DeviceManagement/Provisioning#just-in-time-provisioning-jitp).
+
 
 ## How to obtain the nRF9160's UUID
 
