@@ -3,7 +3,9 @@
 [Modem firmware v1.3 and later](https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK/Download#infotabs) provide new [AT security commands](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fref_at_commands%2FREF%2Fat_commands%2Fintro.html), including `KEYGEN` and `ATTESTTOKEN`, which are the focus of these Python scripts.
 
 ## Modem Credentials Parser
-This script parses the output of `AT%KEYGEN` and `AT%ATTESTTOKEN`.  The parsed data is displayed in the output.  When providing `AT%KEYGEN` output,  PEM files can be optionally saved.
+This script parses the output of `AT%KEYGEN` and `AT%ATTESTTOKEN`.   Each command outputs two base64 strings joined by a `.` character.  The first string is the command specific data.  The second string is the [COSE](https://datatracker.ietf.org/doc/html/rfc8152) signature of the first string.
+The parsed data is displayed in the output.  Providing the COSE string to this script is optional, as it is only used to display extra information.  When providing `AT%KEYGEN` output, PEM files can be optionally saved.
+
 
 ```
 usage: modem_credentials_parser.py [-h] [-k KEYGEN] [-a ATTEST]
@@ -22,17 +24,17 @@ optional arguments:
                               Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s
 ```
 
-Parse modem [KEYGEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/keygen_set.html) output; with or without COSE portion:
+Parse modem [KEYGEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/keygen_set.html) output; with or without COSE string:
 
 `python3 modem_credentials_parser.py -k <base64url AT%KEYGEN output>`
 
-Parse modem keygen output and save PEM file(s); COSE portion is required:
+Parse modem keygen output and save PEM file(s); COSE string is required:
 
 `python3 modem_credentials_parser.py -k <base64url AT%KEYGEN output> -s`
 
 `python3 modem_credentials_parser.py -k <base64url AT%KEYGEN output> -p <my_output_path> -f <my_file_prefix>`
 
-Parse modem [ATTESTTOKEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/attesttoken_set.html) output; with or without COSE portion:
+Parse modem [ATTESTTOKEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/attesttoken_set.html) output; with or without COSE string:
 
 `python3 modem_credentials_parser.py -a <base64url AT%ATTESTTOKEN output>`
 
