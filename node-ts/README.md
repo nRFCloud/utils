@@ -9,8 +9,14 @@ See the top of each file for example usage.
 ```sh
 yarn && yarn compile
 ```
+Comments at the top of each script provide a basic example. For more info run the script with `--help`.
 
 ## CA Certificate Creator
+Running:
+```
+node dist/create-ca-cert.js --help
+```
+will display:
 ```
 --cnSubjectPrefix           The prefix for the cert Subject. [string] [required]
 --ouName, --ou              The Organizational Unit (OU) name of the cert Subject. [string] [required]
@@ -21,6 +27,11 @@ yarn && yarn compile
 ```
 
 ## Device Certificate Creator
+Running:
+```
+node dist/create-device-cert.js --help
+```
+will display:
 ```
 --deviceId                  [string] [default: "e7570b93-65cd-45ce-8c01-813fc3feb96e"]
 --cnSubject                 [string] [required] [default: "/C=NO/ST=Trondelag/L=Trondheim/O=Nordic Semiconductor ASA"]
