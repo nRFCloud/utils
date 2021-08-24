@@ -85,6 +85,20 @@ def load_ca_key(ca_key_filepath):
 
     return key_out
 
+def create_device_cert(dv, csr, pub_key, ca_cert, ca_key):
+    device_cert = OpenSSL.crypto.X509()
+    serial_no = x509.random_serial_number()
+    device_cert.set_serial_number(serial_no)
+    device_cert.gmtime_adj_notBefore(0)
+    device_cert.gmtime_adj_notAfter(dv * 24 * 60 * 60)
+    # use subject and public key from CSR
+    device_cert.set_subject(csr.get_subject())
+    device_cert.set_pubkey(pub_key)
+    # sign with the CA
+    device_cert.set_issuer(ca_cert.get_subject())
+    device_cert.sign(ca_key, "sha256")
+    return device_cert
+
 def main():
 
     if not len(sys.argv) > 1:
@@ -150,17 +164,7 @@ def main():
         csr.sign(priv_key, 'sha256')
 
     # create a device cert
-    device_cert = OpenSSL.crypto.X509()
-    serial = x509.random_serial_number()
-    device_cert.set_serial_number(serial)
-    device_cert.gmtime_adj_notBefore(0)
-    device_cert.gmtime_adj_notAfter(args.dv * 24 * 60 * 60)
-    # use subject and public key from CSR
-    device_cert.set_subject(csr.get_subject())
-    device_cert.set_pubkey(pub_key)
-    # sign with the CA
-    device_cert.set_issuer(ca_cert.get_subject())
-    device_cert.sign(ca_key, "sha256")
+    device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
 
     if len(csr.get_subject().CN) == 0:
         common_name = str(hex(serial))
