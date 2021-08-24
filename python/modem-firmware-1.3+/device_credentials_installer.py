@@ -1,0 +1,460 @@
+#!/usr/bin/env python3
+#
+# Copyright (c) 2021 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+
+import argparse
+import re
+import os
+import sys
+import csv
+import time
+import serial
+import getpass
+import platform
+import modem_credentials_parser
+from modem_credentials_parser import write_file
+import create_device_credentials
+from create_device_credentials import create_device_cert
+from serial.tools import list_ports
+from colorama import init, Fore, Back, Style
+from cryptography import x509
+import OpenSSL.crypto
+from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
+
+is_macos = platform.system() == 'Darwin'
+is_windows = platform.system() == 'Windows'
+is_linux = platform.system() == 'Linux'
+full_encoding = 'mbcs' if is_windows else 'ascii'
+default_password = 'nordic'
+lf_done = False
+plain = False
+is_gateway = False
+verbose = False
+serial_timeout = 1
+aws_ca = "-----BEGIN CERTIFICATE-----\nMIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\nADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6\nb24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL\nMAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEZMBcGA1UEAxMQQW1hem9uIFJv\nb3QgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALJ4gHHKeNXj\nca9HgFB0fW7Y14h29Jlo91ghYPl0hAEvrAIthtOgQ3pOsqTQNroBvo3bSMgHFzZM\n9O6II8c+6zf1tRn4SWiw3te5djgdYZ6k/oI2peVKVuRF4fn9tBb6dNqcmzU5L/qw\nIFAGbHrQgLKm+a/sRxmPUDgH3KKHOVj4utWp+UhnMJbulHheb4mjUcAwhmahRWa6\nVOujw5H5SNz/0egwLX0tdHA114gk957EWW67c4cX8jJGKLhD+rcdqsq08p8kDi1L\n93FcXmn/6pUCyziKrlA4b9v7LWIbxcceVOF34GfID5yHI9Y/QCB/IIDEgEw+OyQm\njgSubJrIqg0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC\nAYYwHQYDVR0OBBYEFIQYzIU07LwMlJQuCFmcx7IQTgoIMA0GCSqGSIb3DQEBCwUA\nA4IBAQCY8jdaQZChGsV2USggNiMOruYou6r4lK5IpDB/G/wkjUu0yKGX9rbxenDI\nU5PMCCjjmCXPI6T53iHTfIUJrU6adTrCC2qJeHZERxhlbI1Bjjt/msv0tadQ1wUs\nN+gDS63pYaACbvXy8MWy7Vu33PqUXHeeE6V/Uq2V8viTO96LXFvKWlJbYK8U90vv\no/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU\n5MsI+yMRQ+hDKXJioaldXgjUkK642M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy\nrqXRfboQnoZsG4q5WTP468SQvvG5\n-----END CERTIFICATE-----\n"
+
+def parse_args():
+    global verbose
+
+    parser = argparse.ArgumentParser(description="Device Credentials Installer",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument("--dv", type=int, help="Number of days cert is valid",
+                        default=(10 * 365))
+    parser.add_argument("--ca", type=str, help="Filepath to your CA cert PEM",
+                        default="")
+    parser.add_argument("--ca_key", type=str,
+                        help="Filepath to your CA's private key PEM",
+                        default="")
+    parser.add_argument("--csv", type=str,
+                        help="Filepath to provisioning CSV file",
+                        default="provision.csv")
+    parser.add_argument("--port", type=str,
+                        help="Specify which serial port to open, otherwise pick from list",
+                        default=None)
+    parser.add_argument("-a", "--append",
+                        help="When saving provisioning CSV, append to it",
+                        action='store_true', default=False)
+    parser.add_argument("-A", "--all",
+                        help="List ports of all types, not just Nordic devices",
+                        action='store_true', default=False)
+    parser.add_argument("-g", "--gateway",
+                        help="Force use of shell commands to enter and exit AT command mode",
+                        action='store_true', default=False)
+    parser.add_argument("-f", "--fileprefix", type=str,
+                        help="Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s",
+                        default="")
+    parser.add_argument("-v", "--verbose",
+                        help="bool: Make output verbose",
+                        action='store_true', default=False)
+    parser.add_argument("-s", "--save", action='store_true',
+                        help="Save PEM file(s): <UUID>_<sec_tag>_<type>.pem")
+    parser.add_argument("-S", "--sectag", type=int,
+                        help="integer: Security tag to use", default=42)
+    parser.add_argument("-p", "--path", type=str,
+                        help="Path to save files.  Selects -s", default="./")
+    parser.add_argument("-P", "--plain",
+                        help="bool: Plain output (no colors)",
+                        action='store_true', default=False)
+    parser.add_argument("-d", "--delete",
+                        help="bool: Delete sectag from modem first",
+                        action='store_true', default=False)
+    parser.add_argument("-w", "--password", type=str,
+                        help="nRF Cloud Gateway password",
+                        default=default_password)
+    parser.add_argument("-t", "--tags", type=str,
+                        help="Pipe (|) delimited device tags; enclose in double quotes", default="")
+    parser.add_argument("-T", "--subtype", type=str,
+                        help="Custom device type", default='')
+    parser.add_argument("-F", "--fwtypes", type=str,
+                        help="""
+                        Pipe (|) delimited firmware types for FOTA of the set
+                        {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double quotes
+                        """, default="APP|MODEM")
+    args = parser.parse_args()
+    verbose = args.verbose
+    return args
+
+def ensure_lf(line):
+    global lf_done
+    done = lf_done
+    lf_done = True
+    return '\n' + line if not done else line
+
+def local_style(line):
+    return ensure_lf(Fore.CYAN + line
+                     + Style.RESET_ALL) if not plain else line
+
+def send_style(line):
+    return ensure_lf(Fore.BLUE + line
+                     + Style.RESET_ALL) if not plain else line
+
+def error_style(line):
+    return ensure_lf(Fore.RED + line + Style.RESET_ALL) if not plain else line
+
+def ask_for_port(selected_port, list_all):
+    """
+    Show a list of ports and ask the user for a choice, unless user specified
+    a specific port on the command line. To make selection easier on systems
+    with long device names, also allow the input of an index.
+    """
+    global is_gateway
+    ports = []
+    dev_types = []
+    usb_patterns = [(r'THINGY91', 'Thingy:91', False),
+                    (r'PCA20035', 'Thingy:91', False),
+                    (r'0009600',  'nRF9160-DK', False),
+                    (r'NRFBLEGW', 'nRF Cloud Gateway', True)]
+    if selected_port == None and not list_all:
+        pattern = r'SER=(' + r'|'.join(name[0] for name in usb_patterns) + r')'
+        print(local_style('Available ports:'))
+    else:
+        pattern = r''
+
+    port_num = 1
+    for n, (port, desc, hwid) in enumerate(sorted(list_ports.grep(pattern)), 1):
+
+        if not is_macos:
+            # if a specific port is not requested, filter out ports with
+            # LOCATION in hwid that do not end in '.0' because these are
+            # usually not the logging or shell ports
+            if selected_port == None and not list_all and 'LOCATION' in hwid:
+                if hwid[-2] != '.' or hwid[-1] != '0':
+                    if verbose:
+                        print(local_style('Skipping: {:2}: {:20} {!r} {!r}'.
+                                          format(port_num, port, desc, hwid)))
+                    continue
+        else:
+            # if a specific port not requested, filter out ports whose /dev
+            # does not end in a 1
+            if selected_port == None and not list_all and port[-1] != '1':
+                if verbose:
+                    print(local_style('Skipping: {:2}: {:20} {!r} {!r}'.
+                                      format(port_num, port, desc, hwid)))
+                continue
+
+        name = ''
+        is_gateway = False
+        for nm in usb_patterns:
+            if nm[0] in hwid:
+                name = nm[1]
+                is_gateway = nm[2]
+                break
+
+        if selected_port != None:
+            if selected_port == port:
+                return port
+        else:
+            print(local_style('{:2}: {:20} {:17}'.format(port_num, port, name)))
+            if verbose:
+                print(local_style('  {!r} {!r}'.format(desc, hwid)))
+
+            ports.append(port)
+            dev_types.append(is_gateway)
+            port_num += 1
+
+    if len(ports) == 0:
+        sys.stderr.write(error_style('No device found\n'))
+        return None
+    if len(ports) == 1:
+        return ports[0]
+    while True:
+        port = input('--- Enter port index: ')
+        try:
+            index = int(port) - 1
+            if not 0 <= index < len(ports):
+                sys.stderr.write(error_style('--- Invalid index!\n'))
+                continue
+        except ValueError:
+            pass
+        else:
+            port = ports[index]
+        return port
+
+def write_line(line, hidden = False):
+    if not hidden:
+        print(send_style('-> {}'.format(line)))
+    ser.write(bytes('{}\r'.format(line).encode('utf-8')))
+
+def handle_login():
+    global password
+    ser.write('\r'.encode('utf-8'))
+    while True:
+        if wait_for_prompt(b'login: ', b'gateway:# ', 10)[0]:
+            write_line(password, hidden=True)
+            ser.flush()
+            if not wait_for_prompt(val2=b'Incorrect password!')[0]:
+                password = getpass.getpass('Enter correct password:')
+            else:
+                break
+        else:
+            break
+
+def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
+    global lf_done
+    found = False
+    retval = False
+    output = None
+    ser.flush()
+    while not found and timeout != 0:
+        line = ser.readline()
+        if line == None or len(line) == 0:
+            if timeout > 0:
+                timeout -= serial_timeout
+            continue
+        sys.stdout.write('<- ' + str(line, encoding=full_encoding))
+        if val1 in line:
+            found = True
+            retval = True
+        elif val2 != None and val2 in line:
+            found = True
+            retval = False
+        elif store != None and (store in line or str(store) in str(line)):
+            output = line
+    lf_done = b'\n' in line
+    ser.flush()
+    if store != None and output == None:
+        print(error_style('String {} not detected in line {}'.format(store,
+                                                                     line)))
+    return retval, output
+
+def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, dev):
+    mode = 'a' if append else 'w'
+
+    # if not appending, give user a choice whether to overwrite
+    if not append and os.path.isfile(csv_filename):
+        answer = ' '
+        while answer not in 'yan':
+            answer = input('--- File {} exists; overwrite, append, or quit (y,a,n)? '.format(csv_filename))
+        if answer == 'n':
+            print(local_style('File will not be overwritten'))
+            return
+        if answer == 'a':
+            mode = 'a'
+
+    try:
+        with open(csv_filename, mode, newline='\n') as csvfile:
+            csv_writer = csv.writer(csvfile, delimiter=',', lineterminator='\n',
+                                    quoting=csv.QUOTE_MINIMAL)
+            csv_writer.writerow([dev_id, sub_type, tags, fw_types,
+                                 str(dev, encoding=full_encoding)])
+        print(local_style('File saved'))
+    except OSError:
+        print(error_style('Error opening file {}'.format(csv_filename)))
+
+def cleanup():
+    if not is_gateway:
+        return
+    print(local_style('Restoring terminal...'))
+    write_line('exit')
+    wait_for_prompt()
+    write_line('logout')
+    wait_for_prompt(b'login:')
+    print(local_style('\nDone.'))
+
+def main():
+    global plain
+    global ser
+    global password
+    global is_gateway
+
+    # initialize argumenst
+    args = parse_args()
+    plain = args.plain
+    password = args.password
+
+    # initialize colorama
+    if is_windows:
+        init(convert = not plain)
+
+    if verbose:
+        print(local_style('OS detect: Linux={}, MacOS={}, Windows={}'.
+                          format(is_linux, is_macos, is_windows)))
+
+    # get a serial port to use
+    port = ask_for_port(args.port, args.all)
+    if port == None:
+        sys.exit(1)
+
+    # let user know which we are using and as what kind of device
+    if args.gateway:
+        is_gateway = True
+    print(local_style('Opening port {} as {}...'.format(port,
+                                                 'gateway' if is_gateway
+                                                 else 'generic device')))
+
+    # try to open the serial port
+    try:
+        ser = serial.Serial(port, 115200, rtscts=True, timeout=serial_timeout)
+        ser.reset_input_buffer()
+        ser.reset_output_buffer()
+    except serial.serialutil.SerialException:
+        sys.stderr.write(error_style('Port could not be opened; not a device, or open already\n'))
+        sys.exit(2)
+
+    # for gateways, get to the AT command prompt first
+    if is_gateway:
+        print(local_style('Getting to prompt...'))
+        handle_login()
+
+        print(local_style('Disabling logs...'))
+        write_line('log disable')
+        wait_for_prompt()
+
+        print(local_style('Getting to AT mode...'))
+        write_line('at enable')
+        wait_for_prompt(b'to exit AT mode')
+
+    # prepare modem so we can interact with security keys
+    print(local_style('Disabling LTE and GNSS...'))
+    write_line('AT+CFUN=4')
+    retval, output = wait_for_prompt(b'OK')
+    if not retval:
+        print(error_style('Unable to communicate'))
+        cleanup()
+        sys.exit(3)
+
+    # remove old keys if we are replacing existing ones;
+    # it's ok if some or all of these error out -- the slots were empty already
+    if args.delete:
+        print(local_style('Deleting sectag {}...'.format(args.sectag)))
+        write_line('AT%CMNG=3,{},0'.format(args.sectag))
+        wait_for_prompt(b'OK', b'ERROR')
+        write_line('AT%CMNG=3,{},1'.format(args.sectag))
+        wait_for_prompt(b'OK', b'ERROR')
+        write_line('AT%CMNG=3,{},2'.format(args.sectag))
+        wait_for_prompt(b'OK', b'ERROR')
+
+    # now get a new certificate signing request (CSR)
+    print(local_style('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag)))
+    write_line('AT%KEYGEN={},2,0'.format(args.sectag))
+    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'%KEYGEN:')
+    if not retval:
+        print(error_style('Unable to generate private key; does it already exist for this sectag?'))
+        cleanup()
+        sys.exit(4)
+    elif output == None:
+        print(error_style('Unable to detect KEYGEN output'))
+        cleanup()
+        sys.exit(5)
+
+    # convert the encoded blob to an actual cert
+    csr_blob = str(output).split('"')[1]
+    if verbose:
+        print(local_style('CSR blob: {}'.format(csr_blob)))
+
+    modem_credentials_parser.parse_keygen_output(csr_blob)
+    if args.save:
+        modem_credentials_parser.save_output(args.path, args.fileprefix)
+
+    # display info we received for the CSR
+    csr_bytes = modem_credentials_parser.csr_pem_bytes
+    pub_key_bytes = modem_credentials_parser.pub_key_bytes
+    dev_id = modem_credentials_parser.dev_uuid_hex_str
+    print(local_style('Device ID (UUID): {}'.format(dev_id)))
+    if verbose:
+        print(local_style('CSR PEM: {}'.format(csr_bytes)))
+        print(local_style('Pub key: {}'.format(pub_key_bytes)))
+
+    # get the public key from the CSR
+    try:
+        csr = OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM,
+                                                      csr_bytes)
+        pub_key = csr.get_pubkey()
+    except OpenSSL.crypto.Error:
+        cleanup()
+        raise RuntimeError("Error loading PEM file " + csr_pem_filepath)
+
+    # check if we have all we need to proceed
+    if len(args.ca) == 0 or len(args.ca_key) == 0:
+        print(local_style('No CA or CA key provided; skipping creating dev cert'))
+        cleanup()
+        sys.exit(0)
+
+    # load the user's certificate authority (CA)
+    print(local_style('Loading CA and key...'))
+    ca_cert = create_device_credentials.load_ca(args.ca)
+    ca_key = create_device_credentials.load_ca_key(args.ca_key)
+
+    # create a device cert
+    print(local_style('Creating device certificate...'))
+    device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
+
+    if len(csr.get_subject().CN) == 0:
+        common_name = str(hex(serial_no))
+    else:
+        common_name = csr.get_subject().CN
+
+    # save device cert and/or print it
+    dev = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM,
+                                          device_cert)
+    if verbose:
+        print(local_style('Dev cert: {}'.format(dev)))
+    if args.save:
+        print(local_style('Saving dev cert...'))
+        write_file(args.path, args.fileprefix + common_name + "_crt.pem", dev)
+
+    # save public key and/or print it
+    pub = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
+    if verbose:
+        print(local_style('Pub key: {}'.format(pub)))
+    if args.save:
+        print(local_style('Saving pub key...'))
+        write_file(args.path, args.fileprefix + common_name + "_pub.pem", pub)
+
+    # write to AWS CA modem
+    print(local_style('Writing AWS CA to modem...'))
+    if is_gateway:
+        modem_ca = aws_ca.replace("\n", "\\n")
+    else:
+        modem_ca = aws_ca
+    write_line('AT%CMNG=0,{},0,"{}"'.format(args.sectag, modem_ca))
+    wait_for_prompt(b'OK', b'ERROR')
+    time.sleep(1)
+
+    # write dev cert to modem
+    print(local_style('Writing dev cert to modem...'))
+    modem_dev = str(dev, encoding=full_encoding)
+    if is_gateway:
+        modem_dev = modem_dev.replace("\n", "\\n")
+    write_line('AT%CMNG=0,{},1,"{}"'.format(args.sectag, modem_dev))
+    wait_for_prompt(b'OK', b'ERROR')
+    time.sleep(1)
+
+    # write provisioning information to csv if requested by user
+    if len(args.csv) > 0:
+        print(local_style('{} Provisioning endpoint CSV file {}...'
+                          .format('appending' if args.append else 'saving', args.csv)))
+        sub_type = 'gateway' if is_gateway else ''
+        if len(args.subtype) > 0:
+            sub_type = args.subtype
+        save_provisioning_csv(args.csv, args.append, dev_id, sub_type, args.tags,
+                              args.fwtypes, dev)
+
+    cleanup()
+
+if __name__ == '__main__':
+    main()
+
