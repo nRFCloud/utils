@@ -243,7 +243,8 @@ if no CSR provided:
 `<your_prefix><CN>_prv.pem`
 If no CN (common name) is provided/available, the serial number hex value will be used.
 ```
-usage: create_device_credentials.py [-h] -ca CA -ca_key CA_KEY -c C [-st ST] [-l L] [-o O] [-ou OU] [-cn CN] [-e EMAIL] [-dv DV]                                    [-p PATH] [-f FILEPREFIX] [-csr CSR]Create Device Credentials
+usage: create_device_credentials.py [-h] -ca CA -ca_key CA_KEY -c C [-st ST] [-l L] [-o O] [-ou OU] [-cn CN] [-e EMAIL] [-dv DV]
+            [-p PATH] [-f FILEPREFIX] [-csr CSR]
 
 Create Device Credentials
 
