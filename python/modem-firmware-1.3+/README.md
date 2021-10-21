@@ -506,9 +506,12 @@ File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d
 ```
 
 ## Create Device Credentials
-The script above, `device_credentials_installer.py` makes use of this script, `create_device_credentials.py`, so if you use the former, you do not need to also follow the directions below.  If `device_credentials_installer.py` does not meet your needs, you can use `create_device_credentialsr.py` directly to take advantage of additional options.
+The script above, `device_credentials_installer.py` makes use of this script, `create_device_credentials.py`, so if you use the former, you do not need to also follow the directions below.
+If `device_credentials_installer.py` does not meet your needs, you can use `create_device_credentials.py` directly to take advantage of additional options.
 
-This script creates device credentials for use with nRF Cloud.  It requires a CA certificate and the associated private key as an input.  It optionally accepts a CSR (from `AT%KEYGEN`/modem_credentials_parser.py).
+This script creates device credentials for use with nRF Cloud.
+It requires a CA certificate and the associated private key as an input.
+It optionally accepts a CSR (from `AT%KEYGEN`/modem_credentials_parser.py).
 
 The output file name format is as follows:
 `<your_prefix><CN>_crt.pem`
