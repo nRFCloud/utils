@@ -61,9 +61,9 @@ Note: if only a single supported device is detected on a serial port, it will be
 Otherwise, the script displays a list of detected devices and gives the user a choice of which to use.
 
 ```
-usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT] [-a] [-A]
-                                       [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG] [-p PATH] [-P] [-d] [-w PASSWORD]
-                                       [-t TAGS] [-T SUBTYPE] [-F FWTYPES]
+usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT]
+                                       [--id_str ID_STR] [--id_imei] [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG]
+                                       [-p PATH] [-P] [-d] [-w PASSWORD] [-t TAGS] [-T SUBTYPE] [-F FWTYPES]
 
 Device Credentials Installer
 
@@ -74,6 +74,8 @@ optional arguments:
   --ca_key CA_KEY       Filepath to your CA's private key PEM (default: )
   --csv CSV             Filepath to provisioning csv file (default: provision.csv)
   --port PORT           Specify which serial port to open, otherwise pick from list (default: None)
+  --id_str ID_STR       Device ID to use instead of UUID. Will be a prefix if used with --id_imei (default: )
+  --id_imei             Use IMEI for device ID instead of UUID. Add a prefix with --id_str (default: False)
   -a, --append          When saving provisioning csv, append to it (default: False)
   -A, --all             List ports of all types, not just Nordic devices (default: False)
   -g, --gateway         Force use of shell commands to enter and exit at command mode (default: False)
@@ -107,7 +109,8 @@ opening port /dev/ttyS38 as generic device...
 disabling LTE and GNSS...
 -> AT+CFUN=4
 <- OK
-deleting sectag 42...
+Device IMEI: 352656123456789
+Deleting sectag 42...
 -> AT%CMNG=3,42,0
 <- OK
 -> AT%CMNG=3,42,1
@@ -156,7 +159,7 @@ COSE:
 
 COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-Device ID (UUID): 50363154-3932-4834-802b-0908718314dc
+Device ID: 50363154-3932-4834-802b-0908718314dc
 loading ca and key...
 Creating device certificate...
 writing AWS CA to modem...
@@ -221,7 +224,8 @@ disabling LTE and GNSS...
 <- +CSCON: 0
 <- [00:00:29.778,564] <inf> asset_tracker: RRC mode: Idle
 <- OK
-deleting sectag 42...
+Device IMEI: 352656123456789
+Deleting sectag 42...
 -> AT%CMNG=3,42,0
 <- OK
 -> AT%CMNG=3,42,1
@@ -270,7 +274,7 @@ COSE:
 
 COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-Device ID (UUID): 50503642-3239-4faa-80db-0f28e356ad95
+Device ID: 50503642-3239-4faa-80db-0f28e356ad95
 loading ca and key...
 Creating device certificate...
 writing AWS CA to modem...
