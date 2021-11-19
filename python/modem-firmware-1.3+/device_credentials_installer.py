@@ -34,6 +34,8 @@ is_gateway = False
 verbose = False
 serial_timeout = 1
 aws_ca = "-----BEGIN CERTIFICATE-----\nMIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\nADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6\nb24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL\nMAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEZMBcGA1UEAxMQQW1hem9uIFJv\nb3QgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALJ4gHHKeNXj\nca9HgFB0fW7Y14h29Jlo91ghYPl0hAEvrAIthtOgQ3pOsqTQNroBvo3bSMgHFzZM\n9O6II8c+6zf1tRn4SWiw3te5djgdYZ6k/oI2peVKVuRF4fn9tBb6dNqcmzU5L/qw\nIFAGbHrQgLKm+a/sRxmPUDgH3KKHOVj4utWp+UhnMJbulHheb4mjUcAwhmahRWa6\nVOujw5H5SNz/0egwLX0tdHA114gk957EWW67c4cX8jJGKLhD+rcdqsq08p8kDi1L\n93FcXmn/6pUCyziKrlA4b9v7LWIbxcceVOF34GfID5yHI9Y/QCB/IIDEgEw+OyQm\njgSubJrIqg0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC\nAYYwHQYDVR0OBBYEFIQYzIU07LwMlJQuCFmcx7IQTgoIMA0GCSqGSIb3DQEBCwUA\nA4IBAQCY8jdaQZChGsV2USggNiMOruYou6r4lK5IpDB/G/wkjUu0yKGX9rbxenDI\nU5PMCCjjmCXPI6T53iHTfIUJrU6adTrCC2qJeHZERxhlbI1Bjjt/msv0tadQ1wUs\nN+gDS63pYaACbvXy8MWy7Vu33PqUXHeeE6V/Uq2V8viTO96LXFvKWlJbYK8U90vv\no/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU\n5MsI+yMRQ+hDKXJioaldXgjUkK642M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy\nrqXRfboQnoZsG4q5WTP468SQvvG5\n-----END CERTIFICATE-----\n"
+IMEI_LEN = 15
+DEV_ID_MAX_LEN = 64
 
 def parse_args():
     global verbose
@@ -54,6 +56,12 @@ def parse_args():
     parser.add_argument("--port", type=str,
                         help="Specify which serial port to open, otherwise pick from list",
                         default=None)
+    parser.add_argument("--id_str", type=str,
+                        help="Device ID to use instead of UUID. Will be a prefix if used with --id_imei",
+                        default="")
+    parser.add_argument("--id_imei",
+                        help="Use IMEI for device ID instead of UUID. Add a prefix with --id_str",
+                        action='store_true', default=False)
     parser.add_argument("-a", "--append",
                         help="When saving provisioning CSV, append to it",
                         action='store_true', default=False)
@@ -106,6 +114,11 @@ def ensure_lf(line):
 def local_style(line):
     return ensure_lf(Fore.CYAN + line
                      + Style.RESET_ALL) if not plain else line
+
+def hivis_style(line):
+    return ensure_lf(Fore.MAGENTA + line
+                     + Style.RESET_ALL) if not plain else line
+
 
 def send_style(line):
     return ensure_lf(Fore.BLUE + line
@@ -285,6 +298,12 @@ def main():
     plain = args.plain
     password = args.password
 
+    id_len = len(args.id_str)
+    if (id_len > DEV_ID_MAX_LEN) or (args.id_imei and ((id_len + IMEI_LEN) > DEV_ID_MAX_LEN)):
+        print(error_style('Device ID must not exceed {} characters'.format(DEV_ID_MAX_LEN)))
+        cleanup()
+        sys.exit(0)
+
     # initialize colorama
     if is_windows:
         init(convert = not plain)
@@ -330,11 +349,27 @@ def main():
     # prepare modem so we can interact with security keys
     print(local_style('Disabling LTE and GNSS...'))
     write_line('AT+CFUN=4')
-    retval, output = wait_for_prompt(b'OK')
+    retval = wait_for_prompt(b'OK')
     if not retval:
         print(error_style('Unable to communicate'))
         cleanup()
         sys.exit(3)
+
+    # get the IMEI
+    write_line('AT+CGSN')
+    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
+    if not retval:
+        print(error_style('Failed to obtain IMEI'))
+        cleanup()
+        sys.exit(3)
+    # display the IMEI for reference
+    imei = str(output.decode("utf-8"))[:IMEI_LEN]
+    print(hivis_style('Device IMEI: ' + imei))
+
+    # set custom device ID
+    custom_dev_id = args.id_str
+    if args.id_imei:
+        custom_dev_id += imei
 
     # remove old keys if we are replacing existing ones;
     # it's ok if some or all of these error out -- the slots were empty already
@@ -349,7 +384,12 @@ def main():
 
     # now get a new certificate signing request (CSR)
     print(local_style('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag)))
-    write_line('AT%KEYGEN={},2,0'.format(args.sectag))
+    # provide attributes parameter if a custom device ID is specified
+    attr = ''
+    if len(custom_dev_id):
+        attr = ',\"CN={}\"'.format(custom_dev_id)
+
+    write_line('AT%KEYGEN={},2,0{}'.format(args.sectag,attr))
     retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'%KEYGEN:')
     if not retval:
         print(error_style('Unable to generate private key; does it already exist for this sectag?'))
@@ -369,23 +409,23 @@ def main():
     if args.save:
         modem_credentials_parser.save_output(args.path, args.fileprefix)
 
-    # display info we received for the CSR
-    csr_bytes = modem_credentials_parser.csr_pem_bytes
-    pub_key_bytes = modem_credentials_parser.pub_key_bytes
-    dev_id = modem_credentials_parser.dev_uuid_hex_str
-    print(local_style('Device ID (UUID): {}'.format(dev_id)))
-    if verbose:
-        print(local_style('CSR PEM: {}'.format(csr_bytes)))
-        print(local_style('Pub key: {}'.format(pub_key_bytes)))
-
     # get the public key from the CSR
+    csr_bytes = modem_credentials_parser.csr_pem_bytes
     try:
         csr = OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM,
                                                       csr_bytes)
         pub_key = csr.get_pubkey()
     except OpenSSL.crypto.Error:
         cleanup()
-        raise RuntimeError("Error loading PEM file " + csr_pem_filepath)
+        raise RuntimeError("Error loading CSR")
+
+    # display info we received for the CSR
+    dev_id = csr.get_subject().CN
+    print(hivis_style('Device ID: {}'.format(dev_id)))
+    if verbose:
+        pub_key_bytes = modem_credentials_parser.pub_key_bytes
+        print(hivis_style('CSR PEM: {}'.format(csr_bytes)))
+        print(hivis_style('Pub key: {}'.format(pub_key_bytes)))
 
     # check if we have all we need to proceed
     if len(args.ca) == 0 or len(args.ca_key) == 0:
@@ -457,4 +497,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
