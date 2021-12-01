@@ -84,7 +84,7 @@ optional arguments:
   -v, --verbose         bool: make output verbose (default: False)
   -s, --save            Save PEM file(s): <UUID>_<sec_tag>_<type>.pem (default: False)
   -S SECTAG, --sectag SECTAG
-                        integer: security tag to use (default: 42)
+                        integer: security tag to use (default: 16842753)
   -p PATH, --path PATH  Path to save files. Selects -s (default: ./)
   -P, --plain           bool: plain output (no colors) (default: False)
   -d, --delete          bool: delete sectag from modem first (default: False)
@@ -110,15 +110,15 @@ disabling LTE and GNSS...
 -> AT+CFUN=4
 <- OK
 Device IMEI: 352656123456789
-Deleting sectag 42...
--> AT%CMNG=3,42,0
+Deleting sectag 16842753...
+-> AT%CMNG=3,16842753,0
 <- OK
--> AT%CMNG=3,42,1
+-> AT%CMNG=3,16842753,1
 <- OK
--> AT%CMNG=3,42,2
+-> AT%CMNG=3,16842753,2
 <- OK
-requesting CSR for sectag 42...
--> AT%KEYGEN=42,2,0
+requesting CSR for sectag 16842753...
+-> AT%KEYGEN=16842753,2,0
 <- %KEYGEN: "MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMyLTQ4MzQtODAyYi0wOTA4NzE4MzE0ZGMwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATPLBN5-YWj13l6NWeqNFW8VjHOWZB5IfeaEyfMeiUk6V1NEMuYnEBwwrBdV94F5XdscCKDLtvtyKo4VTbnK-mPoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiAO2KmzF9Ms599GC3EueXhmp6AWwtD6c7bA_lhnNc7ZgQIhAMFJC99z_GfLJxCT2U8Dt4MFCB_5wwFYSDcSg-ucfLHS.0oRDoQEmoQRBIVhM2dn3hQlQUDYxVDkySDSAKwkIcYMU3EIYKlgglFk5S_wQVOvIPvm-qjnYS4BZ4mCg7Bsf3cAVIGelPGNQVF8u_v_HrhBJH107c3QBLVhA35AZa4ZWQbm7mRQfFuGGlfLFgiNwMLxxjsmiQHNtT01o5c6pm2uEqMn0T_YY0aEXZer2hCS-YwNoW97zcH_Iug"
 <- OK
 
@@ -150,7 +150,7 @@ COSE:
   Attestation:
     Payload ID: CSR_msg_v1
     Dev UUID:   50363154-3932-4834-802b-0908718314dc
-    sec_tag:    42
+    sec_tag:    16842753
     SHA256:     9459394bfc1054ebc83ef9beaa39d84b8059e260a0ec1b1fddc0152067a53c63
     Nonce:      545f2efeffc7ae10491f5d3b7374012d
   ---------------
@@ -163,7 +163,7 @@ Device ID: 50363154-3932-4834-802b-0908718314dc
 loading ca and key...
 Creating device certificate...
 writing AWS CA to modem...
--> AT%CMNG=0,42,0,"-----BEGIN CERTIFICATE-----
+-> AT%CMNG=0,16842753,0,"-----BEGIN CERTIFICATE-----
 MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF
 ADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6
 b24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL
@@ -186,7 +186,7 @@ rqXRfboQnoZsG4q5WTP468SQvvG5
 "
 <- OK
 writing dev cert to modem...
--> AT%CMNG=0,42,1,"-----BEGIN CERTIFICATE-----
+-> AT%CMNG=0,16842753,1,"-----BEGIN CERTIFICATE-----
 MIIBxzCCAW4CFDgXQgyjalFBw6ypq3BGKS/jQw4gMAoGCCqGSM49BAMCMIGdMQsw
 CQYDVQQGEwJVUzELMAkGA1UECAwCT1IxETAPBgNVBAcMCFBvcnRsYW5kMR0wGwYD
 VQQKDBROb3JkaWMgU2VtaWNvbmR1Y3RvcjELMAkGA1UECwwCUkQxFzAVBgNVBAMM
@@ -225,15 +225,15 @@ disabling LTE and GNSS...
 <- [00:00:29.778,564] <inf> asset_tracker: RRC mode: Idle
 <- OK
 Device IMEI: 352656123456789
-Deleting sectag 42...
--> AT%CMNG=3,42,0
+Deleting sectag 16842753...
+-> AT%CMNG=3,16842753,0
 <- OK
--> AT%CMNG=3,42,1
+-> AT%CMNG=3,16842753,1
 <- OK
--> AT%CMNG=3,42,2
+-> AT%CMNG=3,16842753,2
 <- OK
-requesting CSR for sectag 42...
--> AT%KEYGEN=42,2,0
+requesting CSR for sectag 16842753...
+-> AT%KEYGEN=16842753,2,0
 <- %KEYGEN: "MIIBCTCBrwIBADAvMS0wKwYDVQQDDCQ1MDUwMzY0Mi0zMjM5LTRmYWEtODBkYi0wZjI4ZTM1NmFkOTUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARp8RD-O71kVsE5jKDox86WMSrDAdJOR1QhGybEvRDLTOcxk71eOfWbEHXxAIXa3ZHXUFEuFz76LoivjZUdWN2KoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANHADBEAiBK1YEDqdwvdWW4y_suz3wlLv11GorZYITgqYPQZL9MmwIgMcFAgyW7hDPFoboweWlVGPys0Vi8nwGg5MaRiaqKxaE.0oRDoQEmoQRBIVhM2dn3hQlQUFA2QjI5T6qA2w8o41atlUIYKlgglD8Gwbrr2nOl8YjYqDVJ4ZqBjNo1bHO4QkdWGibvIXRQUH5ITh55jR_gjPejMo6PpVhA6Ig3EJLFwDUrXzdjRITFvIFlR1NtczbzIu8DtO6sYyWPW7HeYeaMv7EUvvOEykgA338zCKlwtzgmBT6SS1-7sQ"
 <- OK
 
@@ -265,7 +265,7 @@ COSE:
   Attestation:
     Payload ID: CSR_msg_v1
     Dev UUID:   50503642-3239-4faa-80db-0f28e356ad95
-    sec_tag:    42
+    sec_tag:    16842753
     SHA256:     943f06c1baebda73a5f188d8a83549e19a818cda356c73b84247561a26ef2174
     Nonce:      507e484e1e798d1fe08cf7a3328e8fa5
   ---------------
@@ -278,7 +278,7 @@ Device ID: 50503642-3239-4faa-80db-0f28e356ad95
 loading ca and key...
 Creating device certificate...
 writing AWS CA to modem...
--> AT%CMNG=0,42,0,"-----BEGIN CERTIFICATE-----
+-> AT%CMNG=0,16842753,0,"-----BEGIN CERTIFICATE-----
 MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF
 ADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6
 b24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL
@@ -295,7 +295,7 @@ A4IBAQCY8jdaQZChGsV2USggNiMOruYou6r4lK5IpDB/G/wkjUu0yKGX9rbxenDI
 U5PMCCjjmCXPI6T53iHTfIUJrU6adTrCC2qJeHZERxhlbI1Bjjt/msv0tadQ1wUs
 N+gDS63pYaACbvXy8MWy7Vu33PqUXHeeE6V/Uq2V8viTO96LXFvKWlJbYK8U90vv
 o/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU
-5MsI+yMRQ+hDKXJioaldXgjUkK642M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy
+5MsI+yMRQ+hDKXJioaldXgjUkK616842753M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy
 rqXRfboQnoZsG4q5WTP468SQvvG5
 -----END CERTIFICATE-----
 "
