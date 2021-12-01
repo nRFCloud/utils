@@ -80,7 +80,7 @@ def parse_args():
     parser.add_argument("-s", "--save", action='store_true',
                         help="Save PEM file(s): <UUID>_<sec_tag>_<type>.pem")
     parser.add_argument("-S", "--sectag", type=int,
-                        help="integer: Security tag to use", default=42)
+                        help="integer: Security tag to use", default=16842753)
     parser.add_argument("-p", "--path", type=str,
                         help="Path to save files.  Selects -s", default="./")
     parser.add_argument("-P", "--plain",
