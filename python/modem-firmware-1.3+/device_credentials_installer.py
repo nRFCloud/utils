@@ -36,6 +36,7 @@ serial_timeout = 1
 aws_ca = "-----BEGIN CERTIFICATE-----\nMIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\nADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6\nb24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL\nMAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEZMBcGA1UEAxMQQW1hem9uIFJv\nb3QgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALJ4gHHKeNXj\nca9HgFB0fW7Y14h29Jlo91ghYPl0hAEvrAIthtOgQ3pOsqTQNroBvo3bSMgHFzZM\n9O6II8c+6zf1tRn4SWiw3te5djgdYZ6k/oI2peVKVuRF4fn9tBb6dNqcmzU5L/qw\nIFAGbHrQgLKm+a/sRxmPUDgH3KKHOVj4utWp+UhnMJbulHheb4mjUcAwhmahRWa6\nVOujw5H5SNz/0egwLX0tdHA114gk957EWW67c4cX8jJGKLhD+rcdqsq08p8kDi1L\n93FcXmn/6pUCyziKrlA4b9v7LWIbxcceVOF34GfID5yHI9Y/QCB/IIDEgEw+OyQm\njgSubJrIqg0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC\nAYYwHQYDVR0OBBYEFIQYzIU07LwMlJQuCFmcx7IQTgoIMA0GCSqGSIb3DQEBCwUA\nA4IBAQCY8jdaQZChGsV2USggNiMOruYou6r4lK5IpDB/G/wkjUu0yKGX9rbxenDI\nU5PMCCjjmCXPI6T53iHTfIUJrU6adTrCC2qJeHZERxhlbI1Bjjt/msv0tadQ1wUs\nN+gDS63pYaACbvXy8MWy7Vu33PqUXHeeE6V/Uq2V8viTO96LXFvKWlJbYK8U90vv\no/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU\n5MsI+yMRQ+hDKXJioaldXgjUkK642M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy\nrqXRfboQnoZsG4q5WTP468SQvvG5\n-----END CERTIFICATE-----\n"
 IMEI_LEN = 15
 DEV_ID_MAX_LEN = 64
+MAX_CSV_ROWS = 1000
 
 def parse_args():
     global verbose
@@ -253,6 +254,26 @@ def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
                                                                      line)))
     return retval, output
 
+def check_provisioning_csv(csv_filename, dev_id):
+    exists = False
+    row_count = 0
+
+    try:
+        with open(csv_filename) as csvfile:
+            prov = csv.reader(csvfile, delimiter=',')
+
+            for row in prov:
+                row_count += 1
+                # First column is the device ID
+                if row[0] == dev_id:
+                    exists = True
+
+            csvfile.close()
+    except OSError:
+        print(error_style('Error opening file {}'.format(csv_filename)))
+
+    return exists, row_count
+
 def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, dev):
     mode = 'a' if append else 'w'
 
@@ -267,12 +288,33 @@ def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types
         if answer == 'a':
             mode = 'a'
 
+    row = [dev_id, sub_type, tags, fw_types, str(dev, encoding=full_encoding)]
+
+    if mode == 'a':
+        do_not_write = False
+        exists, row_count = check_provisioning_csv(csv_filename, dev_id)
+
+        if verbose:
+            print(local_style("Provisioning CSV row count [max {}]: {}".format(MAX_CSV_ROWS, row_count)))
+
+        if row_count >= MAX_CSV_ROWS:
+            print(error_style('Provisioning CSV file is full'))
+            do_not_write = True
+
+        if exists:
+            print(error_style('Provisioning CSV file already contains device \'{}\''.format(dev_id)))
+            do_not_write = True
+
+        if do_not_write:
+            print(error_style('The following row was NOT added to the provisioning CSV file:'))
+            print(local_style(','.join(row)))
+            return
+
     try:
         with open(csv_filename, mode, newline='\n') as csvfile:
             csv_writer = csv.writer(csvfile, delimiter=',', lineterminator='\n',
                                     quoting=csv.QUOTE_MINIMAL)
-            csv_writer.writerow([dev_id, sub_type, tags, fw_types,
-                                 str(dev, encoding=full_encoding)])
+            csv_writer.writerow(row)
         print(local_style('File saved'))
     except OSError:
         print(error_style('Error opening file {}'.format(csv_filename)))
@@ -419,6 +461,11 @@ def main():
         cleanup()
         raise RuntimeError("Error loading CSR")
 
+    if len(csr.get_subject().CN) == 0:
+        print(error_style('CSR\'s Common Name (CN) is empty'))
+        cleanup()
+        sys.exit(6)
+
     # display info we received for the CSR
     dev_id = csr.get_subject().CN
     print(hivis_style('Device ID: {}'.format(dev_id)))
@@ -442,11 +489,6 @@ def main():
     print(local_style('Creating device certificate...'))
     device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
 
-    if len(csr.get_subject().CN) == 0:
-        common_name = str(hex(serial_no))
-    else:
-        common_name = csr.get_subject().CN
-
     # save device cert and/or print it
     dev = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM,
                                           device_cert)
@@ -454,7 +496,7 @@ def main():
         print(local_style('Dev cert: {}'.format(dev)))
     if args.save:
         print(local_style('Saving dev cert...'))
-        write_file(args.path, args.fileprefix + common_name + "_crt.pem", dev)
+        write_file(args.path, args.fileprefix + dev_id + "_crt.pem", dev)
 
     # save public key and/or print it
     pub = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
@@ -462,7 +504,7 @@ def main():
         print(local_style('Pub key: {}'.format(pub)))
     if args.save:
         print(local_style('Saving pub key...'))
-        write_file(args.path, args.fileprefix + common_name + "_pub.pem", pub)
+        write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub)
 
     # write to AWS CA modem
     print(local_style('Writing AWS CA to modem...'))
@@ -485,8 +527,8 @@ def main():
 
     # write provisioning information to csv if requested by user
     if len(args.csv) > 0:
-        print(local_style('{} Provisioning endpoint CSV file {}...'
-                          .format('appending' if args.append else 'saving', args.csv)))
+        print(local_style('{} provisioning endpoint CSV file {}...'
+                          .format('Appending' if args.append else 'Saving', args.csv)))
         sub_type = 'gateway' if is_gateway else ''
         if len(args.subtype) > 0:
             sub_type = args.subtype
