@@ -321,6 +321,24 @@ file saved
 C:\utils>
 ```
 
+## nRF Cloud Device Provisioning
+The `nrf_cloud_provision.py` script performs device provisioning with nRF Cloud.
+Your nRF Cloud REST API key is a required parameter. See [https://nrfcloud.com/#/account](https://nrfcloud.com/#/account).
+Also required is a CSV file compatible with the [ProvisionDevice](https://api.nrfcloud.com/v1/#operation/ProvisionDevices) endpoint. You can use the provisioning CSV file produced by `device_credentials_installer.py`.
+
+```
+usage: nrf_cloud_provision.py [-h] --apikey APIKEY [--chk] [--csv CSV] [--res RES]
+
+nRF Cloud Device Provisioning
+
+optional arguments:
+  -h, --help       show this help message and exit
+  --apikey APIKEY  nRF Cloud API key (default: )
+  --chk            For single device provisioning, check if device exists before provisioning (default: False)
+  --csv CSV        Filepath to provisioning CSV file (default: provision.csv)
+  --res RES        Filepath where the CSV-formatted provisioning result(s) will be saved (default: )
+```
+
 ## Modem Credentials Parser
 The script above, `device_credentials_installer.py` makes use of this script, `modem_credentials_parser.py`, so if you use the former, you do not need to also follow the directions below.  If `device_credentials_installer.py` does not meet your needs, you can use `modem_credentials_parser.py` directly to take advantage of additional options.
 
