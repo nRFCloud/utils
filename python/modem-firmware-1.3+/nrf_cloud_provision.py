@@ -163,6 +163,9 @@ def update_device_list_err(dev_list, err_dict):
                 # In case of an empty error message...
                 dev_list[i][DEV_LIST_RES_IDX] = 'ERROR_UNKNOWN'
             else:
+                err_item = err_item.strip()
+                err_item = err_item.replace("\n", " ")
+                err_item = err_item.replace("\r", "")
                 dev_list[i][DEV_LIST_RES_IDX] = err_item
 
     # Set status for devices without an error
@@ -205,7 +208,7 @@ def read_prov_csv(csv_filepath):
 
 def save_or_print(results, result_filepath):
     # Save to file or print to console
-    if result_filepath:
+    if len(result_filepath):
         write_file(os.path.dirname(result_filepath),
                    os.path.basename(result_filepath),
                    results.getvalue().encode('utf-8'))
@@ -230,6 +233,10 @@ def save_results(bulk_results_json, err_cnt, dev_list, result_filepath):
                           dev_entry[DEV_LIST_RES_IDX] + '\n')
     else:
         results.write('Error output could not be accessed\n')
+
+    print("")
+    if not len(result_filepath):
+        print("CSV-formatted results:")
 
     save_or_print(results, result_filepath)
 
