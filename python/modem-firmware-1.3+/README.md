@@ -339,6 +339,39 @@ optional arguments:
   --res RES        Filepath where the CSV-formatted provisioning result(s) will be saved (default: )
 ```
 
+## Example
+
+```
+python3 ./nrf_cloud_provision.py --apikey $API_KEY --csv example_prov.csv
+Rows in CSV file: 5
+Devices to be provisioned: 5
+ProvisionDevices API call result: 202 - Accepted
+Response: {"bulkOpsRequestId":"01FP9690MHBTMBHBMER0HWABCD"}
+Fetching results for bulkOpsRequestId: 01FP9690MHBTMBHBMER0HWABCD
+Waiting 5s...
+Provisioning status: FAILED
+Failure during provisioning, downloading error summary...
+
+CSV-formatted results:
+bulkOpsRequestId,01FP9690MHBTMBHBMER0HWABCD
+status,FAILED
+endpoint,PROVISION_DEVICES
+requestedAt,2021-12-07T00:56:40.337Z
+completedAt,2021-12-07T00:56:44.716Z
+uploadedDataUrl,https://bulk-ops-requests.nrfcloud.com/851bd200-d89d-5076-9116-cc723845b4f3/provision_devices/01FP9690MHBTMBHBMER0HWABCD.csv
+errorSummaryUrl,https://bulk-ops-requests.nrfcloud.com/851bd200-d89d-5076-9116-cc723845b4f3/provision_devices/01FP9690MHBTMBHBMER0HWABCD.json
+Error count,2
+
+Device ID,Result
+00ec871d-3228-4706-9d90-5abcf9116318,OK
+309d9481-d9da-47e1-870d-95b9418992a0,OK
+8e411adc-a747-42c9-bfb7-f6957fea07d9,The device certificate is already registered and attached to a different device.
+50503642-3633-4685-802c-1c2c0bf87a22,Thing 50503642-3633-4685-802c-1c2c0bf87a22 already exists in account with different attributes
+ad7348c7-fcaa-4a5c-925e-1419f7e1ffbe,OK
+```
+
+If the `--res` parameter is used, the information printed below `CSV-formatted results:` will instead be saved to the specified file.
+
 ## Modem Credentials Parser
 The script above, `device_credentials_installer.py` makes use of this script, `modem_credentials_parser.py`, so if you use the former, you do not need to also follow the directions below.  If `device_credentials_installer.py` does not meet your needs, you can use `modem_credentials_parser.py` directly to take advantage of additional options.
 
