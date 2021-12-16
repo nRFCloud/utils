@@ -63,23 +63,27 @@ async function handler({
   caCertKeyFileName,
   caCertPemFileName,
 }: typeof args) {
-  const deviceCertPath = `${certDir}/${deviceId}.crt.pem`;
-  const deviceKeyPath = `${certDir}/${deviceId}.key.pem`;
+  const deviceCertPath = `${certDir}/${deviceId}.crt`;
+  const deviceKeyPath = `${certDir}/${deviceId}.key`;
   // Use ECC (ES256) instead of RSA. ECC is 50-100x faster:
   // http://ww1.microchip.com/downloads/en/DeviceDoc/00003442A.pdf
   execSync(
-    `openssl ecparam -out ${deviceKeyPath} -name prime256v1 -genkey`,
+    `openssl ecparam -out ${deviceKeyPath}.pem -name prime256v1 -genkey`,
     process.env,
+  );
+  execSync(
+      `openssl pkcs8 -topk8 -nocrypt -in ${deviceKeyPath}.pem -out ${deviceKeyPath}.pkcs8.pem`,
+      process.env,
   );
   if (!csrFileName) {
     csrFileName = `${deviceId}.csr.pem`;
     execSync(
-      `openssl req -new -key ${deviceKeyPath} -out ${certDir}/${csrFileName} -subj "${cnSubject}/CN=${deviceId}"`,
+      `openssl req -new -key ${deviceKeyPath}.pem -out ${certDir}/${csrFileName} -subj "${cnSubject}/CN=${deviceId}"`,
       process.env,
     );
   }
   execSync(
-    `openssl x509 -req -in ${certDir}/${csrFileName} -CA ${certDir}/${caCertPemFileName} -CAkey ${certDir}/${caCertKeyFileName} -CAcreateserial -out ${deviceCertPath} -days 10950 -sha256`,
+    `openssl x509 -req -in ${certDir}/${csrFileName} -CA ${certDir}/${caCertPemFileName} -CAkey ${certDir}/${caCertKeyFileName} -CAcreateserial -out ${deviceCertPath}.pem -days 10950 -sha256`,
     process.env,
   );
   console.log(
