@@ -68,12 +68,16 @@ async function handler({
   // Use ECC (ES256) instead of RSA. ECC is 50-100x faster:
   // http://ww1.microchip.com/downloads/en/DeviceDoc/00003442A.pdf
   execSync(
-    `openssl ecparam -out ${deviceKeyPath}.pem -name prime256v1 -genkey`,
+    `openssl ecparam -out ${deviceKeyPath}.temp.pem -name prime256v1 -genkey`,
     process.env,
   );
   execSync(
-      `openssl pkcs8 -topk8 -nocrypt -in ${deviceKeyPath}.pem -out ${deviceKeyPath}.pkcs8.pem`,
-      process.env,
+    `openssl pkcs8 -topk8 -nocrypt -in ${deviceKeyPath}.temp.pem -out ${deviceKeyPath}.pem`,
+    process.env,
+  );
+  execSync(
+    `rm ${deviceKeyPath}.temp.pem`,
+    process.env,
   );
   if (!csrFileName) {
     csrFileName = `${deviceId}.csr.pem`;
