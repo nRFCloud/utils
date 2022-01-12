@@ -35,6 +35,11 @@ FOTA_JOBS_BASE = API_URL + 'fota-jobs'
 FOTA_JOB_NAME_MAX_LEN = 64
 FOTA_JOB_NAME_DESC_LEN = 1024
 
+class updateBy(Enum):
+        TAG = 0
+        BASE_FW_VER = 1
+        DEV_ID = 2
+
 class updateBundle:
 
     class fotaType(Enum):
@@ -189,11 +194,24 @@ class nRFCloudDevice:
 def parse_args():
     parser = argparse.ArgumentParser(description="nRF Cloud Device Provisioning",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--apikey", type=str, required=True, help="nRF Cloud API key", default="")
-    parser.add_argument("--type", type=str, required=False, help="FOTA update type: APP, MODEM, or BOOT", default="MODEM")
-    parser.add_argument("--rd", help="Display only devices that support the requested FOTA type", action='store_true', default=False)
-    parser.add_argument("--ad", help="Display all devices. Overrides --rd", action='store_true', default=False)
-    parser.add_argument("--tag", help="Create update using device tag(s). Always enabled for non-MODEM update types.", action='store_true', default=False)
+    parser.add_argument("--apikey",
+                        help="nRF Cloud API key",
+                        type=str, required=True, default="")
+    parser.add_argument("--type",
+                        help="FOTA update type: APP, MODEM, or BOOT",
+                        type=str, required=False, default="MODEM")
+    parser.add_argument("--rd",
+                        help="Display only devices that support the requested FOTA type",
+                        action='store_true', default=False)
+    parser.add_argument("--ad",
+                        help="Display all devices. Only specified device is displayed if used with --dev_id. Overrides --rd.",
+                        action='store_true', default=False)
+    parser.add_argument("--tag",
+                        help="Create update using device tag(s). Enabled for non-MODEM update types.",
+                        action='store_true', default=False)
+    parser.add_argument("--dev_id",
+                        help="Create an update for the specified device ID. Overrides --tag.",
+                        type=str, required=False, default="")
 
     args = parser.parse_args()
     return args
@@ -244,14 +262,16 @@ def get_requested_bundles(api_key, fota_type):
     bundles = get_bundle_list(api_key, fota_type == updateBundle.fotaType.MODEM.name)
     return [i for i in bundles if i.type == fota_type]
 
-def get_device_list(api_key, fota_types_supported):
+def get_device_list(api_key, fota_types_list, device_id):
     hdr = {'Authorization': 'Bearer ' + api_key}
     req_base = GET_DEVICES_BASE + '&pageLimit={}'.format(GET_DEVICES_PAGE_LIMIT)
 
-    if fota_types_supported:
-        types_list = fota_types_supported.split('|')
-        for type in types_list:
+    if fota_types_list:
+        for type in fota_types_list:
             req_base = req_base + '&firmwareSupport={}'.format(type)
+
+    if device_id:
+        req_base = req_base + '&deviceIds={}'.format(device_id)
 
     next_tok = ''
     dev_list = []
@@ -429,7 +449,7 @@ def check_tagged_modem_fw_versions(device_list, tag_list, tag_idx):
 
     return tag_idx
 
-def handle_modem_updates(api_key, bundle_list, device_list, update_by_tag):
+def handle_modem_updates(api_key, bundle_list, device_list, update_by):
     job_id = ''
     new_mfw_list = []
     cur_mfw_list = []
@@ -437,7 +457,7 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by_tag):
     tag_list = []
     tag_idx = 0
 
-    if update_by_tag:
+    if update_by == updateBy.TAG:
         tag_idx = None
         # ask user to select a tag and check then mfw version(s) associated with that tag
         while not tag_idx:
@@ -456,7 +476,7 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by_tag):
                     continue
                 else:
                     return None
-    else:
+    elif update_by == updateBy.BASE_FW_VER:
         # create a set of the currently installed mfw versions
         mfw_set = set()
         for dev in device_list:
@@ -481,6 +501,20 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by_tag):
 
         print('Select CURRENT modem firmware version to update FROM...')
         cur_mfw_idx = user_select_from_list(cur_mfw_list)
+    elif update_by == updateBy.DEV_ID:
+        dev = device_list[0]
+        cur_mfw = 'N/A'
+        if dev.mfw_ver:
+            cur_mfw = dev.mfw_ver
+            print('Device \'{}\' has the following modem firmware version: {}'.format(dev.id, cur_mfw))
+        else:
+            print('Device \'{}\' does not have a modem firmware version listed'.format(dev.id))
+
+        cur_mfw_list.append(cur_mfw)
+        cur_mfw_idx = 0
+    else:
+        print('Invalid update_by parameter specified: {}'.format(update_by))
+        return None
 
     # create a list of the MODEM bundles
     for bund in bundle_list:
@@ -502,29 +536,37 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by_tag):
     devices_to_update = []
     update_cnt = 0
     for dev in device_list:
-        if update_by_tag:
+        if update_by == updateBy.TAG:
             if tag_list[tag_idx] in dev.tags:
                 update_cnt = update_cnt + 1
-        else:
+        elif update_by == updateBy.BASE_FW_VER:
             if cur_mfw_list[cur_mfw_idx] == dev.mfw_ver:
                 devices_to_update.append(dev.id)
+        else:
+            devices_to_update.append(dev.id)
 
-    if not update_by_tag:
+    if update_by != updateBy.TAG:
         update_cnt = len(devices_to_update)
 
     # display update details and ask user for confirmation
-    print('The following update will be created for {} device(s):'.format(update_cnt))
+    if update_by == updateBy.DEV_ID:
+        print('The following update will be created for device: {}'.format(devices_to_update[0]))
+    else:
+        print('The following update will be created for {} device(s):'.format(update_cnt))
+
     print('\tName: {}'.format(job_name))
     print('\tDescription: {}'.format(job_desc))
-    if update_by_tag:
+
+    if update_by == updateBy.TAG:
         print('\tVersion: Tag[\'{}\'] --> {}'.format(tag_list[tag_idx], new_mfw_list[mfw_new_idx].ver))
     else:
         print('\tVersion: {} --> {}'.format(cur_mfw_list[cur_mfw_idx], new_mfw_list[mfw_new_idx].ver))
+
     print('Proceed?')
     if not user_select_yn():
         return None
 
-    if update_by_tag:
+    if update_by == updateBy.TAG:
         # creating updates for multiple tags is supported, but for simplicity this script allows only one
         job_id = create_fota_job_by_tag(api_key, new_mfw_list[mfw_new_idx].id, job_name, job_desc, [tag_list[tag_idx]])
     else:
@@ -574,9 +616,17 @@ def main():
 
     print('Obtained {} \'{}\' update bundles'.format(len(bundles), fota_type.name))
 
-    # get a list of all the devices
-    print('Getting all devices...')
-    devices = get_device_list(args.apikey, None)
+    update_by = updateBy.BASE_FW_VER
+
+    if args.dev_id:
+        print('Getting device {}...'.format(args.dev_id))
+        update_by = updateBy.DEV_ID
+    else:
+        print('Getting all devices...')
+        if args.tag:
+            update_by = updateBy.TAG
+
+    devices = get_device_list(args.apikey, None, args.dev_id)
     if len(devices) == 0:
         print('No devices found')
         return
@@ -602,7 +652,7 @@ def main():
         return
 
     if fota_type == updateBundle.fotaType.MODEM:
-        handle_modem_updates(args.apikey, bundles, requested_devices, args.tag)
+        handle_modem_updates(args.apikey, bundles, requested_devices, update_by)
     elif fota_type == updateBundle.fotaType.APP:
         print('APP FOTA update creation not yet implemented')
     elif fota_type == updateBundle.fotaType.BOOT:
