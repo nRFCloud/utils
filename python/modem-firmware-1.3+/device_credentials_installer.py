@@ -102,6 +102,12 @@ def parse_args():
                         Pipe (|) delimited firmware types for FOTA of the set
                         {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double quotes
                         """, default="APP|MODEM")
+    parser.add_argument("--mfwv", type=str,
+                        help="Filepath for CSV file which will contain the device ID and installed modem firmware version.",
+                        default=None)
+    parser.add_argument("--mfwv_append",
+                        help="When saving modem firmware version CSV, append to it",
+                        action='store_true', default=False)
     args = parser.parse_args()
     verbose = args.verbose
     return args
@@ -254,7 +260,7 @@ def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
                                                                      line)))
     return retval, output
 
-def check_provisioning_csv(csv_filename, dev_id):
+def check_if_device_exists_in_csv(csv_filename, dev_id):
     exists = False
     row_count = 0
 
@@ -274,25 +280,59 @@ def check_provisioning_csv(csv_filename, dev_id):
 
     return exists, row_count
 
-def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, dev):
+def user_request_open_mode(filename, append):
     mode = 'a' if append else 'w'
+    exists = os.path.isfile(filename)
 
     # if not appending, give user a choice whether to overwrite
-    if not append and os.path.isfile(csv_filename):
+    if not append and exists:
         answer = ' '
         while answer not in 'yan':
-            answer = input('--- File {} exists; overwrite, append, or quit (y,a,n)? '.format(csv_filename))
+            answer = input('--- File {} exists; overwrite, append, or quit (y,a,n)? '.format(filename))
+
         if answer == 'n':
             print(local_style('File will not be overwritten'))
-            return
-        if answer == 'a':
+            return None
+        elif answer == 'y':
+            mode = 'w'
+        else:
             mode = 'a'
+
+    elif not exists and append:
+        mode = 'w'
+        print('Append specified but file does not exist...')
+
+    return mode
+
+def save_mfw_ver_csv(csv_filename, append, dev_id, mfw_ver):
+    mode = user_request_open_mode(csv_filename, append)
+
+    row = str('{},{}\n'.format(dev_id, mfw_ver))
+
+    if mode == 'a':
+        exists, row_count = check_if_device_exists_in_csv(csv_filename, dev_id)
+
+        if exists:
+            print(error_style('Device already exists in modem firmware CSV, the following row was NOT added:'))
+            print(local_style(','.join(row)))
+            return
+
+    try:
+        with open(csv_filename, mode, newline='\n') as mfwv_file:
+            mfwv_file.write(row)
+
+        print(local_style('Modem firmware version CSV file saved'))
+    except OSError:
+        print(error_style('Error opening file {}'.format(csv_filename)))
+
+def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, dev):
+    mode = user_request_open_mode(csv_filename, append)
 
     row = [dev_id, sub_type, tags, fw_types, str(dev, encoding=full_encoding)]
 
     if mode == 'a':
         do_not_write = False
-        exists, row_count = check_provisioning_csv(csv_filename, dev_id)
+        exists, row_count = check_if_device_exists_in_csv(csv_filename, dev_id)
 
         if verbose:
             print(local_style("Provisioning CSV row count [max {}]: {}".format(MAX_CSV_ROWS, row_count)))
@@ -315,7 +355,7 @@ def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types
             csv_writer = csv.writer(csvfile, delimiter=',', lineterminator='\n',
                                     quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(row)
-        print(local_style('File saved'))
+        print(local_style('Provisioning CSV file saved'))
     except OSError:
         print(error_style('Error opening file {}'.format(csv_filename)))
 
@@ -407,6 +447,17 @@ def main():
     # display the IMEI for reference
     imei = str(output.decode("utf-8"))[:IMEI_LEN]
     print(hivis_style('Device IMEI: ' + imei))
+
+    # get the modem firmware version
+    write_line('AT+CGMR')
+    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
+    if not retval:
+        print(error_style('Failed to obtain IMEI'))
+        cleanup()
+        sys.exit(3)
+    # display version for reference
+    mfw_ver = str(output.decode("utf-8")).rstrip('\r\n')
+    print(hivis_style('Modem FW Version: ' + mfw_ver))
 
     # set custom device ID
     custom_dev_id = args.id_str
@@ -534,6 +585,10 @@ def main():
             sub_type = args.subtype
         save_provisioning_csv(args.csv, args.append, dev_id, sub_type, args.tags,
                               args.fwtypes, dev)
+
+    # write device ID and modem firmware version to a file
+    if args.mfwv:
+        save_mfw_ver_csv(args.mfwv, args.mfwv_append, dev_id, mfw_ver)
 
     cleanup()
 
