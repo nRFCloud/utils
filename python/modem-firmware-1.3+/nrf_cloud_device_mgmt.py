@@ -5,21 +5,16 @@
 # SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
 
 import argparse
-from re import A
 import sys
 import requests
-import csv
-import time
 import json
 import requests
-import os
-import io
-import packaging.version
 from datetime import datetime
 from os import path
 from os import makedirs
 from ast import literal_eval
 from enum import Enum
+import textwrap
 from modem_credentials_parser import write_file
 
 API_URL = "https://api.nrfcloud.com/v1/"
@@ -206,11 +201,23 @@ def parse_args():
     parser.add_argument("--ad",
                         help="Display all devices. Only specified device is displayed if used with --dev_id. Overrides --rd.",
                         action='store_true', default=False)
-    parser.add_argument("--tag",
-                        help="Create update using device tag(s). Enabled for non-MODEM update types.",
+    parser.add_argument("--tag_list",
+                        help="Display all tags and prompt to select tag to use. Enabled for non-MODEM updates.",
                         action='store_true', default=False)
+    parser.add_argument("--tag",
+                        help="Create an update for the specified device tag. Overrides --tag_list.",
+                        type=str, default="")
     parser.add_argument("--dev_id",
-                        help="Create an update for the specified device ID. Overrides --tag.",
+                        help="Create an update for the specified device ID. Overrides --tag and --tag_list.",
+                        type=str, required=False, default="")
+    parser.add_argument("--bundle_id",
+                        help="Create an update using the specified bundle ID.",
+                        type=str, required=False, default="")
+    parser.add_argument("--name",
+                        help="The name to be used for the created update.",
+                        type=str, required=False, default="")
+    parser.add_argument("--desc",
+                        help="The description of the created updated.",
                         type=str, required=False, default="")
 
     args = parser.parse_args()
@@ -397,12 +404,19 @@ def user_select_yn():
             else:
                 continue
 
-def user_select_job_name_and_desc():
-    job_name = user_request_string("Enter a name for the update", FOTA_JOB_NAME_MAX_LEN)
-    job_desc = user_request_string("Enter a description of the update", FOTA_JOB_NAME_DESC_LEN)
+def user_select_job_name_and_desc(name, desc):
+    job_name = name
+    job_desc = desc
+
+    if not job_name:
+        job_name = user_request_string("Enter a name for the update", FOTA_JOB_NAME_MAX_LEN)
+
+    if not job_desc:
+        job_desc = user_request_string("Enter a description of the update", FOTA_JOB_NAME_DESC_LEN)
+
     return job_name, job_desc
 
-def user_select_tag(device_list):
+def get_tag_list(device_list):
     # create a set to get unique tags across all devices
     tag_set = set()
     for dev in device_list:
@@ -411,10 +425,13 @@ def user_select_tag(device_list):
 
     if not len(tag_set):
         print('No tags found')
-        return None, None
+        return None
 
-    # display tags to the user
     tag_list = sorted(tag_set)
+    return tag_list
+
+def user_select_tag(tag_list, device_list):
+    # display each tag and the number of tagged devices
     print('\nAvailable tags:')
     for tag in tag_list:
         tag_cnt = 0
@@ -430,36 +447,52 @@ def user_select_tag(device_list):
     # return the tag list and selected index
     return tag_list, tag_idx
 
-def check_tagged_modem_fw_versions(device_list, tag_list, tag_idx):
+def check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, prompt):
     # check mfw ver in selected tag, alert user if they are different
     tagged_mfw_ver = ''
     for dev in device_list:
-
         if tag_list[tag_idx] in dev.tags:
             if not tagged_mfw_ver:
                 tagged_mfw_ver = dev.mfw_ver
                 continue
             elif tagged_mfw_ver != dev.mfw_ver:
                 print('Warning: Devices in tag \'{}\' do not have the same modem firmware version installed'.format(tag_list[tag_idx]))
-                print('Continue creating an update for this tag?'.format(tag_list[tag_idx]))
-                if user_select_yn():
-                    break
+                if prompt:
+                    print('Continue creating an update for this tag?'.format(tag_list[tag_idx]))
+                    if user_select_yn():
+                        break
+                    else:
+                        return None
                 else:
-                    tag_idx = None
+                    return None
 
     return tag_idx
 
-def handle_modem_updates(api_key, bundle_list, device_list, update_by):
+def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bundle_id, name, desc):
     job_id = ''
     new_mfw_list = []
     cur_mfw_list = []
     cur_mfw_idx = 0
-    tag_list = []
+    tag_list = get_tag_list(device_list)
     tag_idx = 0
 
     if update_by == updateBy.TAG:
+        if not tag_list:
+            return None
+
         tag_idx = None
-        # ask user to select a tag and check then mfw version(s) associated with that tag
+
+        if tag:
+            try:
+                tag_idx = tag_list.index(tag)
+                # print warning if tagged devices have different mfg versions installed
+                check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, False)
+            except ValueError:
+                print('Tag list: {}'.format(tag_list))
+                print('Error: No devices found with tag \'{}\''.format(tag))
+                return None
+
+        # ask user to select a tag and then check the mfw version(s) associated with that tag
         while not tag_idx:
             tag_list, tag_idx = user_select_tag(device_list)
             if not tag_list:
@@ -467,7 +500,7 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by):
                 return None
 
             # check the version, if a tag index is returned the user wishes to proceed
-            tag_idx = check_tagged_modem_fw_versions(device_list, tag_list, tag_idx)
+            tag_idx = check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, True)
 
             # no tag index... try again or exit
             if not tag_idx:
@@ -521,16 +554,29 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by):
         if bund.type == updateBundle.fotaType.MODEM.name:
             new_mfw_list.append(bund)
 
-    # display the available modem fw bundles and get user selection
-    print('Available modem firmware versions:')
-    for new in new_mfw_list:
-        print('{}.) {}\t[{}]:\n\t\"{}\"'.format(new_mfw_list.index(new) + 1, new.ver, new.date, new.desc))
+    mfw_new_idx = -1
+    if bundle_id:
+        for bund in new_mfw_list:
+            if bund.id == bundle_id:
+                mfw_new_idx = new_mfw_list.index(bund)
+                break
+        if mfw_new_idx < 0:
+            print('Error: Bundle ID \'{}\' was not found'.format(bundle_id))
+            return None
+    else:
+        # display the available modem fw bundles and get user selection
+        print('Available modem firmware versions:')
+        for new in new_mfw_list:
+            print('{}.) {}\n\tBundle ID: {}\n\tModified:  {}'.format(new_mfw_list.index(new) + 1, new.ver, new.id, new.date))
+            desc_list = textwrap.wrap('\"{}\"'.format(new.desc),initial_indent='\t',subsequent_indent='\t',width=99)
+            for line in desc_list:
+                print(line)
 
-    print('Select NEW modem firmware version to update TO...')
-    mfw_new_idx = user_select_from_list(new_mfw_list)
+        print('Select NEW modem firmware version to update TO...')
+        mfw_new_idx = user_select_from_list(new_mfw_list)
 
     # get user input for job name and description
-    job_name, job_desc = user_select_job_name_and_desc()
+    job_name, job_desc = user_select_job_name_and_desc(name, desc)
 
     # build a list of devices to update or the number of devices with the user selected tag
     devices_to_update = []
@@ -562,9 +608,12 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by):
     else:
         print('\tVersion: {} --> {}'.format(cur_mfw_list[cur_mfw_idx], new_mfw_list[mfw_new_idx].ver))
 
-    print('Proceed?')
-    if not user_select_yn():
-        return None
+    # if user provides all info via cmd params, do not ask for confirmation
+    if not((update_by == update_by.TAG and tag) or (update_by == update_by.DEV_ID) and
+           name and desc):
+        print('Proceed?')
+        if not user_select_yn():
+            return None
 
     if update_by == updateBy.TAG:
         # creating updates for multiple tags is supported, but for simplicity this script allows only one
@@ -604,7 +653,7 @@ def main():
     if fota_type is None:
         raise RuntimeError('Invalid FOTA update type specified: \'{}\''.format(args.type))
     elif fota_type is not updateBundle.fotaType.MODEM:
-        args.tag = True
+        args.tag_list = True
 
     # get update bundles of the requested FOTA type
     print('Getting \'{}\' update bundles...'.format(fota_type.name))
@@ -623,7 +672,7 @@ def main():
         update_by = updateBy.DEV_ID
     else:
         print('Getting all devices...')
-        if args.tag:
+        if args.tag_list or args.tag:
             update_by = updateBy.TAG
 
     devices = get_device_list(args.apikey, None, args.dev_id)
@@ -652,7 +701,8 @@ def main():
         return
 
     if fota_type == updateBundle.fotaType.MODEM:
-        handle_modem_updates(args.apikey, bundles, requested_devices, update_by)
+        handle_modem_updates(args.apikey, bundles, requested_devices, update_by,
+                             args.tag, args.bundle_id, args.name, args.desc)
     elif fota_type == updateBundle.fotaType.APP:
         print('APP FOTA update creation not yet implemented')
     elif fota_type == updateBundle.fotaType.BOOT:
