@@ -320,8 +320,8 @@ def save_mfw_ver_csv(csv_filename, append, dev_id, mfw_ver):
     try:
         with open(csv_filename, mode, newline='\n') as mfwv_file:
             mfwv_file.write(row)
-
         print(local_style('Modem firmware version CSV file saved'))
+
     except OSError:
         print(error_style('Error opening file {}'.format(csv_filename)))
 
