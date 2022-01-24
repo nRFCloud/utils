@@ -195,6 +195,9 @@ def parse_args():
     parser.add_argument("--type",
                         help="FOTA update type: APP, MODEM, or BOOT",
                         type=str, required=False, default="MODEM")
+    parser.add_argument("--apply",
+                        help="Apply job upon creation; this starts the job. If not enabled, the job must be applied using the ApplyFOTAJob endpoint.",
+                        action='store_true', default=False)
     parser.add_argument("--rd",
                         help="Display only devices that support the requested FOTA type",
                         action='store_true', default=False)
@@ -233,7 +236,6 @@ def get_bundle_list(api_key, modem_only):
 
     bundle_list = []
     next_tok = ''
-    total = 0
 
     while True:
 
@@ -253,9 +255,6 @@ def get_bundle_list(api_key, modem_only):
             items = api_res_json['items']
             for i in items:
                 bundle_list.append(updateBundle(i))
-
-        if 'total' in api_res_json.keys():
-            total = api_res_json['total']
 
         if 'pageNextToken' in api_res_json.keys():
             next_tok = api_res_json['pageNextToken']
@@ -282,7 +281,6 @@ def get_device_list(api_key, fota_types_list, device_id):
 
     next_tok = ''
     dev_list = []
-    total = 0
 
     while True:
 
@@ -303,9 +301,6 @@ def get_device_list(api_key, fota_types_list, device_id):
             items = api_res_json['items']
             for i in items:
                 dev_list.append(nRFCloudDevice(i))
-
-        if 'total' in api_res_json.keys():
-            total = api_res_json['total']
 
         if 'pageNextToken' in api_res_json.keys():
             next_tok = api_res_json['pageNextToken']
@@ -336,37 +331,39 @@ def create_fota_job(api_key, json_payload_obj):
 
     return jobId
 
-def get_fota_job_payload_common(bundle_id, update_name, update_desc):
+def get_fota_job_payload_common(bundle_id, update_name, update_desc, apply):
     payload = {}
     payload['bundleId'] = bundle_id
-    payload['autoApply'] = "true"
+    if not apply:
+        # param defaults to "true"
+        payload['autoApply'] = "false"
     payload['name'] = update_name
     payload['description'] = update_desc
     return payload
 
-def create_fota_job_by_tag(api_key, bundle_id, update_name, update_desc, tag_list):
+def create_fota_job_by_tag(api_key, bundle_id, update_name, update_desc, tag_list, apply):
 
-    payload = get_fota_job_payload_common(bundle_id, update_name, update_desc)
+    payload = get_fota_job_payload_common(bundle_id, update_name, update_desc, apply)
     payload['tags'] = tag_list
 
     return create_fota_job(api_key, payload)
 
-def create_fota_job_by_device_id(api_key, bundle_id, update_name, update_desc, device_id_list):
+def create_fota_job_by_device_id(api_key, bundle_id, update_name, update_desc, device_id_list, apply):
 
-    payload = get_fota_job_payload_common(bundle_id, update_name, update_desc)
+    payload = get_fota_job_payload_common(bundle_id, update_name, update_desc, apply)
     payload['deviceIds'] = device_id_list
 
     return create_fota_job(api_key, payload)
 
-def user_select_from_list(the_list):
+def user_select_from_list(list_size):
     selected_idx = 0
     while True:
         try:
-            selected_idx = int(input('Enter a number [1-{}]: '.format(len(the_list))))
+            selected_idx = int(input('Enter a number [1-{}]: '.format(list_size)))
         except ValueError:
             continue
         else:
-            if 1 <= selected_idx <= len(the_list):
+            if 1 <= selected_idx <= list_size:
                 return selected_idx - 1
                 break
             else:
@@ -405,16 +402,14 @@ def user_select_yn():
                 continue
 
 def user_select_job_name_and_desc(name, desc):
-    job_name = name
-    job_desc = desc
 
-    if not job_name:
-        job_name = user_request_string("Enter a name for the update", FOTA_JOB_NAME_MAX_LEN)
+    if not name:
+        name = user_request_string("Enter a name for the update", FOTA_JOB_NAME_MAX_LEN)
 
-    if not job_desc:
-        job_desc = user_request_string("Enter a description of the update", FOTA_JOB_NAME_DESC_LEN)
+    if not desc:
+        desc = user_request_string("Enter a description of the update", FOTA_JOB_NAME_DESC_LEN)
 
-    return job_name, job_desc
+    return name, desc
 
 def get_tag_list(device_list):
     # create a set to get unique tags across all devices
@@ -442,7 +437,7 @@ def user_select_tag(tag_list, device_list):
 
     # get user selection
     print('Select the tag to update...')
-    tag_idx = user_select_from_list(tag_list)
+    tag_idx = user_select_from_list(len(tag_list))
 
     # return the tag list and selected index
     return tag_list, tag_idx
@@ -468,7 +463,7 @@ def check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, prompt):
 
     return tag_idx
 
-def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bundle_id, name, desc):
+def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bundle_id, name, desc, apply):
     job_id = ''
     new_mfw_list = []
     cur_mfw_list = []
@@ -533,7 +528,7 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bund
             print('{}.) {} on {} device(s)'.format(cur_mfw_list.index(ver) + 1, ver, dev_cnt))
 
         print('Select CURRENT modem firmware version to update FROM...')
-        cur_mfw_idx = user_select_from_list(cur_mfw_list)
+        cur_mfw_idx = user_select_from_list(len(cur_mfw_list))
     elif update_by == updateBy.DEV_ID:
         dev = device_list[0]
         cur_mfw = 'N/A'
@@ -573,7 +568,7 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bund
                 print(line)
 
         print('Select NEW modem firmware version to update TO...')
-        mfw_new_idx = user_select_from_list(new_mfw_list)
+        mfw_new_idx = user_select_from_list(len(new_mfw_list))
 
     # get user input for job name and description
     job_name, job_desc = user_select_job_name_and_desc(name, desc)
@@ -617,9 +612,9 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bund
 
     if update_by == updateBy.TAG:
         # creating updates for multiple tags is supported, but for simplicity this script allows only one
-        job_id = create_fota_job_by_tag(api_key, new_mfw_list[mfw_new_idx].id, job_name, job_desc, [tag_list[tag_idx]])
+        job_id = create_fota_job_by_tag(api_key, new_mfw_list[mfw_new_idx].id, job_name, job_desc, [tag_list[tag_idx]], apply)
     else:
-        job_id = create_fota_job_by_device_id(api_key, new_mfw_list[mfw_new_idx].id, job_name, job_desc, devices_to_update)
+        job_id = create_fota_job_by_device_id(api_key, new_mfw_list[mfw_new_idx].id, job_name, job_desc, devices_to_update, apply)
 
     if job_id:
         print('Created job: {}'.format(job_id))
@@ -702,7 +697,7 @@ def main():
 
     if fota_type == updateBundle.fotaType.MODEM:
         handle_modem_updates(args.apikey, bundles, requested_devices, update_by,
-                             args.tag, args.bundle_id, args.name, args.desc)
+                             args.tag, args.bundle_id, args.name, args.desc, args.apply)
     elif fota_type == updateBundle.fotaType.APP:
         print('APP FOTA update creation not yet implemented')
     elif fota_type == updateBundle.fotaType.BOOT:

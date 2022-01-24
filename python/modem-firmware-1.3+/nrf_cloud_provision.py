@@ -235,12 +235,11 @@ def save_or_print(results, result_filepath, append):
         res_bytes = results.getvalue().encode('utf-8')
         if append and os.path.exists(result_filepath):
             try:
-                f = open(result_filepath, "ab")
-            except OSError:
+                with open(result_filepath, "ab") as f:
+                    f.write(res_bytes)
+            except EnvironmentError:
                 print("Error opening file: " + result_filepath)
                 return
-            f.write(res_bytes)
-            f.close()
         else:
             write_file(os.path.dirname(result_filepath),
                        os.path.basename(result_filepath),
@@ -415,7 +414,7 @@ def set_mfw_ver_in_shadow(api_key, csv_in, res_out):
         result = []
         id = dev[0]
         ver = dev[1]
-        shadow_json = json.loads('{\"reported\":{\"device\":{\"deviceInfo\":{\"modemFirmware\":\"%s\"}}}}' % ver)
+        shadow_json = {"reported": {"device": {"deviceFirmware": {"modemFirmware": ver}}}}
 
         res_text = 'OK'
         res = update_device_shadow(api_key, id, shadow_json)
