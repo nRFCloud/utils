@@ -50,6 +50,9 @@ def parse_args():
                         help="Filepath to provisioning CSV file", default="provision.csv")
     parser.add_argument("--res", type=str,
                         help="Filepath where the CSV-formatted provisioning result(s) will be saved", default="")
+    parser.add_argument("--mfwv", type=str,
+                        help="Optional filepath to CSV file containing device ID and installed modem firmware version",
+                        default=None)
 
     args = parser.parse_args()
     return args
@@ -58,6 +61,11 @@ def get_bulk_ops_result(api_key, bulk_ops_req_id):
     hdr = {'Authorization': 'Bearer ' + api_key}
     req = API_URL + "bulk-ops-requests/" + bulk_ops_req_id
     return requests.get(req, headers=hdr)
+
+def update_device_shadow(api_key, device_id, json_payload):
+    hdr = {'Authorization': 'Bearer ' + api_key}
+    req = API_URL + "devices/" + device_id + "/state"
+    return requests.patch(req, json=json_payload, headers=hdr)
 
 def fetch_device(api_key, device_id):
     hdr = {'Authorization': 'Bearer ' + api_key}
@@ -187,7 +195,6 @@ def read_prov_csv(csv_filepath):
     with open(csv_filepath) as csvfile:
         prov = csv.reader(csvfile, delimiter=',')
         row_count = sum(1 for row in prov)
-        print("Rows in CSV file: " + str(row_count))
 
         if row_count > MAX_CSV_ROWS:
             print("CSV file contains {} rows; must not exceed {}".format(row_count, MAX_CSV_ROWS))
@@ -197,21 +204,46 @@ def read_prov_csv(csv_filepath):
         csvfile.seek(0)
         prov = csv.reader(csvfile, delimiter=',')
 
-        for row in prov:
+        for row_idx, row in enumerate(prov):
             # First column in each row is the device ID
             # Add a list to the list [ <device_id>, <result_string> ]
-            device_list.append([row[0], ''])
-
-        csvfile.close()
+            try:
+                device_list.append([row[0], ''])
+            except IndexError:
+                print("Error reading row {} of provisioning CSV file.".format(row_idx + 1   ))
 
     return device_list
 
-def save_or_print(results, result_filepath):
+def read_mfwv_csv(csv_filepath):
+    mfw_ver_list = []
+    with open(csv_filepath) as csvfile:
+        mfwv = csv.reader(csvfile, delimiter=',')
+
+        for row_idx, row in enumerate(mfwv):
+            # First column in each row is the device ID
+            # Add a list to the list [ <device_id>, <mfw_version> ]
+            try:
+                mfw_ver_list.append([row[0], row[1]])
+            except IndexError:
+                print("Error reading row {} of modem firmware CSV file.".format(row_idx + 1))
+
+    return mfw_ver_list
+
+def save_or_print(results, result_filepath, append):
     # Save to file or print to console
     if len(result_filepath):
-        write_file(os.path.dirname(result_filepath),
-                   os.path.basename(result_filepath),
-                   results.getvalue().encode('utf-8'))
+        res_bytes = results.getvalue().encode('utf-8')
+        if append and os.path.exists(result_filepath):
+            try:
+                with open(result_filepath, "ab") as f:
+                    f.write(res_bytes)
+            except EnvironmentError:
+                print("Error opening file: " + result_filepath)
+                return
+        else:
+            write_file(os.path.dirname(result_filepath),
+                       os.path.basename(result_filepath),
+                       res_bytes)
     else:
         print(results.getvalue())
 
@@ -238,7 +270,7 @@ def save_results(bulk_results_json, err_cnt, dev_list, result_filepath):
     if not len(result_filepath):
         print("CSV-formatted results:")
 
-    save_or_print(results, result_filepath)
+    save_or_print(results, result_filepath, False)
 
 def save_bulk_ops_id(bulk_ops_req_id, result_filepath):
     results = io.StringIO()
@@ -246,7 +278,23 @@ def save_bulk_ops_id(bulk_ops_req_id, result_filepath):
     results.write('{},{}\n'.format(BULK_OP_REQ_ID, bulk_ops_req_id))
     results.write('Bulk operations result could not be accessed\n')
 
-    save_or_print(results, result_filepath)
+    save_or_print(results, result_filepath, False)
+
+def check_file_path(file):
+    if not file:
+        return None
+
+    file_path = os.path.abspath(file)
+    path = os.path.dirname(file_path)
+
+    if not os.path.exists(path):
+        try:
+            makedirs(path, exist_ok=True)
+        except OSError as e:
+            print("Error creating file path: " + path)
+            return ''
+
+    return file_path
 
 def do_provisioning(api_key, csv_in, res_out, do_check):
 
@@ -256,9 +304,8 @@ def do_provisioning(api_key, csv_in, res_out, do_check):
 
     result_filepath = ''
     if len(res_out):
-        result_filepath = os.path.abspath(res_out)
-        if not os.path.exists(os.path.dirname(result_filepath)):
-            print("Path for result file does not exist: " + os.path.dirname(result_filepath))
+        result_filepath = check_file_path(res_out)
+        if not result_filepath:
             return ProvisionResult.NOT_PERFORMED_BAD_FILE_PATH
 
     csv_filepath = os.path.abspath(csv_in)
@@ -339,6 +386,68 @@ def do_provisioning(api_key, csv_in, res_out, do_check):
     else:
         return ProvisionResult.PERFORMED_WITH_ERRORS
 
+def set_mfw_ver_in_shadow(api_key, csv_in, res_out):
+    if not csv_in:
+        return
+
+    err_cnt = 0
+    res_list = []
+
+    mfwv_list = read_mfwv_csv(csv_in)
+    res_file_exists = False
+
+    if len(mfwv_list) == 0:
+        print("Modem firmware version CSV file is empty")
+        return
+
+    print("Writing modem firmware version to shadow for {} devices...".format(len(mfwv_list)))
+
+    result_filepath = ''
+    if res_out:
+        result_filepath = check_file_path(res_out)
+        if not result_filepath:
+            return
+        res_file_exists = os.path.exists(result_filepath)
+
+    # Update each device's shadow with its installed modem firmware version
+    for dev in mfwv_list:
+        result = []
+        id = dev[0]
+        ver = dev[1]
+        shadow_json = {"reported": {"device": {"deviceFirmware": {"modemFirmware": ver}}}}
+
+        res_text = 'OK'
+        res = update_device_shadow(api_key, id, shadow_json)
+        if res.status_code != 202:
+            print_api_result("Failed to update shadow for {}: ".format(id), res, True)
+            res_text = res.text
+            err_cnt = err_cnt + 1
+
+        # Add result to list
+        res_list.append([id, ver, res_text])
+
+    # Compile the results and save to file or print
+    results = io.StringIO()
+    if res_file_exists:
+        results.write('\n')
+    results.write('Modem Firmware Version Shadow Update:\n')
+    results.write('Error count,' + str(err_cnt) + '\n')
+    results.write('\n')
+
+    if len(res_list):
+        results.write('Device ID,Modem Firmware Version,Result' + '\n')
+        for res in res_list:
+            results.write(res[0] + ',' +
+                          res[1] + ',' +
+                          res[2] + '\n')
+    else:
+        results.write('No results\n')
+
+    if not len(result_filepath):
+        print("CSV-formatted results:")
+
+    save_or_print(results, result_filepath, True)
+
 def main():
 
     if not len(sys.argv) > 1:
@@ -349,7 +458,12 @@ def main():
     if not len(args.csv):
         raise RuntimeError("Invalid provisioning CSV file")
 
-    do_provisioning(args.apikey, args.csv, args.res, args.chk)
+    prov_res = do_provisioning(args.apikey, args.csv, args.res, args.chk)
+
+    if prov_res is ProvisionResult.PERFORMED_SUCCESSFULLY or \
+       prov_res is ProvisionResult.PERFORMED_RESULTS_NOT_CONFIRMED or \
+       prov_res is ProvisionResult.PERFORMED_WITH_ERRORS:
+        set_mfw_ver_in_shadow(args.apikey, args.mfwv, args.res)
 
     return
 
