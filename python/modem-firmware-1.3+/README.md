@@ -617,3 +617,52 @@ Creating device credentials...
 File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_crt.pem
 File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_pub.pem
 ```
+
+## Device Management - Creating FOTA Updates:
+Use the `nrf_cloud_device_mgmt.py` script to create FOTA update jobs.
+Currently only `MODEM` FOTA update types are supported.
+
+```
+usage: nrf_cloud_device_mgmt.py [-h] --apikey APIKEY [--type TYPE] [--apply] [--rd] [--ad] [--tag_list] [--tag TAG]
+                                [--dev_id DEV_ID] [--bundle_id BUNDLE_ID] [--name NAME] [--desc DESC]
+
+nRF Cloud Device Provisioning
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --apikey APIKEY       nRF Cloud API key (default: )
+  --type TYPE           FOTA update type: APP, MODEM, or BOOT (default: MODEM)
+  --apply               Apply job upon creation; this starts the job. If not enabled, the job must be applied using the
+                        ApplyFOTAJob endpoint. (default: False)
+  --rd                  Display only devices that support the requested FOTA type (default: False)
+  --ad                  Display all devices. Only specified device is displayed if used with --dev_id. Overrides --rd. (default:
+                        False)
+  --tag_list            Display all tags (device groups) and prompt to select tag to use. Enabled for non-MODEM updates. (default: False)
+  --tag TAG             Create an update for the specified device tag (device group). Overrides --tag_list. (default: )
+  --dev_id DEV_ID       Create an update for the specified device ID. Overrides --tag and --tag_list. (default: )
+  --bundle_id BUNDLE_ID
+                        Create an update using the specified bundle ID. (default: )
+  --name NAME           The name to be used for the created update. (default: )
+  --desc DESC           The description of the created updated. (default: )
+```
+
+An nRF Cloud API key `--apikey` is required to create FOTA updates. It can be found on the nrfcloud.com User Account page.
+By providing `--name`, `--desc`, `--bundle_id` and either `--tag` or `--dev_id`, the script will execute without user interaction. Otherwise, the script will prompt the user for information required to create the FOTA update.
+
+If a FOTA update is successfully created, the script will print the `job id`, which can be used with the FOTA REST API endpoints, e.g. [FetchFOTAJob](https://api.nrfcloud.com/v1#operation/FetchFOTAJob).
+
+## Examples
+
+### Modem FOTA via device tag:
+```
+python3 nrf_cloud_device_mgmt.py --apikey enter_your_api_key_here --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle_id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --tag "device_group_1"
+...
+Created job: 43129aa3-656e-444f-bfd4-2e87932c6199
+```
+
+### Modem FOTA via device ID:
+```
+python3 nrf_cloud_device_mgmt.py --apikey enter_your_api_key_here --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle_id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --dev_id nrf-123456789012345
+...
+Created job: 17058622-683e-48d5-a752-b2a77a13c9c9
+```
