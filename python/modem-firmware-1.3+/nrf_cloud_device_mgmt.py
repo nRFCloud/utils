@@ -30,6 +30,8 @@ FOTA_JOBS_BASE = API_URL + 'fota-jobs'
 FOTA_JOB_NAME_MAX_LEN = 64
 FOTA_JOB_NAME_DESC_LEN = 1024
 
+FOTA_JOB_DEV_ID_LIST_MAX = 100
+
 class updateBy(Enum):
         TAG = 0
         BASE_FW_VER = 1
@@ -350,6 +352,10 @@ def create_fota_job_by_tag(api_key, bundle_id, update_name, update_desc, tag_lis
 
 def create_fota_job_by_device_id(api_key, bundle_id, update_name, update_desc, device_id_list, apply):
 
+    if len(device_id_list) > FOTA_JOB_DEV_ID_LIST_MAX:
+        print('Error: device ID list size of {} exceeds limit of {}'.format(len(device_id_list), FOTA_JOB_DEV_ID_LIST_MAX))
+        return None
+
     payload = get_fota_job_payload_common(bundle_id, update_name, update_desc, apply)
     payload['deviceIds'] = device_id_list
 
@@ -588,6 +594,15 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bund
 
     if update_by != updateBy.TAG:
         update_cnt = len(devices_to_update)
+
+    if (update_by == updateBy.BASE_FW_VER) and (update_cnt > FOTA_JOB_DEV_ID_LIST_MAX):
+        print('Creating a FOTA job using this method has a limit of {} devices'.format(FOTA_JOB_DEV_ID_LIST_MAX))
+        print('Use a device tag to create an update for a larger number of devices.')
+        print('Truncate device list and proceed?')
+        if user_select_yn():
+            del devices_to_update[FOTA_JOB_DEV_ID_LIST_MAX:]
+        else:
+            return None
 
     # display update details and ask user for confirmation
     if update_by == updateBy.DEV_ID:
