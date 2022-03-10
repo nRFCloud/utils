@@ -43,7 +43,7 @@ sec_tag_str=""
 payload_digest = ""
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Modem Credential Parser")
+    parser = argparse.ArgumentParser(description="Modem Credentials Parser")
     parser.add_argument("-k", "--keygen", type=str, help="base64url string: KEYGEN output", default="")
     parser.add_argument("-a", "--attest", type=str, help="base64url string: ATTESTTOKEN output", default="")
     parser.add_argument("-s", "--save", action='store_true', help="Save PEM file(s): <UUID>_<sec_tag>_<type>.pem")
