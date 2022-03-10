@@ -4,10 +4,9 @@
 
 ## Prerequisites
 
-Use Python pip to install missing packages such as `cbor2`, `pyserial`, `colorama` and `pyOpenSSL`.
-
+Use Python pip to install required packages:
 ```
-~$ pip3 install cbor2 pyserial colorama pyOpenSSL
+~$ pip3 install -r requirements.txt
 ```
 
 ## Create CA Cert
@@ -61,9 +60,9 @@ Note: if only a single supported device is detected on a serial port, it will be
 Otherwise, the script displays a list of detected devices and gives the user a choice of which to use.
 
 ```
-usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT]
-                                       [--id_str ID_STR] [--id_imei] [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG]
-                                       [-p PATH] [-P] [-d] [-w PASSWORD] [-t TAGS] [-T SUBTYPE] [-F FWTYPES]
+usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT] [--id_str ID_STR] [--id_imei]
+                                       [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG] [-p PATH] [-P] [-d] [-w PASSWORD] [-t TAGS]
+                                       [-T SUBTYPE] [-F FWTYPES] [--mfwv MFWV] [--mfwv_append]
 
 Device Credentials Installer
 
@@ -72,30 +71,32 @@ optional arguments:
   --dv DV               Number of days cert is valid (default: 3650)
   --ca CA               Filepath to your CA cert PEM (default: )
   --ca_key CA_KEY       Filepath to your CA's private key PEM (default: )
-  --csv CSV             Filepath to provisioning csv file (default: provision.csv)
+  --csv CSV             Filepath to provisioning CSV file (default: provision.csv)
   --port PORT           Specify which serial port to open, otherwise pick from list (default: None)
   --id_str ID_STR       Device ID to use instead of UUID. Will be a prefix if used with --id_imei (default: )
   --id_imei             Use IMEI for device ID instead of UUID. Add a prefix with --id_str (default: False)
-  -a, --append          When saving provisioning csv, append to it (default: False)
+  -a, --append          When saving provisioning CSV, append to it (default: False)
   -A, --all             List ports of all types, not just Nordic devices (default: False)
-  -g, --gateway         Force use of shell commands to enter and exit at command mode (default: False)
+  -g, --gateway         Force use of shell commands to enter and exit AT command mode (default: False)
   -f FILEPREFIX, --fileprefix FILEPREFIX
                         Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s (default: )
-  -v, --verbose         bool: make output verbose (default: False)
+  -v, --verbose         bool: Make output verbose (default: False)
   -s, --save            Save PEM file(s): <UUID>_<sec_tag>_<type>.pem (default: False)
   -S SECTAG, --sectag SECTAG
-                        integer: security tag to use (default: 16842753)
+                        integer: Security tag to use (default: 16842753)
   -p PATH, --path PATH  Path to save files. Selects -s (default: ./)
-  -P, --plain           bool: plain output (no colors) (default: False)
-  -d, --delete          bool: delete sectag from modem first (default: False)
+  -P, --plain           bool: Plain output (no colors) (default: False)
+  -d, --delete          bool: Delete sectag from modem first (default: False)
   -w PASSWORD, --password PASSWORD
                         nRF Cloud Gateway password (default: nordic)
-  -t TAGS, --tags TAGS  pipe (|) delimited device tags (default: )
+  -t TAGS, --tags TAGS  Pipe (|) delimited device tags; enclose in double quotes (default: )
   -T SUBTYPE, --subtype SUBTYPE
-                        custom device type (default: )
+                        Custom device type (default: )
   -F FWTYPES, --fwtypes FWTYPES
-                        pipe (|) delimited firmware types for FOTA of the set {APP MODEM BOOT SOFTDEVICE BOOTLOADER}
-                        (default: APP|MODEM)
+                        Pipe (|) delimited firmware types for FOTA of the set {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double
+                        quotes (default: APP|MODEM)
+  --mfwv MFWV           Filepath for CSV file which will contain the device ID and installed modem firmware version. (default: None)
+  --mfwv_append         When saving modem firmware version CSV, append to it (default: False)
 ```
 
 ## Examples
@@ -327,7 +328,7 @@ Your nRF Cloud REST API key is a required parameter. See [https://nrfcloud.com/#
 Also required is a CSV file compatible with the [ProvisionDevice](https://api.nrfcloud.com/v1/#operation/ProvisionDevices) endpoint. You can use the provisioning CSV file produced by `device_credentials_installer.py`.
 
 ```
-usage: nrf_cloud_provision.py [-h] --apikey APIKEY [--chk] [--csv CSV] [--res RES]
+usage: nrf_cloud_provision.py [-h] --apikey APIKEY [--chk] [--csv CSV] [--res RES] [--mfwv MFWV]
 
 nRF Cloud Device Provisioning
 
@@ -337,6 +338,7 @@ optional arguments:
   --chk            For single device provisioning, check if device exists before provisioning (default: False)
   --csv CSV        Filepath to provisioning CSV file (default: provision.csv)
   --res RES        Filepath where the CSV-formatted provisioning result(s) will be saved (default: )
+  --mfwv MFWV      Optional filepath to CSV file containing device ID and installed modem firmware version (default: None)
 ```
 
 ## Example
@@ -380,20 +382,20 @@ The parsed data is displayed in the output.  Providing the COSE string to this s
 
 
 ```
-usage: modem_credentials_parser.py [-h] [-k KEYGEN] [-a ATTEST]
+usage: modem_credentials_parser.py [-h] [-k KEYGEN] [-a ATTEST] [-s] [-p PATH] [-f FILEPREFIX]
 
 Modem Credentials Parser
 
 optional arguments:
-  -h, --help                  show this help message and exit
+  -h, --help            show this help message and exit
   -k KEYGEN, --keygen KEYGEN
-                              base64url string: KEYGEN output
+                        base64url string: KEYGEN output
   -a ATTEST, --attest ATTEST
-                              base64url string: ATTESTTOKEN output
-  -s, --save                  Save PEM file(s): <UUID>_<sec_tag>_<type>.pem
-  -p PATH, --path PATH        Path to save PEM file. Selects -s
+                        base64url string: ATTESTTOKEN output
+  -s, --save            Save PEM file(s): <UUID>_<sec_tag>_<type>.pem
+  -p PATH, --path PATH  Path to save PEM file. Selects -s
   -f FILEPREFIX, --fileprefix FILEPREFIX
-                              Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s
+                        Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s
 ```
 
 Parse modem [KEYGEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/keygen_set.html) output; with or without COSE string:
@@ -623,8 +625,8 @@ Use the `nrf_cloud_device_mgmt.py` script to create FOTA update jobs.
 Currently only `MODEM` FOTA update types are supported.
 
 ```
-usage: nrf_cloud_device_mgmt.py [-h] --apikey APIKEY [--type TYPE] [--apply] [--rd] [--ad] [--tag_list] [--tag TAG]
-                                [--dev_id DEV_ID] [--bundle_id BUNDLE_ID] [--name NAME] [--desc DESC]
+usage: nrf_cloud_device_mgmt.py [-h] --apikey APIKEY [--type TYPE] [--apply] [--rd] [--ad] [--tag_list] [--tag TAG] [--dev_id DEV_ID]
+                                [--bundle_id BUNDLE_ID] [--name NAME] [--desc DESC]
 
 nRF Cloud Device Provisioning
 
@@ -632,11 +634,10 @@ optional arguments:
   -h, --help            show this help message and exit
   --apikey APIKEY       nRF Cloud API key (default: )
   --type TYPE           FOTA update type: APP, MODEM, or BOOT (default: MODEM)
-  --apply               Apply job upon creation; this starts the job. If not enabled, the job must be applied using the
-                        ApplyFOTAJob endpoint. (default: False)
+  --apply               Apply job upon creation; this starts the job. If not enabled, the job must be applied using the ApplyFOTAJob
+                        endpoint. (default: False)
   --rd                  Display only devices that support the requested FOTA type (default: False)
-  --ad                  Display all devices. Only specified device is displayed if used with --dev_id. Overrides --rd. (default:
-                        False)
+  --ad                  Display all devices. Only specified device is displayed if used with --dev_id. Overrides --rd. (default: False)
   --tag_list            Display all tags (device groups) and prompt to select tag to use. Enabled for non-MODEM updates. (default: False)
   --tag TAG             Create an update for the specified device tag (device group). Overrides --tag_list. (default: )
   --dev_id DEV_ID       Create an update for the specified device ID. Overrides --tag and --tag_list. (default: )
