@@ -108,6 +108,15 @@ def parse_args():
     parser.add_argument("--mfwv_append",
                         help="When saving modem firmware version CSV, append to it",
                         action='store_true', default=False)
+    parser.add_argument("--xonxoff",
+                        help="Enable software flow control for serial connection",
+                        action='store_true', default=False)
+    parser.add_argument("--rtscts",
+                        help="Enable hardware (RTS/CTS) flow control for serial connection",
+                        action='store_true', default=True)
+    parser.add_argument("--dsrdtr",
+                        help="Enable hardware (DSR/DTR) flow control for serial connection",
+                        action='store_true', default=False)
     args = parser.parse_args()
     verbose = args.verbose
     return args
@@ -307,6 +316,9 @@ def user_request_open_mode(filename, append):
 def save_mfw_ver_csv(csv_filename, append, dev_id, mfw_ver):
     mode = user_request_open_mode(csv_filename, append)
 
+    if mode == None:
+        return
+
     row = str('{},{}\n'.format(dev_id, mfw_ver))
 
     if mode == 'a':
@@ -327,6 +339,9 @@ def save_mfw_ver_csv(csv_filename, append, dev_id, mfw_ver):
 
 def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, dev):
     mode = user_request_open_mode(csv_filename, append)
+
+    if mode == None:
+        return
 
     row = [dev_id, sub_type, tags, fw_types, str(dev, encoding=full_encoding)]
 
@@ -408,7 +423,8 @@ def main():
 
     # try to open the serial port
     try:
-        ser = serial.Serial(port, 115200, rtscts=True, timeout=serial_timeout)
+        ser = serial.Serial(port, 115200, xonxoff= args.xonxoff, rtscts=args.rtscts,
+                            dsrdtr=args.dsrdtr, timeout=serial_timeout)
         ser.reset_input_buffer()
         ser.reset_output_buffer()
     except serial.serialutil.SerialException:
