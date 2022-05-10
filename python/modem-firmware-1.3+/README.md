@@ -97,6 +97,15 @@ optional arguments:
                         quotes (default: APP|MODEM)
   --mfwv MFWV           Filepath for CSV file which will contain the device ID and installed modem firmware version. (default: None)
   --mfwv_append         When saving modem firmware version CSV, append to it (default: False)
+  --xonxoff             Enable software flow control for
+                        serial connection (default:
+                        False)
+  --rtscts              Enable hardware (RTS/CTS) flow
+                        control for serial connection
+                        (default: True)
+  --dsrdtr              Enable hardware (DSR/DTR) flow
+                        control for serial connection
+                        (default: False)
 ```
 
 ## Examples
