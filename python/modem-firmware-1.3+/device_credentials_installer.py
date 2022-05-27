@@ -111,9 +111,9 @@ def parse_args():
     parser.add_argument("--xonxoff",
                         help="Enable software flow control for serial connection",
                         action='store_true', default=False)
-    parser.add_argument("--rtscts",
-                        help="Enable hardware (RTS/CTS) flow control for serial connection",
-                        action='store_true', default=True)
+    parser.add_argument("--rtscts_off",
+                        help="Disable hardware (RTS/CTS) flow control for serial connection",
+                        action='store_true', default=False)
     parser.add_argument("--dsrdtr",
                         help="Enable hardware (DSR/DTR) flow control for serial connection",
                         action='store_true', default=False)
@@ -423,7 +423,7 @@ def main():
 
     # try to open the serial port
     try:
-        ser = serial.Serial(port, 115200, xonxoff= args.xonxoff, rtscts=args.rtscts,
+        ser = serial.Serial(port, 115200, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
                             dsrdtr=args.dsrdtr, timeout=serial_timeout)
         ser.reset_input_buffer()
         ser.reset_output_buffer()

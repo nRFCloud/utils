@@ -100,9 +100,7 @@ optional arguments:
   --xonxoff             Enable software flow control for
                         serial connection (default:
                         False)
-  --rtscts              Enable hardware (RTS/CTS) flow
-                        control for serial connection
-                        (default: True)
+  --rtscts_off          Disable hardware (RTS/CTS) flow control for serial connection (default: False)
   --dsrdtr              Enable hardware (DSR/DTR) flow
                         control for serial connection
                         (default: False)
