@@ -22,7 +22,13 @@ from colorama import init, Fore, Back, Style
 from cryptography import x509
 import OpenSSL.crypto
 from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
+from enum import Enum
 
+CMD_TERM_DICT = {'NULL': '\0',
+                 'CR':   '\r',
+                 'LF':   '\n',
+                 'CRLF': '\r\n'}
+cmd_term_key = 'LF'
 is_macos = platform.system() == 'Darwin'
 is_windows = platform.system() == 'Windows'
 is_linux = platform.system() == 'Linux'
@@ -117,6 +123,9 @@ def parse_args():
     parser.add_argument("--dsrdtr",
                         help="Enable hardware (DSR/DTR) flow control for serial connection",
                         action='store_true', default=False)
+    parser.add_argument("--term", type=str,
+                        help="AT command termination:" + "".join([' {}'.format(k) for k, v in CMD_TERM_DICT.items()]),
+                        default=cmd_term_key)
     args = parser.parse_args()
     verbose = args.verbose
     return args
@@ -223,9 +232,10 @@ def ask_for_port(selected_port, list_all):
         return port
 
 def write_line(line, hidden = False):
+    global cmd_term_key
     if not hidden:
         print(send_style('-> {}'.format(line)))
-    ser.write(bytes('{}\r'.format(line).encode('utf-8')))
+    ser.write(bytes((line + CMD_TERM_DICT[cmd_term_key]).encode('utf-8')))
 
 def handle_login():
     global password
@@ -249,11 +259,18 @@ def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
     ser.flush()
     while not found and timeout != 0:
         line = ser.readline()
+
+        if line == b'\r\n':
+            # Skip the initial CRLF (see 3GPP TS 27.007 AT cmd specification)
+            continue
+
         if line == None or len(line) == 0:
             if timeout > 0:
                 timeout -= serial_timeout
             continue
+
         sys.stdout.write('<- ' + str(line, encoding=full_encoding))
+
         if val1 in line:
             found = True
             retval = True
@@ -262,11 +279,16 @@ def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
             retval = False
         elif store != None and (store in line or str(store) in str(line)):
             output = line
+
     lf_done = b'\n' in line
     ser.flush()
     if store != None and output == None:
         print(error_style('String {} not detected in line {}'.format(store,
                                                                      line)))
+
+    if timeout == 0:
+        print(error_style('Serial timeout'))
+
     return retval, output
 
 def check_if_device_exists_in_csv(csv_filename, dev_id):
@@ -389,11 +411,17 @@ def main():
     global ser
     global password
     global is_gateway
+    global cmd_term_key
 
     # initialize argumenst
     args = parse_args()
     plain = args.plain
     password = args.password
+
+    if args.term in CMD_TERM_DICT.keys():
+        cmd_term_key = args.term
+    else:
+        print(error_style('Invalid --term value provided, using default'))
 
     id_len = len(args.id_str)
     if (id_len > DEV_ID_MAX_LEN) or (args.id_imei and ((id_len + IMEI_LEN) > DEV_ID_MAX_LEN)):
@@ -468,7 +496,7 @@ def main():
     write_line('AT+CGMR')
     retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
     if not retval:
-        print(error_style('Failed to obtain IMEI'))
+        print(error_style('Failed to obtain modem FW version'))
         cleanup()
         sys.exit(3)
     # display version for reference
