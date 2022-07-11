@@ -104,7 +104,7 @@ optional arguments:
   --dsrdtr              Enable hardware (DSR/DTR) flow
                         control for serial connection
                         (default: False)
-  --term TERM           AT command termination: 0:NULL, 1:CR, 2:LF, 3:CRLF (default: 1)
+  --term TERM           AT command termination: NULL CR LF CRLF (default: CR)
 ```
 
 ## Examples
