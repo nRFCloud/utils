@@ -28,7 +28,8 @@ CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
                  'LF':   '\n',
                  'CRLF': '\r\n'}
-cmd_term_key = 'LF'
+# 'CR' is the default termination value for the at_host library in the nRF Connect SDK
+cmd_term_key = 'CR'
 is_macos = platform.system() == 'Darwin'
 is_windows = platform.system() == 'Windows'
 is_linux = platform.system() == 'Linux'
