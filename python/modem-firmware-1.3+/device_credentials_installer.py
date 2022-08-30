@@ -109,11 +109,11 @@ def parse_args():
                         Pipe (|) delimited firmware types for FOTA of the set
                         {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double quotes
                         """, default="APP|MODEM")
-    parser.add_argument("--mfwv", type=str,
-                        help="Filepath for CSV file which will contain the device ID and installed modem firmware version.",
+    parser.add_argument("--devinfo", type=str,
+                        help="Filepath for device info CSV file which will contain the device ID, installed modem FW version, and IMEI",
                         default=None)
-    parser.add_argument("--mfwv_append",
-                        help="When saving modem firmware version CSV, append to it",
+    parser.add_argument("--devinfo_append",
+                        help="When saving device info CSV, append to it",
                         action='store_true', default=False)
     parser.add_argument("--xonxoff",
                         help="Enable software flow control for serial connection",
@@ -336,26 +336,26 @@ def user_request_open_mode(filename, append):
 
     return mode
 
-def save_mfw_ver_csv(csv_filename, append, dev_id, mfw_ver):
+def save_devinfo_csv(csv_filename, append, dev_id, mfw_ver, imei):
     mode = user_request_open_mode(csv_filename, append)
 
     if mode == None:
         return
 
-    row = str('{},{}\n'.format(dev_id, mfw_ver))
+    row = str('{},{},{}\n'.format(dev_id, mfw_ver, imei))
 
     if mode == 'a':
         exists, row_count = check_if_device_exists_in_csv(csv_filename, dev_id)
 
         if exists:
-            print(error_style('Device already exists in modem firmware CSV, the following row was NOT added:'))
+            print(error_style('Device already exists in device info CSV, the following row was NOT added:'))
             print(local_style(','.join(row)))
             return
 
     try:
-        with open(csv_filename, mode, newline='\n') as mfwv_file:
-            mfwv_file.write(row)
-        print(local_style('Modem firmware version CSV file saved'))
+        with open(csv_filename, mode, newline='\n') as devinfo_file:
+            devinfo_file.write(row)
+        print(local_style('Device info CSV file saved'))
 
     except OSError:
         print(error_style('Error opening file {}'.format(csv_filename)))
@@ -631,9 +631,9 @@ def main():
         save_provisioning_csv(args.csv, args.append, dev_id, sub_type, args.tags,
                               args.fwtypes, dev)
 
-    # write device ID and modem firmware version to a file
-    if args.mfwv:
-        save_mfw_ver_csv(args.mfwv, args.mfwv_append, dev_id, mfw_ver)
+    # write device ID, modem firmware version, and IMEI to a file
+    if args.devinfo:
+        save_devinfo_csv(args.devinfo, args.devinfo_append, dev_id, mfw_ver, imei)
 
     cleanup()
 

@@ -50,8 +50,17 @@ def parse_args():
                         help="Filepath to provisioning CSV file", default="provision.csv")
     parser.add_argument("--res", type=str,
                         help="Filepath where the CSV-formatted provisioning result(s) will be saved", default="")
-    parser.add_argument("--mfwv", type=str,
-                        help="Optional filepath to CSV file containing device ID and installed modem firmware version",
+    parser.add_argument("--devinfo", type=str,
+                        help="Optional filepath to device info CSV file containing device ID, installed modem FW version, and IMEI",
+                        default=None)
+    parser.add_argument("--set_mfwv",
+                        help="Set the modem FW version in the device's shadow. Requires --devinfo.",
+                        action='store_true', default=False)
+    parser.add_argument("--name_imei",
+                        help="Use the device's IMEI as the friendly name. Requires --devinfo.",
+                        action='store_true', default=False)
+    parser.add_argument("--name_prefix", type=str,
+                        help="Prefix string for IMEI friendly name",
                         default=None)
 
     args = parser.parse_args()
@@ -71,6 +80,12 @@ def fetch_device(api_key, device_id):
     hdr = {'Authorization': 'Bearer ' + api_key}
     req = API_URL + "devices/" + device_id
     return requests.get(req, headers=hdr)
+
+def update_device_name(api_key, device_id, name):
+    hdr = {'Authorization': 'Bearer ' + api_key}
+    req = API_URL + "devices/" + device_id + "/name"
+    json_payload = [name]
+    return requests.put(req, json=json_payload, headers=hdr)
 
 def provision_devices(api_key, csv_filepath):
     hdr = {'Authorization': 'Bearer ' + api_key,
@@ -214,20 +229,25 @@ def read_prov_csv(csv_filepath):
 
     return device_list
 
-def read_mfwv_csv(csv_filepath):
-    mfw_ver_list = []
+def read_devinfo_csv(csv_filepath):
+    devinfo_list = []
     with open(csv_filepath) as csvfile:
-        mfwv = csv.reader(csvfile, delimiter=',')
+        devinfo = csv.reader(csvfile, delimiter=',')
 
-        for row_idx, row in enumerate(mfwv):
-            # First column in each row is the device ID
-            # Add a list to the list [ <device_id>, <mfw_version> ]
+        for row_idx, row in enumerate(devinfo):
             try:
-                mfw_ver_list.append([row[0], row[1]])
+                imei = row[2]
+            except IndexError:
+                imei = ''
+
+            # First column in each row is the device ID
+            # Add a list to the list [ <device_id>, <mfw_version>, <imei>]
+            try:
+                devinfo_list.append([row[0], row[1], imei])
             except IndexError:
                 print("Error reading row {} of modem firmware CSV file.".format(row_idx + 1))
 
-    return mfw_ver_list
+    return devinfo_list
 
 def save_or_print(results, result_filepath, append):
     # Save to file or print to console
@@ -386,32 +406,22 @@ def do_provisioning(api_key, csv_in, res_out, do_check):
     else:
         return ProvisionResult.PERFORMED_WITH_ERRORS
 
-def set_mfw_ver_in_shadow(api_key, csv_in, res_out):
-    if not csv_in:
-        return
-
+def update_mfwv_in_shadow(api_key, devinfo_list, res_out):
     err_cnt = 0
     res_list = []
-
-    mfwv_list = read_mfwv_csv(csv_in)
     res_file_exists = False
-
-    if len(mfwv_list) == 0:
-        print("Modem firmware version CSV file is empty")
-        return
-
-    print("Writing modem firmware version to shadow for {} devices...".format(len(mfwv_list)))
-
     result_filepath = ''
+
     if res_out:
         result_filepath = check_file_path(res_out)
         if not result_filepath:
             return
         res_file_exists = os.path.exists(result_filepath)
 
+    print("Writing modem firmware version to shadow for {} devices...".format(len(devinfo_list)))
+
     # Update each device's shadow with its installed modem firmware version
-    for dev in mfwv_list:
-        result = []
+    for dev in devinfo_list:
         id = dev[0]
         ver = dev[1]
         shadow_json = {"reported": {"device": {"deviceFirmware": {"modemFirmware": ver}}}}
@@ -448,6 +458,41 @@ def set_mfw_ver_in_shadow(api_key, csv_in, res_out):
 
     save_or_print(results, result_filepath, True)
 
+def set_friendly_name(api_key, devinfo_list, name_prefix):
+    for dev in devinfo_list:
+        id = dev[0]
+        # Update each device's friendly name
+        try:
+            imei = dev[2]
+        except IndexError:
+            imei = ''
+
+        if not imei:
+            print("Friendly name not set, IMEI not found for device ID: {}".format(id))
+            continue
+
+        if name_prefix:
+            imei = name_prefix + imei
+        res = update_device_name(api_key, id, imei)
+        if res.status_code != 202:
+            print_api_result("Failed to update friendly name for {}: ".format(id), res, True)
+
+def process_device_info_csv(api_key, csv_in, res_out, set_mfwv, set_name, name_prefix):
+    if not csv_in:
+        return
+
+    devinfo_list = read_devinfo_csv(csv_in)
+
+    if len(devinfo_list) == 0:
+        print("Device info CSV file is empty")
+        return
+
+    if set_mfwv:
+        update_mfwv_in_shadow(api_key, devinfo_list, res_out)
+
+    if set_name:
+        set_friendly_name(api_key, devinfo_list, name_prefix)
+
 def main():
 
     if not len(sys.argv) > 1:
@@ -463,7 +508,8 @@ def main():
     if prov_res is ProvisionResult.PERFORMED_SUCCESSFULLY or \
        prov_res is ProvisionResult.PERFORMED_RESULTS_NOT_CONFIRMED or \
        prov_res is ProvisionResult.PERFORMED_WITH_ERRORS:
-        set_mfw_ver_in_shadow(args.apikey, args.mfwv, args.res)
+        process_device_info_csv(args.apikey, args.devinfo, args.res,
+                              args.set_mfwv, args.name_imei, args.name_prefix)
 
     return
 
