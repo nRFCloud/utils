@@ -424,7 +424,7 @@ def update_mfwv_in_shadow(api_key, devinfo_list, res_out):
     for dev in devinfo_list:
         id = dev[0]
         ver = dev[1]
-        shadow_json = {"reported": {"device": {"deviceFirmware": {"modemFirmware": ver}}}}
+        shadow_json = {"reported": {"device": {"deviceInfo": {"modemFirmware": ver}}}}
 
         res_text = 'OK'
         res = update_device_shadow(api_key, id, shadow_json)
