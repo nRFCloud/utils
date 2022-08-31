@@ -60,9 +60,8 @@ Note: if only a single supported device is detected on a serial port, it will be
 Otherwise, the script displays a list of detected devices and gives the user a choice of which to use.
 
 ```
-usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT] [--id_str ID_STR] [--id_imei]
-                                       [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG] [-p PATH] [-P] [-d] [-w PASSWORD] [-t TAGS]
-                                       [-T SUBTYPE] [-F FWTYPES] [--mfwv MFWV] [--mfwv_append]
+usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT] [--id_str ID_STR] [--id_imei] [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG] [-p PATH]
+                                       [-P] [-d] [-w PASSWORD] [-t TAGS] [-T SUBTYPE] [-F FWTYPES] [--devinfo DEVINFO] [--devinfo_append] [--xonxoff] [--rtscts_off] [--dsrdtr] [--term TERM]
 
 Device Credentials Installer
 
@@ -93,17 +92,12 @@ optional arguments:
   -T SUBTYPE, --subtype SUBTYPE
                         Custom device type (default: )
   -F FWTYPES, --fwtypes FWTYPES
-                        Pipe (|) delimited firmware types for FOTA of the set {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double
-                        quotes (default: APP|MODEM)
-  --mfwv MFWV           Filepath for CSV file which will contain the device ID and installed modem firmware version. (default: None)
-  --mfwv_append         When saving modem firmware version CSV, append to it (default: False)
-  --xonxoff             Enable software flow control for
-                        serial connection (default:
-                        False)
+                        Pipe (|) delimited firmware types for FOTA of the set {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double quotes (default: APP|MODEM)
+  --devinfo DEVINFO     Filepath for device info CSV file which will contain the device ID, installed modem FW version, and IMEI (default: None)
+  --devinfo_append      When saving device info CSV, append to it (default: False)
+  --xonxoff             Enable software flow control for serial connection (default: False)
   --rtscts_off          Disable hardware (RTS/CTS) flow control for serial connection (default: False)
-  --dsrdtr              Enable hardware (DSR/DTR) flow
-                        control for serial connection
-                        (default: False)
+  --dsrdtr              Enable hardware (DSR/DTR) flow control for serial connection (default: False)
   --term TERM           AT command termination: NULL CR LF CRLF (default: CR)
 ```
 
@@ -336,17 +330,21 @@ Your nRF Cloud REST API key is a required parameter. See [https://nrfcloud.com/#
 Also required is a CSV file compatible with the [ProvisionDevice](https://api.nrfcloud.com/v1/#operation/ProvisionDevices) endpoint. You can use the provisioning CSV file produced by `device_credentials_installer.py`.
 
 ```
-usage: nrf_cloud_provision.py [-h] --apikey APIKEY [--chk] [--csv CSV] [--res RES] [--mfwv MFWV]
+usage: nrf_cloud_provision.py [-h] --apikey APIKEY [--chk] [--csv CSV] [--res RES] [--devinfo DEVINFO] [--set_mfwv] [--name_imei] [--name_prefix NAME_PREFIX]
 
 nRF Cloud Device Provisioning
 
 optional arguments:
-  -h, --help       show this help message and exit
-  --apikey APIKEY  nRF Cloud API key (default: )
-  --chk            For single device provisioning, check if device exists before provisioning (default: False)
-  --csv CSV        Filepath to provisioning CSV file (default: provision.csv)
-  --res RES        Filepath where the CSV-formatted provisioning result(s) will be saved (default: )
-  --mfwv MFWV      Optional filepath to CSV file containing device ID and installed modem firmware version (default: None)
+  -h, --help            show this help message and exit
+  --apikey APIKEY       nRF Cloud API key (default: )
+  --chk                 For single device provisioning, check if device exists before provisioning (default: False)
+  --csv CSV             Filepath to provisioning CSV file (default: provision.csv)
+  --res RES             Filepath where the CSV-formatted provisioning result(s) will be saved (default: )
+  --devinfo DEVINFO     Optional filepath to device info CSV file containing device ID, installed modem FW version, and IMEI (default: None)
+  --set_mfwv            Set the modem FW version in the device's shadow. Requires --devinfo. (default: False)
+  --name_imei          Use the device's IMEI as the friendly name. Requires --devinfo. (default: False)
+  --name_prefix NAME_PREFIX
+                        Prefix string for IMEI friendly name (default: None)
 ```
 
 ## Example
