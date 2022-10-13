@@ -6,4 +6,4 @@ The scripts are gathered from various teams and organized according to their pro
 
 Please see the README in each folder for more information pertaining to each language.
 
-See also the official nRF Cloud documentation on [Device Security](https://docs.nrfcloud.com/Reference/Devices/Security), as well as the [Getting Started with Your Devices guide](https://docs.nrfcloud.com/Guides/GettingStarted/Devices).
+See also the official nRF Cloud documentation on [Device Security](https://docs.nrfcloud.com/Devices/DeviceSecurity/Security), as well as the [Getting Started with Your Devices guide](https://docs.nrfcloud.com/GettingStarted/).
