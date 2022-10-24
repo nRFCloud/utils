@@ -7,10 +7,9 @@
 import argparse
 import sys
 import requests
-import json
 import requests
+import urllib
 from datetime import datetime
-from os import path
 from os import makedirs
 from ast import literal_eval
 from enum import Enum
@@ -188,6 +187,9 @@ class nRFCloudDevice:
             self.boot_fota = False
             self.mfw_fota = False
 
+def url_encode(token):
+    return urllib.parse.quote_plus(token)
+
 def parse_args():
     parser = argparse.ArgumentParser(description="nRF Cloud Device Provisioning",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -259,7 +261,7 @@ def get_bundle_list(api_key, modem_only):
                 bundle_list.append(updateBundle(i))
 
         if 'pageNextToken' in api_res_json.keys():
-            next_tok = api_res_json['pageNextToken']
+            next_tok = url_encode(api_res_json['pageNextToken'])
         else:
             next_tok = ''
             break
@@ -305,7 +307,7 @@ def get_device_list(api_key, fota_types_list, device_id):
                 dev_list.append(nRFCloudDevice(i))
 
         if 'pageNextToken' in api_res_json.keys():
-            next_tok = api_res_json['pageNextToken']
+            next_tok = url_encode(api_res_json['pageNextToken'])
         else:
             next_tok = ''
             break
@@ -324,7 +326,7 @@ def create_fota_job(api_key, json_payload_obj):
 
     api_res = requests.post(req, json=json_payload_obj, headers=hdr)
     if api_res.status_code != 200:
-            print_api_result("ListFirmware API call failed", api_res, True)
+            print_api_result("CreateFOTAJob API call failed", api_res, True)
     else:
         api_res_json = api_res.json()
 
@@ -486,7 +488,7 @@ def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bund
         if tag:
             try:
                 tag_idx = tag_list.index(tag)
-                # print warning if tagged devices have different mfg versions installed
+                # print warning if tagged devices have different mfw versions installed
                 check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, False)
             except ValueError:
                 print('Tag list: {}'.format(tag_list))
