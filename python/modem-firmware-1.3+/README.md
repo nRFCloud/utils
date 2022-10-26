@@ -628,7 +628,6 @@ File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_pub.
 
 ## Device Management - Creating FOTA Updates:
 Use the `nrf_cloud_device_mgmt.py` script to create FOTA update jobs.
-Currently only `MODEM` FOTA update types are supported.
 
 ```
 usage: nrf_cloud_device_mgmt.py [-h] --apikey APIKEY [--type TYPE] [--apply] [--rd] [--ad] [--tag_list] [--tag TAG] [--dev_id DEV_ID]

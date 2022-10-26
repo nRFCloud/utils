@@ -7,14 +7,11 @@
 import argparse
 import sys
 import requests
-import requests
-import urllib
-from datetime import datetime
-from os import makedirs
-from ast import literal_eval
-from enum import Enum
 import textwrap
-from modem_credentials_parser import write_file
+import urllib
+from urllib.parse import quote_plus as url_encode
+from datetime import datetime
+from enum import Enum
 
 API_URL = "https://api.nrfcloud.com/v1/"
 
@@ -65,15 +62,17 @@ class updateBundle:
         except:
             self.id = ''
 
+        # name is optional
         try:
             self.name = list_item['name']
         except:
-            self.name = None
+            self.name = 'N/A'
 
+        # description is optional
         try:
             self.desc = list_item['description']
         except:
-            self.desc = None
+            self.desc = 'N/A'
 
         try:
             self.type = list_item['type']
@@ -117,13 +116,11 @@ class nRFCloudDevice:
     sub_type = ''
 
     def __repr__(self):
-        dev_str = '{}, {}, App[{}, {}, {}], Modem[{}, {}], Boot[{}, {}], Tags{}'.format(
-            self.id, self.name,
-            self.app_name, self.app_ver, self.app_fota,
-            self.mfw_ver, self.mfw_fota,
-            self.boot_ver, self.boot_fota,
-            self.tags)
-        return dev_str
+        return f'{self.id}, {self.name}, ' \
+               f'App[{self.app_name}, {self.app_ver}, {self.app_fota}], ' \
+               f'Modem[{self.mfw_ver}, {self.mfw_fota}], ' \
+               f'Boot[{self.boot_ver}, {self.boot_fota}], ' \
+               f'Tags{self.tags}'
 
     def __init__(self, id):
        self.id = id
@@ -174,18 +171,10 @@ class nRFCloudDevice:
         except:
             self.app_name = None
 
-        try:
-            for supported_type in list_item['firmware']['supports']:
-                if supported_type == 'APP':
-                    self.app_fota = True
-                elif supported_type == 'BOOT':
-                    self.boot_fota = True
-                elif supported_type == 'MODEM':
-                    self.mfw_fota = True
-        except:
-            self.app_fota = False
-            self.boot_fota = False
-            self.mfw_fota = False
+        supported = list_item.get('firmware', {}).get('supports', [])
+        self.app_fota       = 'APP' in supported
+        self.boot_fota      = 'BOOT' in supported
+        self.mfw_fota       = 'MODEM' in supported
 
 def url_encode(token):
     return urllib.parse.quote_plus(token)
@@ -269,8 +258,8 @@ def get_bundle_list(api_key, modem_only):
     return sorted(bundle_list, key=lambda bundle : bundle.date)
 
 def get_requested_bundles(api_key, fota_type):
-    bundles = get_bundle_list(api_key, fota_type == updateBundle.fotaType.MODEM.name)
-    return [i for i in bundles if i.type == fota_type]
+    bundles = get_bundle_list(api_key, fota_type == updateBundle.fotaType.MODEM)
+    return [i for i in bundles if i.type == fota_type.name]
 
 def get_device_list(api_key, fota_types_list, device_id):
     hdr = {'Authorization': 'Bearer ' + api_key}
@@ -363,7 +352,242 @@ def create_fota_job_by_device_id(api_key, bundle_id, update_name, update_desc, d
 
     return create_fota_job(api_key, payload)
 
+def get_selected_bundle_index(bundle_list, bundle_id, fota_type):
+    idx = -1
+
+    if bundle_id:
+        # locate the provided bundle id
+        for bund in bundle_list:
+            if bund.id == bundle_id:
+                idx = bundle_list.index(bund)
+                break
+
+        if idx < 0:
+            print('Error: Bundle ID \'{}\' was not found'.format(bundle_id))
+
+    else:
+        # bundle id not provided
+        # display the available bundles and get user selection
+        print('Available {} firmware bundles:'.format(fota_type.name))
+        for bund in bundle_list:
+             # some modem bundle names may include a tenant id, trim it off
+            bund_name = bund.name
+            tenant_idx = bund_name.rfind("TenantId:")
+            if tenant_idx > 0: # in case bundle name only has a tenant id
+                bund_name = bund.name[0:tenant_idx]
+            # print a numbered list with useful bundle info
+            print('{}.) {}'.format(bundle_list.index(bund) + 1, bund_name))
+            print('\tVersion:   {}\n\tBundle ID: {}\n\tModified:  {}'.format(bund.ver, bund.id, bund.date))
+            # format and print the bundle description
+            desc_list = textwrap.wrap('\"{}\"'.format(bund.desc),initial_indent='\t',subsequent_indent='\t',width=99)
+            for line in desc_list:
+                print(line)
+
+        print('Select {} firmware bundle for the update...'.format(fota_type.name))
+        idx = user_select_from_list(len(bundle_list))
+
+    return idx
+
+def print_current_fw_info(device, fota_type):
+    ver = 'N/A'
+    name = 'N/A'
+
+    if fota_type == updateBundle.fotaType.APP:
+        if device.app_ver:
+            ver = device.app_ver
+        if device.app_name:
+            name = device.app_name
+    elif fota_type == updateBundle.fotaType.BOOT and device.boot_ver:
+        ver = device.boot_ver
+    elif fota_type == updateBundle.fotaType.MODEM and device.mfw_ver:
+        ver = device.mfw_ver
+
+    print('\nDevice \'{}\' current {} info:\n\tName: {}\n\tVersion: {}\n'
+            .format(device.id, fota_type.name, name, ver))
+
+    return ver
+
+def print_update_summary(update_by, fota_type, job_name, job_desc, cur_ver, new_ver, devices_to_update, tag_to_update):
+
+    update_summary = 'The following update will be created for '
+
+    if update_by == updateBy.DEV_ID:
+        update_summary = update_summary + 'device {}:'.format(devices_to_update[0])
+    else:
+        update_summary = update_summary + '{} device(s):'.format(len(devices_to_update))
+
+    print(update_summary)
+
+    print('\tName: {}'.format(job_name))
+    print('\tDescription: {}'.format(job_desc))
+    print('\tType: {}'.format(fota_type.name))
+
+    if update_by == updateBy.TAG:
+        print('\tVersion: Tag[\'{}\'] --> {}'.format(tag_to_update, new_ver))
+    else:
+        print('\tVersion: {} --> {}'.format(cur_ver, new_ver))
+
+def get_device_ids_to_update(device_list, update_by, tag_to_update, cur_fw_ver):
+    list_out = []
+
+    for dev in device_list:
+        if update_by == updateBy.TAG:
+            if tag_to_update in dev.tags:
+                list_out.append(dev.id)
+        elif update_by == updateBy.BASE_FW_VER:
+            # only supported for modem fw types
+            if cur_fw_ver == dev.mfw_ver:
+                list_out.append(dev.id)
+        else: # updateBy.DEV_ID:
+            list_out.append(dev.id)
+
+    return list_out
+
+def find_or_select_tag(device_list, tag, fota_type):
+    tag_list = get_tag_list(device_list)
+
+    if not tag_list:
+            return None
+
+    if tag:
+        if tag in tag_list:
+            if fota_type == updateBundle.fotaType.MODEM:
+                # print warning if tagged devices have different mfw versions installed
+                tag = check_tagged_modem_fw_versions(device_list, tag, False)
+            return tag
+        else:
+            print('Tag list: {}'.format(tag_list))
+            print('Error: No devices found with tag \'{}\''.format(tag))
+            return None
+
+    # ask user to select a tag
+    while True:
+        tag_idx = user_select_tag(tag_list, device_list)
+        if tag_idx < 0:
+            return None
+
+        tag = tag_list[tag_idx]
+
+        if fota_type == updateBundle.fotaType.MODEM:
+            # check the version, if a tag is returned the user wishes to proceed
+            tag = check_tagged_modem_fw_versions(device_list, tag, True)
+
+        # no tag... try again or exit
+        if tag is None:
+            print('Select a different tag?')
+            if user_select_yn():
+                continue
+            else:
+                return None
+
+        return tag
+
+def confirm_before_create(name, desc, bundle_id, tag_to_update, update_by):
+    if (name and desc and bundle_id and
+        ((update_by == update_by.TAG and tag_to_update) or (update_by == update_by.DEV_ID))):
+        # if user provides all info via cmd params, do not ask for confirmation
+        print('Creating update with supplied parameters...')
+        return True
+
+    # otherwise, confirm
+    print('Proceed?')
+    return user_select_yn()
+
+def do_job_creation(api_key, bundle_list, device_list, update_by, tag, bundle_id, name, desc, apply, fota_type):
+    tag_to_update = ''
+    cur_fw_ver = ''
+
+    if update_by == updateBy.TAG:
+        tag_to_update = find_or_select_tag(device_list, tag, fota_type)
+        if not tag_to_update:
+            return None
+    elif update_by == updateBy.DEV_ID:
+        cur_fw_ver = print_current_fw_info(device_list[0], fota_type)
+    elif update_by == updateBy.BASE_FW_VER:
+        if fota_type != updateBundle.fotaType.MODEM:
+            print('Updating by installed FW version is not supported for {} FW'.format(fota_type))
+            return None
+
+        # create a set of the currently installed mfw versions
+        mfw_set = set()
+        for dev in device_list:
+            if dev.mfw_ver:
+                mfw_set.add(dev.mfw_ver)
+            else:
+                print('Warning: device \'{}\' does not have a modem firmware version listed'.format(dev.id))
+
+        if not len(mfw_set):
+            print('No valid target devices')
+            return None
+
+        # display the unique mfw version and get user selection
+        cur_mfw_list = sorted(mfw_set)
+        print('\nCurrently installed modem firmware versions:')
+        for idx, ver in enumerate(cur_mfw_list):
+            # count the number of devices that have each mfw version
+            dev_cnt = len(list(dev for dev in device_list if dev.mfw_ver == ver))
+            print('{}.) {} on {} device(s)'.format(idx + 1, ver, dev_cnt))
+
+        print('Select CURRENT modem firmware version to update FROM...')
+        cur_mfw_idx = user_select_from_list(len(cur_mfw_list))
+        if cur_mfw_idx < 0:
+            print('Could not obtain current modem firmware version')
+            return None
+
+        cur_fw_ver = cur_mfw_list[cur_mfw_idx]
+    else:
+        print('Invalid update_by parameter specified: {}'.format(update_by))
+        return None
+
+    # create a list of bundles of the desired type
+    filtered_bund_list = [bund for bund in bundle_list if bund.type == fota_type.name]
+
+    # get a bundle
+    selected_bund_idx = get_selected_bundle_index(filtered_bund_list, bundle_id, fota_type)
+    if selected_bund_idx < 0:
+        print('Error: failed to obtain bundle')
+        return None
+
+    # get user input for job name and description
+    job_name, job_desc = user_select_job_name_and_desc(name, desc)
+
+    # get list of devices to update
+    dev_ids_to_update = get_device_ids_to_update(device_list, update_by, tag_to_update, cur_fw_ver)
+
+    if (update_by == updateBy.BASE_FW_VER) and (len(dev_ids_to_update) > FOTA_JOB_DEV_ID_LIST_MAX):
+        print('Creating a FOTA job using this method has a limit of {} devices'.format(FOTA_JOB_DEV_ID_LIST_MAX))
+        print('Use a device tag to create an update for a larger number of devices.')
+        print('Truncate device list and proceed?')
+        if user_select_yn():
+            del dev_ids_to_update[FOTA_JOB_DEV_ID_LIST_MAX:]
+        else:
+            return None
+
+    # display update details and ask user for confirmation
+    print_update_summary(update_by, fota_type, job_name, job_desc,
+                         cur_fw_ver, filtered_bund_list[selected_bund_idx].ver,
+                         dev_ids_to_update, tag_to_update)
+
+    if confirm_before_create(name, desc, bundle_id, tag_to_update, update_by) == False:
+        return None
+
+    if update_by == updateBy.TAG:
+        # creating updates for multiple tags is supported, but for simplicity this script allows only one
+        job_id = create_fota_job_by_tag(api_key, filtered_bund_list[selected_bund_idx].id,
+                                        job_name, job_desc, [tag_to_update], apply)
+    else:
+        job_id = create_fota_job_by_device_id(api_key, filtered_bund_list[selected_bund_idx].id,
+                                              job_name, job_desc, dev_ids_to_update, apply)
+
+    if job_id:
+        print('Created job: {}'.format(job_id))
+
+    return job_id
+
 def user_select_from_list(list_size):
+    if list_size < 1:
+        return -1
+
     selected_idx = 0
     while True:
         try:
@@ -445,23 +669,20 @@ def user_select_tag(tag_list, device_list):
 
     # get user selection
     print('Select the tag to update...')
-    tag_idx = user_select_from_list(len(tag_list))
+    return user_select_from_list(len(tag_list))
 
-    # return the tag list and selected index
-    return tag_list, tag_idx
-
-def check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, prompt):
+def check_tagged_modem_fw_versions(device_list, tag, prompt):
     # check mfw ver in selected tag, alert user if they are different
     tagged_mfw_ver = ''
     for dev in device_list:
-        if tag_list[tag_idx] in dev.tags:
+        if tag in dev.tags:
             if not tagged_mfw_ver:
                 tagged_mfw_ver = dev.mfw_ver
                 continue
             elif tagged_mfw_ver != dev.mfw_ver:
-                print('Warning: Devices in tag \'{}\' do not have the same modem firmware version installed'.format(tag_list[tag_idx]))
+                print('Warning: Devices in tag \'{}\' do not have the same modem firmware version installed'.format(tag))
                 if prompt:
-                    print('Continue creating an update for this tag?'.format(tag_list[tag_idx]))
+                    print('Continue creating an update for tag \'{}\'?'.format(tag))
                     if user_select_yn():
                         break
                     else:
@@ -469,174 +690,7 @@ def check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, prompt):
                 else:
                     return None
 
-    return tag_idx
-
-def handle_modem_updates(api_key, bundle_list, device_list, update_by, tag, bundle_id, name, desc, apply):
-    job_id = ''
-    new_mfw_list = []
-    cur_mfw_list = []
-    cur_mfw_idx = 0
-    tag_list = get_tag_list(device_list)
-    tag_idx = 0
-
-    if update_by == updateBy.TAG:
-        if not tag_list:
-            return None
-
-        tag_idx = None
-
-        if tag:
-            try:
-                tag_idx = tag_list.index(tag)
-                # print warning if tagged devices have different mfw versions installed
-                check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, False)
-            except ValueError:
-                print('Tag list: {}'.format(tag_list))
-                print('Error: No devices found with tag \'{}\''.format(tag))
-                return None
-
-        # ask user to select a tag and then check the mfw version(s) associated with that tag
-        while not tag_idx:
-            tag_list, tag_idx = user_select_tag(device_list)
-            if not tag_list:
-                # no tags, exit
-                return None
-
-            # check the version, if a tag index is returned the user wishes to proceed
-            tag_idx = check_tagged_modem_fw_versions(device_list, tag_list, tag_idx, True)
-
-            # no tag index... try again or exit
-            if not tag_idx:
-                print('Select a different tag?')
-                if user_select_yn():
-                    continue
-                else:
-                    return None
-    elif update_by == updateBy.BASE_FW_VER:
-        # create a set of the currently installed mfw versions
-        mfw_set = set()
-        for dev in device_list:
-            if dev.mfw_ver:
-                mfw_set.add(dev.mfw_ver)
-            else:
-                print('Warning: device \'{}\' does not have a modem firmware version listed'.format(dev.id))
-
-        if not len(mfw_set):
-            print('No valid target devices')
-            return None
-
-        # display the unique mfw version and get user selection
-        cur_mfw_list = sorted(mfw_set)
-        print('\nCurrently installed modem firmware versions:')
-        for ver in cur_mfw_list:
-            dev_cnt = 0
-            for dev in device_list:
-                if dev.mfw_ver == ver:
-                    dev_cnt = dev_cnt + 1
-            print('{}.) {} on {} device(s)'.format(cur_mfw_list.index(ver) + 1, ver, dev_cnt))
-
-        print('Select CURRENT modem firmware version to update FROM...')
-        cur_mfw_idx = user_select_from_list(len(cur_mfw_list))
-    elif update_by == updateBy.DEV_ID:
-        dev = device_list[0]
-        cur_mfw = 'N/A'
-        if dev.mfw_ver:
-            cur_mfw = dev.mfw_ver
-            print('Device \'{}\' has the following modem firmware version: {}'.format(dev.id, cur_mfw))
-        else:
-            print('Device \'{}\' does not have a modem firmware version listed'.format(dev.id))
-
-        cur_mfw_list.append(cur_mfw)
-        cur_mfw_idx = 0
-    else:
-        print('Invalid update_by parameter specified: {}'.format(update_by))
-        return None
-
-    # create a list of the MODEM bundles
-    for bund in bundle_list:
-        if bund.type == updateBundle.fotaType.MODEM.name:
-            new_mfw_list.append(bund)
-
-    mfw_new_idx = -1
-    if bundle_id:
-        for bund in new_mfw_list:
-            if bund.id == bundle_id:
-                mfw_new_idx = new_mfw_list.index(bund)
-                break
-        if mfw_new_idx < 0:
-            print('Error: Bundle ID \'{}\' was not found'.format(bundle_id))
-            return None
-    else:
-        # display the available modem fw bundles and get user selection
-        print('Available modem firmware versions:')
-        for new in new_mfw_list:
-            print('{}.) {}\n\tBundle ID: {}\n\tModified:  {}'.format(new_mfw_list.index(new) + 1, new.ver, new.id, new.date))
-            desc_list = textwrap.wrap('\"{}\"'.format(new.desc),initial_indent='\t',subsequent_indent='\t',width=99)
-            for line in desc_list:
-                print(line)
-
-        print('Select NEW modem firmware version to update TO...')
-        mfw_new_idx = user_select_from_list(len(new_mfw_list))
-
-    # get user input for job name and description
-    job_name, job_desc = user_select_job_name_and_desc(name, desc)
-
-    # build a list of devices to update or the number of devices with the user selected tag
-    devices_to_update = []
-    update_cnt = 0
-    for dev in device_list:
-        if update_by == updateBy.TAG:
-            if tag_list[tag_idx] in dev.tags:
-                update_cnt = update_cnt + 1
-        elif update_by == updateBy.BASE_FW_VER:
-            if cur_mfw_list[cur_mfw_idx] == dev.mfw_ver:
-                devices_to_update.append(dev.id)
-        else:
-            devices_to_update.append(dev.id)
-
-    if update_by != updateBy.TAG:
-        update_cnt = len(devices_to_update)
-
-    if (update_by == updateBy.BASE_FW_VER) and (update_cnt > FOTA_JOB_DEV_ID_LIST_MAX):
-        print('Creating a FOTA job using this method has a limit of {} devices'.format(FOTA_JOB_DEV_ID_LIST_MAX))
-        print('Use a device tag to create an update for a larger number of devices.')
-        print('Truncate device list and proceed?')
-        if user_select_yn():
-            del devices_to_update[FOTA_JOB_DEV_ID_LIST_MAX:]
-        else:
-            return None
-
-    # display update details and ask user for confirmation
-    if update_by == updateBy.DEV_ID:
-        print('The following update will be created for device: {}'.format(devices_to_update[0]))
-    else:
-        print('The following update will be created for {} device(s):'.format(update_cnt))
-
-    print('\tName: {}'.format(job_name))
-    print('\tDescription: {}'.format(job_desc))
-
-    if update_by == updateBy.TAG:
-        print('\tVersion: Tag[\'{}\'] --> {}'.format(tag_list[tag_idx], new_mfw_list[mfw_new_idx].ver))
-    else:
-        print('\tVersion: {} --> {}'.format(cur_mfw_list[cur_mfw_idx], new_mfw_list[mfw_new_idx].ver))
-
-    # if user provides all info via cmd params, do not ask for confirmation
-    if not((update_by == update_by.TAG and tag) or (update_by == update_by.DEV_ID) and
-           name and desc):
-        print('Proceed?')
-        if not user_select_yn():
-            return None
-
-    if update_by == updateBy.TAG:
-        # creating updates for multiple tags is supported, but for simplicity this script allows only one
-        job_id = create_fota_job_by_tag(api_key, new_mfw_list[mfw_new_idx].id, job_name, job_desc, [tag_list[tag_idx]], apply)
-    else:
-        job_id = create_fota_job_by_device_id(api_key, new_mfw_list[mfw_new_idx].id, job_name, job_desc, devices_to_update, apply)
-
-    if job_id:
-        print('Created job: {}'.format(job_id))
-
-    return job_id
+    return tag
 
 def print_device_list(device_list):
     if len(device_list) == 0:
@@ -669,7 +723,7 @@ def main():
 
     # get update bundles of the requested FOTA type
     print('Getting \'{}\' update bundles...'.format(fota_type.name))
-    bundles = get_requested_bundles(args.apikey, fota_type.name)
+    bundles = get_requested_bundles(args.apikey, fota_type)
 
     if len(bundles) == 0:
         print('No \'{}\' bundles found'.format(fota_type.name))
@@ -684,7 +738,7 @@ def main():
         update_by = updateBy.DEV_ID
     else:
         print('Getting all devices...')
-        if args.tag_list or args.tag:
+        if args.tag_list or args.tag or fota_type != updateBundle.fotaType.MODEM:
             update_by = updateBy.TAG
 
     devices = get_device_list(args.apikey, None, args.dev_id)
@@ -712,13 +766,9 @@ def main():
     if len(requested_devices) == 0:
         return
 
-    if fota_type == updateBundle.fotaType.MODEM:
-        handle_modem_updates(args.apikey, bundles, requested_devices, update_by,
-                             args.tag, args.bundle_id, args.name, args.desc, args.apply)
-    elif fota_type == updateBundle.fotaType.APP:
-        print('APP FOTA update creation not yet implemented')
-    elif fota_type == updateBundle.fotaType.BOOT:
-        print('BOOT FOTA update creation not yet implemented')
+    do_job_creation(args.apikey, bundles, requested_devices, update_by,
+                    args.tag, args.bundle_id, args.name, args.desc, args.apply,
+                    fota_type)
 
     return
 
