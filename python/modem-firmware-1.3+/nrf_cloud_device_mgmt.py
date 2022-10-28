@@ -19,7 +19,7 @@ GET_DEVICES_BASE = API_URL + 'devices?includeState=false&includeStateMeta=false&
 GET_DEVICES_PAGE_LIMIT = 20
 
 GET_BUNDLES_BASE = API_URL + 'firmwares'
-GET_BUNDLES_PAGE_LIMIT = 20
+GET_BUNDLES_PAGE_LIMIT = 100
 
 FOTA_JOBS_BASE = API_URL + 'fota-jobs'
 
@@ -67,13 +67,15 @@ class updateBundle:
         try:
             self.name = list_item['name']
         except:
-            self.name = 'N/A'
+            # optional field
+            self.name = "<NO_NAME>"
 
         # description is optional
         try:
             self.desc = list_item['description']
         except:
-            self.desc = 'N/A'
+            # optional field
+            self.desc = "<NO_DESC>"
 
         try:
             self.type = list_item['type']
