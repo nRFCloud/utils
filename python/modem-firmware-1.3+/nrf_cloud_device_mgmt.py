@@ -39,6 +39,7 @@ class updateBundle:
         APP = 0
         MODEM = 1
         BOOT = 2
+        MDM_FULL = 3
 
     id = ''
     name = ''
@@ -103,7 +104,8 @@ class nRFCloudDevice:
     tags = []
 
     mfw_ver = ''
-    mfw_fota = False
+    mfw_delta_fota = False
+    mfw_full_fota = False
 
     boot_ver = ''
     boot_fota = False
@@ -118,7 +120,7 @@ class nRFCloudDevice:
     def __repr__(self):
         return f'{self.id}, {self.name}, ' \
                f'App[{self.app_name}, {self.app_ver}, {self.app_fota}], ' \
-               f'Modem[{self.mfw_ver}, {self.mfw_fota}], ' \
+               f'Modem[{self.mfw_ver}, Delta:{self.mfw_delta_fota} Full:{self.mfw_full_fota}], ' \
                f'Boot[{self.boot_ver}, {self.boot_fota}], ' \
                f'Tags{self.tags}'
 
@@ -174,7 +176,8 @@ class nRFCloudDevice:
         supported = list_item.get('firmware', {}).get('supports', [])
         self.app_fota       = 'APP' in supported
         self.boot_fota      = 'BOOT' in supported
-        self.mfw_fota       = 'MODEM' in supported
+        self.mfw_delta_fota = 'MODEM' in supported
+        self.mfw_full_fota  = 'MDM_FULL' in supported
 
 def url_encode(token):
     return urllib.parse.quote_plus(token)
@@ -186,7 +189,7 @@ def parse_args():
                         help="nRF Cloud API key",
                         type=str, required=True, default="")
     parser.add_argument("--type",
-                        help="FOTA update type: APP, MODEM, or BOOT",
+                        help="FOTA update type: APP, MODEM, MDM_FULL, or BOOT",
                         type=str, required=False, default="MODEM")
     parser.add_argument("--apply",
                         help="Apply job upon creation; this starts the job. If not enabled, the job must be applied using the ApplyFOTAJob endpoint.",
@@ -257,8 +260,11 @@ def get_bundle_list(api_key, modem_only):
 
     return sorted(bundle_list, key=lambda bundle : bundle.date)
 
+def is_modem_type(fota_type):
+    return fota_type in [updateBundle.fotaType.MODEM, updateBundle.fotaType.MDM_FULL]
+
 def get_requested_bundles(api_key, fota_type):
-    bundles = get_bundle_list(api_key, fota_type == updateBundle.fotaType.MODEM)
+    bundles = get_bundle_list(api_key, is_modem_type(fota_type))
     return [i for i in bundles if i.type == fota_type.name]
 
 def get_device_list(api_key, fota_types_list, device_id):
@@ -722,14 +728,14 @@ def main():
         args.tag_list = True
 
     # get update bundles of the requested FOTA type
-    print('Getting \'{}\' update bundles...'.format(fota_type.name))
+    print('Getting {} update bundles...'.format(fota_type.name))
     bundles = get_requested_bundles(args.apikey, fota_type)
 
     if len(bundles) == 0:
-        print('No \'{}\' bundles found'.format(fota_type.name))
+        print('No {} bundles found'.format(fota_type.name))
         return
 
-    print('Obtained {} \'{}\' update bundles'.format(len(bundles), fota_type.name))
+    print('Obtained {} {} update bundles'.format(len(bundles), fota_type.name))
 
     update_by = updateBy.BASE_FW_VER
 
@@ -738,7 +744,7 @@ def main():
         update_by = updateBy.DEV_ID
     else:
         print('Getting all devices...')
-        if args.tag_list or args.tag or fota_type != updateBundle.fotaType.MODEM:
+        if args.tag_list or args.tag or is_modem_type(fota_type) is False:
             update_by = updateBy.TAG
 
     devices = get_device_list(args.apikey, None, args.dev_id)
@@ -753,7 +759,9 @@ def main():
     elif fota_type == updateBundle.fotaType.BOOT:
         requested_devices = [d for d in devices if d.boot_fota]
     elif fota_type == updateBundle.fotaType.MODEM:
-        requested_devices = [d for d in devices if d.mfw_fota]
+        requested_devices = [d for d in devices if d.mfw_delta_fota]
+    elif fota_type == updateBundle.fotaType.MDM_FULL:
+        requested_devices = [d for d in devices if d.mfw_full_fota]
 
     # display devices if requested
     if args.ad:
@@ -761,7 +769,7 @@ def main():
     elif args.rd:
         print_device_list(requested_devices)
 
-    print('{} of {} devices support \'{}\' FOTA updates'.format(len(requested_devices), len(devices), fota_type.name))
+    print('{} of {} devices support {} FOTA updates'.format(len(requested_devices), len(devices), fota_type.name))
 
     if len(requested_devices) == 0:
         return
