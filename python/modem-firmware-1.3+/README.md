@@ -56,16 +56,24 @@ It requires you to use the `create_ca_cert.py` above once ahead of time to gener
 It utilizes methods within the classes inside the other scripts `modem_credentials_parser.py` and `create_device_credentials.py`.
 You do not need to use them directly unless `device_credentials_installer.py` does not meet your needs.
 
+By default, this script will attempt to connect to the device using a serial connection.
+If the `rtt` option is specified, communication will be performed using [SEGGER's RTT](https://www.segger.com/products/debug-probes/j-link/technology/about-real-time-transfer/) interface.
+To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/nrf9160/modem_shell) sample application [built with the RTT overlay](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/samples/nrf9160/modem_shell/README.html#segger-rtt-support).
+This script will optionally flash the modem shell application on startup if a hex file path is provided with the `mosh_rtt_hex` option.
+
 Note: if only a single supported device is detected on a serial port, it will be automatically selected and used.
 Otherwise, the script displays a list of detected devices and gives the user a choice of which to use.
 
 ```
-usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT] [--id_str ID_STR] [--id_imei] [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG] [-p PATH]
-                                       [-P] [-d] [-w PASSWORD] [-t TAGS] [-T SUBTYPE] [-F FWTYPES] [--devinfo DEVINFO] [--devinfo_append] [--xonxoff] [--rtscts_off] [--dsrdtr] [--term TERM]
+usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT]
+                                       [--id_str ID_STR] [--id_imei] [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG]
+                                       [-p PATH] [-P] [-d] [-w PASSWORD] [-t TAGS] [-T SUBTYPE] [-F FWTYPES]
+                                       [--devinfo DEVINFO] [--devinfo_append] [--xonxoff] [--rtscts_off] [--dsrdtr]
+                                       [--term TERM] [--rtt] [--jlink_sn JLINK_SN] [--mosh_rtt_hex MOSH_RTT_HEX]
 
 Device Credentials Installer
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --dv DV               Number of days cert is valid (default: 3650)
   --ca CA               Filepath to your CA cert PEM (default: )
@@ -92,13 +100,21 @@ optional arguments:
   -T SUBTYPE, --subtype SUBTYPE
                         Custom device type (default: )
   -F FWTYPES, --fwtypes FWTYPES
-                        Pipe (|) delimited firmware types for FOTA of the set {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double quotes (default: APP|MODEM)
-  --devinfo DEVINFO     Filepath for device info CSV file which will contain the device ID, installed modem FW version, and IMEI (default: None)
+                        Pipe (|) delimited firmware types for FOTA of the set {APP MODEM BOOT SOFTDEVICE BOOTLOADER};
+                        enclose in double quotes (default: APP|MODEM)
+  --devinfo DEVINFO     Filepath for device info CSV file which will contain the device ID, installed modem FW version,
+                        and IMEI (default: None)
   --devinfo_append      When saving device info CSV, append to it (default: False)
   --xonxoff             Enable software flow control for serial connection (default: False)
   --rtscts_off          Disable hardware (RTS/CTS) flow control for serial connection (default: False)
   --dsrdtr              Enable hardware (DSR/DTR) flow control for serial connection (default: False)
   --term TERM           AT command termination: NULL CR LF CRLF (default: CR)
+  --rtt                 Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT
+                        overlay (default: False)
+  --jlink_sn JLINK_SN   Serial number of J-Link device to use for RTT; optional (default: None)
+  --mosh_rtt_hex MOSH_RTT_HEX
+                        Optional filepath to RTT enabled Modem Shell hex file. If provided, device will be erased and
+                        programmed (default: )
 ```
 
 ## Examples

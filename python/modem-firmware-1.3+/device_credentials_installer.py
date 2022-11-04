@@ -13,6 +13,7 @@ import time
 import serial
 import getpass
 import platform
+import rtt_interface
 import modem_credentials_parser
 from modem_credentials_parser import write_file
 import create_device_credentials
@@ -127,6 +128,14 @@ def parse_args():
     parser.add_argument("--term", type=str,
                         help="AT command termination:" + "".join([' {}'.format(k) for k, v in CMD_TERM_DICT.items()]),
                         default=cmd_term_key)
+    parser.add_argument("--rtt",
+                        help="Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay",
+                        action='store_true', default=False)
+    parser.add_argument("--jlink_sn", type=int,
+                        help="Serial number of J-Link device to use for RTT; optional",
+                        default=None)
+    parser.add_argument("--mosh_rtt_hex", type=str, help="Optional filepath to RTT enabled Modem Shell hex file. If provided, device will be erased and programmed",
+                        default="")
     args = parser.parse_args()
     verbose = args.verbose
     return args
@@ -236,7 +245,10 @@ def write_line(line, hidden = False):
     global cmd_term_key
     if not hidden:
         print(send_style('-> {}'.format(line)))
-    ser.write(bytes((line + CMD_TERM_DICT[cmd_term_key]).encode('utf-8')))
+    if ser:
+        ser.write(bytes((line + CMD_TERM_DICT[cmd_term_key]).encode('utf-8')))
+    elif rtt:
+        rtt_interface.send_rtt(rtt, line + CMD_TERM_DICT[cmd_term_key])
 
 def handle_login():
     global password
@@ -257,9 +269,20 @@ def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
     found = False
     retval = False
     output = None
-    ser.flush()
+
+    if ser:
+        ser.flush()
+    else:
+        rtt_lines = rtt_interface.readlines_at_rtt(rtt, timeout)
+
     while not found and timeout != 0:
-        line = ser.readline()
+        if ser:
+            line = ser.readline()
+        else:
+            if len(rtt_lines) == 0:
+                break
+            line = rtt_lines.pop(0).encode()
+
 
         if line == b'\r\n':
             # Skip the initial CRLF (see 3GPP TS 27.007 AT cmd specification)
@@ -282,10 +305,11 @@ def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
             output = line
 
     lf_done = b'\n' in line
-    ser.flush()
+    if ser:
+        ser.flush()
     if store != None and output == None:
         print(error_style('String {} not detected in line {}'.format(store,
-                                                                     line)))
+                                                                    line)))
 
     if timeout == 0:
         print(error_style('Serial timeout'))
@@ -410,6 +434,7 @@ def cleanup():
 def main():
     global plain
     global ser
+    global rtt
     global password
     global is_gateway
     global cmd_term_key
@@ -418,6 +443,8 @@ def main():
     args = parse_args()
     plain = args.plain
     password = args.password
+
+    rtt = None
 
     if args.term in CMD_TERM_DICT.keys():
         cmd_term_key = args.term
@@ -438,44 +465,58 @@ def main():
         print(local_style('OS detect: Linux={}, MacOS={}, Windows={}'.
                           format(is_linux, is_macos, is_windows)))
 
-    # get a serial port to use
-    port = ask_for_port(args.port, args.all)
-    if port == None:
-        sys.exit(1)
+    if args.rtt:
+        cmd_term_key = 'CRLF'
 
-    # let user know which we are using and as what kind of device
-    if args.gateway:
-        is_gateway = True
-    print(local_style('Opening port {} as {}...'.format(port,
-                                                 'gateway' if is_gateway
-                                                 else 'generic device')))
+        rtt = rtt_interface.connect_rtt(args.jlink_sn, args.mosh_rtt_hex)
+        if not rtt:
+            sys.stderr.write(error_style('Failed connect to device via RTT'))
+            sys.exit(2)
 
-    # try to open the serial port
-    try:
-        ser = serial.Serial(port, 115200, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
-                            dsrdtr=args.dsrdtr, timeout=serial_timeout)
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
-    except serial.serialutil.SerialException:
-        sys.stderr.write(error_style('Port could not be opened; not a device, or open already\n'))
-        sys.exit(2)
+        if not rtt_interface.enable_at_cmds_mosh_rtt(rtt):
+            sys.stderr.write(error_style('Failed to enable AT commands via RTT'))
+            sys.exit(2)
+        ser = None
+    else:
+        # get a serial port to use
+        port = ask_for_port(args.port, args.all)
+        if port == None:
+            sys.exit(1)
 
-    # for gateways, get to the AT command prompt first
-    if is_gateway:
-        print(local_style('Getting to prompt...'))
-        handle_login()
+        # let user know which we are using and as what kind of device
+        if args.gateway:
+            is_gateway = True
+        print(local_style('Opening port {} as {}...'.format(port,
+                                                    'gateway' if is_gateway
+                                                    else 'generic device')))
 
-        print(local_style('Disabling logs...'))
-        write_line('log disable')
-        wait_for_prompt()
+        # try to open the serial port
+        try:
+            ser = serial.Serial(port, 115200, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
+                                dsrdtr=args.dsrdtr, timeout=serial_timeout)
+            ser.reset_input_buffer()
+            ser.reset_output_buffer()
+        except serial.serialutil.SerialException:
+            sys.stderr.write(error_style('Port could not be opened; not a device, or open already\n'))
+            sys.exit(2)
 
-        print(local_style('Getting to AT mode...'))
-        write_line('at enable')
-        wait_for_prompt(b'to exit AT mode')
+        # for gateways, get to the AT command prompt first
+        if is_gateway:
+            print(local_style('Getting to prompt...'))
+            handle_login()
+
+            print(local_style('Disabling logs...'))
+            write_line('log disable')
+            wait_for_prompt()
+
+            print(local_style('Getting to AT mode...'))
+            write_line('at enable')
+            wait_for_prompt(b'to exit AT mode')
 
     # prepare modem so we can interact with security keys
     print(local_style('Disabling LTE and GNSS...'))
     write_line('AT+CFUN=4')
+
     retval = wait_for_prompt(b'OK')
     if not retval:
         print(error_style('Unable to communicate'))
@@ -634,6 +675,9 @@ def main():
     # write device ID, modem firmware version, and IMEI to a file
     if args.devinfo:
         save_devinfo_csv(args.devinfo, args.devinfo_append, dev_id, mfw_ver, imei)
+
+    if rtt:
+        rtt.close()
 
     cleanup()
 
