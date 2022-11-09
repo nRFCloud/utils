@@ -569,7 +569,8 @@ def main():
         attr = ',\"CN={}\"'.format(custom_dev_id)
 
     write_line('AT%KEYGEN={},2,0{}'.format(args.sectag,attr))
-    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'%KEYGEN:')
+    # include the CRLF in OK because 'OK' could be found in the CSR string
+    retval, output = wait_for_prompt(b'OK\r\n', b'ERROR', store=b'%KEYGEN:')
     if not retval:
         print(error_style('Unable to generate private key; does it already exist for this sectag?'))
         cleanup()
