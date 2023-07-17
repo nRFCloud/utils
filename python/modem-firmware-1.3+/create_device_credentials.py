@@ -166,7 +166,7 @@ def main():
     # create a device cert
     device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
 
-    if len(csr.get_subject().CN) == 0:
+    if (csr.get_subject().CN is None) or (len(csr.get_subject().CN) == 0):
         common_name = str(hex(device_cert.get_serial_number()))
     else:
         common_name = csr.get_subject().CN
