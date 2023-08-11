@@ -534,7 +534,7 @@ def main():
     global is_gateway
     global cmd_term_key
 
-    # initialize argumenst
+    # initialize arguments
     args = parse_args()
     plain = args.plain
     password = args.password

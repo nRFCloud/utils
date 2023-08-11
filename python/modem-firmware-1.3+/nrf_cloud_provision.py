@@ -31,7 +31,17 @@ class ProvisionResult(Enum):
 
 from modem_credentials_parser import write_file
 
-API_URL = "https://api.nrfcloud.com/v1/"
+DEV_STAGE_DICT = {'dev':     '.dev.',
+                  'beta':    '.beta.',
+                  'prod':    '.',
+                  '':        '.',
+                  'feature': '.feature.'}
+dev_stage_key = 'prod'
+
+API_URL_START = 'https://api'
+API_URL_END = 'nrfcloud.com/v1/'
+api_url = API_URL_START + DEV_STAGE_DICT[dev_stage_key] + API_URL_END
+
 ERR_FIND_FIRST_STR = "(1-based)]: "
 ERR_FIND_END_STR = ".\"}"
 MAX_CSV_ROWS = 1000
@@ -66,33 +76,56 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def set_dev_stage(stage = ''):
+    global api_url
+    global dev_stage_key
+
+    if stage in DEV_STAGE_DICT.keys():
+        dev_stage_key = stage
+        api_url = '{}{}{}'.format(API_URL_START, DEV_STAGE_DICT[dev_stage_key], API_URL_END)
+    else:
+        print('Invalid stage')
+
+    return api_url
+
 def get_bulk_ops_result(api_key, bulk_ops_req_id):
     hdr = {'Authorization': 'Bearer ' + api_key}
-    req = API_URL + "bulk-ops-requests/" + bulk_ops_req_id
+    req = api_url + "bulk-ops-requests/" + bulk_ops_req_id
     return requests.get(req, headers=hdr)
 
 def update_device_shadow(api_key, device_id, json_payload):
     hdr = {'Authorization': 'Bearer ' + api_key}
-    req = API_URL + "devices/" + device_id + "/state"
+    req = api_url + "devices/" + device_id + "/state"
     return requests.patch(req, json=json_payload, headers=hdr)
 
 def fetch_device(api_key, device_id):
     hdr = {'Authorization': 'Bearer ' + api_key}
-    req = API_URL + "devices/" + device_id
+    req = api_url + "devices/" + device_id
     return requests.get(req, headers=hdr)
 
 def update_device_name(api_key, device_id, name):
     hdr = {'Authorization': 'Bearer ' + api_key}
-    req = API_URL + "devices/" + device_id + "/name"
+    req = api_url + "devices/" + device_id + "/name"
     json_payload = [name]
     return requests.put(req, json=json_payload, headers=hdr)
+
+def provision_device(api_key, dev_id, sub_type, tags, fw_types, cert_pem_str):
+    hdr = {'Authorization': 'Bearer ' + api_key,
+           'content-type' : 'text/plain',
+           'Accept-Encoding' : '*'}
+
+    req = api_url + "devices"
+
+    payload = f'{dev_id},{sub_type},{tags},{fw_types},\"{cert_pem_str}\"\n'
+
+    return requests.post(req, data=payload, headers=hdr)
 
 def provision_devices(api_key, csv_filepath):
     hdr = {'Authorization': 'Bearer ' + api_key,
            'content-type' : 'text/csv',
            'Accept-Encoding' : '*'}
 
-    req = API_URL + "devices"
+    req = api_url + "devices"
 
     with open(csv_filepath,'rb') as payload:
         api_result = requests.post(req, data=payload, headers=hdr)
