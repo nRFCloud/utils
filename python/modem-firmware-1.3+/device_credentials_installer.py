@@ -182,6 +182,7 @@ def ask_for_port(selected_port, list_all):
     usb_patterns = [(r'THINGY91', 'Thingy:91', False),
                     (r'PCA20035', 'Thingy:91', False),
                     (r'0009600',  'nRF9160-DK', False),
+                    (r'0010509',  'nRF9161-DK', False),
                     (r'NRFBLEGW', 'nRF Cloud Gateway', True)]
     if selected_port == None and not list_all:
         pattern = r'SER=(' + r'|'.join(name[0] for name in usb_patterns) + r')'
@@ -581,8 +582,8 @@ def main():
         attr = ',\"CN={}\"'.format(custom_dev_id)
 
     write_line('AT%KEYGEN={},2,0{}'.format(args.sectag,attr))
-    # include the CRLF in OK because 'OK' could be found in the CSR string
-    retval, output = wait_for_prompt(b'OK\r\n', b'ERROR', store=b'%KEYGEN:')
+    # include the CR in OK because 'OK' could be found in the CSR string
+    retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%KEYGEN:')
     if not retval:
         print(error_style('Unable to generate private key; does it already exist for this sectag?'))
         cleanup()
