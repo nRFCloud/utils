@@ -11,6 +11,7 @@ import sys
 import csv
 import time
 import serial
+import hashlib
 import getpass
 import platform
 import rtt_interface
@@ -144,6 +145,9 @@ def parse_args():
                         default=None)
     parser.add_argument("--mosh_rtt_hex", type=str, help="Optional filepath to RTT enabled Modem Shell hex file. If provided, device will be erased and programmed",
                         default="")
+    parser.add_argument("--verify",
+                        help="Confirm credentials have been installed",
+                        action='store_true', default=False)
     args = parser.parse_args()
     verbose = args.verbose
     return args
@@ -317,8 +321,7 @@ def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
     if ser:
         ser.flush()
     if store != None and output == None:
-        print(error_style('String {} not detected in line {}'.format(store,
-                                                                    line)))
+        print(error_style('String {} not detected in line {}'.format(store, line)))
 
     if timeout == 0:
         print(error_style('Serial timeout'))
@@ -680,6 +683,16 @@ def main():
     wait_for_prompt(b'OK', b'ERROR')
     time.sleep(1)
 
+    if args.verify:
+        print(error_style('Verifying credentials...'))
+        verify_res = verify_credentials(args.sectag, modem_ca, modem_dev)
+        if not verify_res:
+            print(error_style('Credential verification: FAIL'))
+            cleanup()
+            sys.exit(12)
+
+        print(local_style('Credential verification: PASS'))
+
     # write provisioning information to csv if requested by user
     if len(args.csv) > 0:
         print(local_style('{} provisioning endpoint CSV file {}...'
@@ -698,6 +711,72 @@ def main():
         rtt.close()
 
     cleanup()
+
+def verify_credentials(sec_tag, ca_cert, client_cert):
+    # list the CA cert
+    write_line('AT%CMNG=1,{},0'.format(sec_tag))
+    retval, ca_res = wait_for_prompt(b'OK', b'ERROR', store=b'%CMNG')
+    if retval and ca_res:
+        retval = check_sha(ca_res.decode(), ca_cert, 'CA Cert')
+
+    if not retval or not ca_res:
+        print(error_style('...CA cert verification failed'))
+        return False
+
+    # list the client cert
+    write_line('AT%CMNG=1,{},1'.format(sec_tag))
+    retval, client_res = wait_for_prompt(b'OK', b'ERROR', store=b'%CMNG')
+    if retval and client_res:
+        retval = check_sha(client_res.decode(), client_cert, 'Client Cert')
+
+    if not retval or not client_res:
+        print(error_style('...Client cert verification failed'))
+        return False
+
+    prv_sha = None
+    # list the private key
+    write_line('AT%CMNG=1,{},2'.format(sec_tag))
+    retval, prv_res = wait_for_prompt(b'OK', b'ERROR', store=b'%CMNG')
+    if retval and prv_res:
+        prv_sha = parse_sha(prv_res.decode())
+
+    if not prv_sha:
+        print(error_style('...Private key not found'))
+        return False
+
+    print(hivis_style('Private Key SHA: {}'.format(prv_sha)))
+    return True
+
+def parse_sha(cmng_result_str):
+    # Example AT%CMNG response:
+    #   %CMNG: 123,0,"2C43952EE9E000FF2ACC4E2ED0897C0A72AD5FA72C3D934E81741CBD54F05BD1"
+    # The first item in " is the SHA.
+    try:
+        return cmng_result_str.split('"')[1]
+    except (ValueError, IndexError):
+        return None
+
+def check_sha(cmng_result_str, credential_str, credential_name=''):
+
+    if not credential_str:
+        print(error_style('Invalid credential string'))
+        return False
+
+    calculated_sha = hashlib.sha256(credential_str.encode('utf-8')).hexdigest().upper()
+
+    modem_sha = parse_sha(cmng_result_str)
+    if not modem_sha:
+        print(error_style('{} - Invalid modem result: {}').format(credential_name, cmng_result_str))
+        return False
+
+    if modem_sha != calculated_sha:
+        print(error_style('{} - SHA mismatch:').format(credential_name))
+        print(error_style('\tModem     : {}'.format(modem_sha)))
+        print(error_style('\tCalculated: {}'.format(calculated_sha)))
+        return False
+
+    print(hivis_style('{} - SHA verified: {}'.format(credential_name, calculated_sha)))
+    return True
 
 if __name__ == '__main__':
     main()
