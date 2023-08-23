@@ -48,6 +48,9 @@ prov_ca = "-----BEGIN CERTIFICATE-----\nMIIBUDCB96ADAgECAgkA/YgJ9vjCE48wCgYIKoZI
 IMEI_LEN = 15
 DEV_ID_MAX_LEN = 64
 MAX_CSV_ROWS = 1000
+MIN_REQD_MFW_VER = [1, 3, 0]
+MIN_REQD_MFW_VER_FOR_VERIFY = [1, 3, 2]
+parsed_mfw_ver=[]
 
 def parse_args():
     global verbose
@@ -443,6 +446,88 @@ def cleanup():
     wait_for_prompt(b'login:')
     print(local_style('\nDone.'))
 
+def parse_mfw_ver(ver_str):
+    global parsed_mfw_ver
+
+    # example modem fw version formats:
+    #   'mfw_nrf9160_1.3.0'
+    #   'mfw_nrf9160_1.3.0-FOTA-TEST'
+    #   'mfw_nrf9161_2.0.0'
+    ver_list = ver_str.split('.')
+
+    if len(ver_list) < 3:
+        print(error_style('Unexpected modem firmware version format'))
+        return None
+
+    # major should have an underscore in front
+    maj_list = ver_list[0].split('_')
+    if not len(maj_list):
+        return None
+
+    # it will be the last item in the list
+    maj = maj_list[-1]
+
+    # minor should be the second item
+    min = ver_list[1]
+
+    # revision should be the third item
+    rev = ver_list[2]
+    # in case there is additional info after the revision
+    if rev.isnumeric() == False:
+        rev = re.split(r'\D+', rev)
+        if not rev:
+            return None
+        rev = rev[0]
+
+    parsed_mfw_ver = [int(maj), int(min), int(rev)]
+    return parsed_mfw_ver
+
+def check_ver(req, cur):
+    if not req or not cur:
+        return None
+
+    # expect 3 values: major, minor, rev
+    if (len(req) < 3) or (len(cur) < 3):
+        return None
+
+    # check major
+    if (cur[0] > req[0]):
+        return True
+    # check minor
+    elif (cur[0] == req[0]) and (cur[1] > req[1]):
+        return True
+    # check rev
+    elif (cur[0] == req[0]) and (cur[1] == req[1]) and (cur[2] >= req[2]):
+        return True
+
+    return False
+
+def check_mfw_version():
+    # get the modem firmware version
+    write_line('AT+CGMR')
+    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
+    if not retval:
+        print(error_style('Failed to obtain modem FW version'))
+        cleanup()
+        sys.exit(8)
+
+    # display version for reference
+    ver = str(output.decode("utf-8")).rstrip('\r\n')
+    print(hivis_style('Modem FW version: ' + ver))
+
+    # check for required version
+    check_res = check_ver(MIN_REQD_MFW_VER, parse_mfw_ver(ver))
+    if check_res is False:
+        print(error_style('Modem FW version must be >= {}.{}.{}'.format(MIN_REQD_MFW_VER[0],
+                                                                        MIN_REQD_MFW_VER[1],
+                                                                        MIN_REQD_MFW_VER[2])))
+        cleanup()
+        sys.exit(8)
+    elif check_res is None:
+        print(error_style('Unexpected modem FW version format... continuing'))
+
+    return ver
+
 def main():
     global plain
     global ser
@@ -550,16 +635,8 @@ def main():
     imei = str(output.decode("utf-8"))[:IMEI_LEN]
     print(hivis_style('Device IMEI: ' + imei))
 
-    # get the modem firmware version
-    write_line('AT+CGMR')
-    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
-    if not retval:
-        print(error_style('Failed to obtain modem FW version'))
-        cleanup()
-        sys.exit(8)
-    # display version for reference
-    mfw_ver = str(output.decode("utf-8")).rstrip('\r\n')
-    print(hivis_style('Modem FW Version: ' + mfw_ver))
+    # get and verify the modem firmware version
+    mfw_ver = check_mfw_version()
 
     # set custom device ID
     custom_dev_id = args.id_str
@@ -713,11 +790,21 @@ def main():
     cleanup()
 
 def verify_credentials(sec_tag, ca_cert, client_cert):
+    global parsed_mfw_ver
+
+    # SHA check has a modem firmware version requirement
+    do_sha_check = check_ver(MIN_REQD_MFW_VER_FOR_VERIFY, parsed_mfw_ver)
+    if not do_sha_check:
+        print(error_style('Skipping SHA verification, modem FW version must be >= {}.{}.{}'.
+                          format(MIN_REQD_MFW_VER_FOR_VERIFY[0],
+                                 MIN_REQD_MFW_VER_FOR_VERIFY[1],
+                                 MIN_REQD_MFW_VER_FOR_VERIFY[2])))
+
     # list the CA cert
     write_line('AT%CMNG=1,{},0'.format(sec_tag))
     retval, ca_res = wait_for_prompt(b'OK', b'ERROR', store=b'%CMNG')
     if retval and ca_res:
-        retval = check_sha(ca_res.decode(), ca_cert, 'CA Cert')
+        retval = check_credential(do_sha_check, ca_res.decode(), ca_cert, 'CA Cert')
 
     if not retval or not ca_res:
         print(error_style('...CA cert verification failed'))
@@ -727,7 +814,7 @@ def verify_credentials(sec_tag, ca_cert, client_cert):
     write_line('AT%CMNG=1,{},1'.format(sec_tag))
     retval, client_res = wait_for_prompt(b'OK', b'ERROR', store=b'%CMNG')
     if retval and client_res:
-        retval = check_sha(client_res.decode(), client_cert, 'Client Cert')
+        retval = check_credential(do_sha_check, client_res.decode(), client_cert, 'Client Cert')
 
     if not retval or not client_res:
         print(error_style('...Client cert verification failed'))
@@ -744,7 +831,11 @@ def verify_credentials(sec_tag, ca_cert, client_cert):
         print(error_style('...Private key not found'))
         return False
 
-    print(hivis_style('Private Key SHA: {}'.format(prv_sha)))
+    if do_sha_check:
+        print(hivis_style('Private Key SHA: {}'.format(prv_sha)))
+    else:
+        print(hivis_style('Private Key exists, SHA not verified'))
+
     return True
 
 def parse_sha(cmng_result_str):
@@ -756,7 +847,7 @@ def parse_sha(cmng_result_str):
     except (ValueError, IndexError):
         return None
 
-def check_sha(cmng_result_str, credential_str, credential_name=''):
+def check_credential(verify_sha, cmng_result_str, credential_str, credential_name='Credential'):
 
     if not credential_str:
         print(error_style('Invalid credential string'))
@@ -766,16 +857,20 @@ def check_sha(cmng_result_str, credential_str, credential_name=''):
 
     modem_sha = parse_sha(cmng_result_str)
     if not modem_sha:
-        print(error_style('{} - Invalid modem result: {}').format(credential_name, cmng_result_str))
+        print(error_style(f'{credential_name} - Invalid modem result: {cmng_result_str}'))
         return False
+
+    if not verify_sha:
+        print(hivis_style(f'{credential_name} exists, SHA not verified'))
+        return True
 
     if modem_sha != calculated_sha:
-        print(error_style('{} - SHA mismatch:').format(credential_name))
-        print(error_style('\tModem     : {}'.format(modem_sha)))
-        print(error_style('\tCalculated: {}'.format(calculated_sha)))
+        print(error_style(f'{credential_name} - SHA mismatch:'))
+        print(error_style(f'\tModem     : {modem_sha}'))
+        print(error_style(f'\tCalculated: {calculated_sha}'))
         return False
 
-    print(hivis_style('{} - SHA verified: {}'.format(credential_name, calculated_sha)))
+    print(hivis_style(f'{credential_name} - SHA verified: {calculated_sha}'))
     return True
 
 if __name__ == '__main__':
