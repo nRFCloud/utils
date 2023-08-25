@@ -13,6 +13,7 @@ import time
 import serial
 import hashlib
 import getpass
+import ca_certs
 import platform
 import rtt_interface
 import modem_credentials_parser
@@ -42,9 +43,6 @@ plain = False
 is_gateway = False
 verbose = False
 serial_timeout = 1
-aws_ca  = "-----BEGIN CERTIFICATE-----\nMIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\nADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6\nb24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL\nMAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEZMBcGA1UEAxMQQW1hem9uIFJv\nb3QgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALJ4gHHKeNXj\nca9HgFB0fW7Y14h29Jlo91ghYPl0hAEvrAIthtOgQ3pOsqTQNroBvo3bSMgHFzZM\n9O6II8c+6zf1tRn4SWiw3te5djgdYZ6k/oI2peVKVuRF4fn9tBb6dNqcmzU5L/qw\nIFAGbHrQgLKm+a/sRxmPUDgH3KKHOVj4utWp+UhnMJbulHheb4mjUcAwhmahRWa6\nVOujw5H5SNz/0egwLX0tdHA114gk957EWW67c4cX8jJGKLhD+rcdqsq08p8kDi1L\n93FcXmn/6pUCyziKrlA4b9v7LWIbxcceVOF34GfID5yHI9Y/QCB/IIDEgEw+OyQm\njgSubJrIqg0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC\nAYYwHQYDVR0OBBYEFIQYzIU07LwMlJQuCFmcx7IQTgoIMA0GCSqGSIb3DQEBCwUA\nA4IBAQCY8jdaQZChGsV2USggNiMOruYou6r4lK5IpDB/G/wkjUu0yKGX9rbxenDI\nU5PMCCjjmCXPI6T53iHTfIUJrU6adTrCC2qJeHZERxhlbI1Bjjt/msv0tadQ1wUs\nN+gDS63pYaACbvXy8MWy7Vu33PqUXHeeE6V/Uq2V8viTO96LXFvKWlJbYK8U90vv\no/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU\n5MsI+yMRQ+hDKXJioaldXgjUkK642M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy\nrqXRfboQnoZsG4q5WTP468SQvvG5\n-----END CERTIFICATE-----\n"
-coap_ca = "-----BEGIN CERTIFICATE-----\nMIIBjzCCATagAwIBAgIUOEakGUS/7BfSlprkly7UK43ZAwowCgYIKoZIzj0EAwIw\nFDESMBAGA1UEAwwJblJGIENsb3VkMB4XDTIzMDUyNDEyMzUzMloXDTQ4MTIzMDEy\nMzUzMlowFDESMBAGA1UEAwwJblJGIENsb3VkMFkwEwYHKoZIzj0CAQYIKoZIzj0D\nAQcDQgAEPVmJXT4TA1ljMcbPH0hxlzMDiPX73FHsdGM/6mqAwq9m2Nunr5/gTQQF\nMBUZJaQ/rUycLmrT8i+NZ0f/OzoFsKNmMGQwHQYDVR0OBBYEFGusC7QaV825v0Ci\nqEv2m1HhiScSMB8GA1UdIwQYMBaAFGusC7QaV825v0CiqEv2m1HhiScSMBIGA1Ud\nEwEB/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgGGMAoGCCqGSM49BAMCA0cAMEQC\nIH/C3yf5aNFSFlm44CoP5P8L9aW/5woNrzN/kU5I+H38AiAwiHYlPclp25LgY8e2\nn7e2W/H1LXJ7S3ENDBwKUF4qyw==\n-----END CERTIFICATE-----\n"
-prov_ca = "-----BEGIN CERTIFICATE-----\nMIIBUDCB96ADAgECAgkA/YgJ9vjCE48wCgYIKoZIzj0EAwIwIjEgMB4GA1UEAwwX\nZGV2LW5yZi1wcm92aXNpb25pbmctY2EwHhcNMjMwMTA5MTIwNDQ3WhcNMzMwMTA2\nMTIwNDQ3WjAiMSAwHgYDVQQDDBdkZXYtbnJmLXByb3Zpc2lvbmluZy1jYTBZMBMG\nByqGSM49AgEGCCqGSM49AwEHA0IABFfKcaEkRik+3dPO1yQRYQ/NzXgt6rxHr//D\nq4jDycMJx4x5VUWX65+50j9ebLGKwFlXI0uhfLrCI1ftOrrHfbujFjAUMBIGA1Ud\nEwEB/wQIMAYBAf8CAQEwCgYIKoZIzj0EAwIDSAAwRQIgVLCesd2h1XttBp6jKsx2\nnzlrvfWqkOUdOgk0Wfy93uUCIQCkE3HlEXbaV9HgALzFdIV1Vk0emb2+zpwA4VrH\nPDi0Aw==\n-----END CERTIFICATE-----\n"
 IMEI_LEN = 15
 DEV_ID_MAX_LEN = 64
 MAX_CSV_ROWS = 1000
@@ -738,15 +736,15 @@ def main():
         write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub)
 
     # write to AWS CA modem
-    print(local_style('Writing AWS CA to modem...'))
+    print(local_style('Writing CA cert(s) to modem...'))
     if is_gateway:
-        modem_ca = aws_ca.replace("\n", "\\n")
+        modem_ca = ca_certs.aws_ca.replace("\n", "\\n")
     elif args.coap and not args.prov:
-        modem_ca = coap_ca + aws_ca
+        modem_ca = ca_certs.nrf_cloud_ca + ca_certs.aws_ca
     elif args.prov and not args.coap:
-        modem_ca = prov_ca
+        modem_ca = ca_certs.nrf_cloud_ca
     else:
-        modem_ca = aws_ca
+        modem_ca = ca_certs.aws_ca
     write_line('AT%CMNG=0,{},0,"{}"'.format(args.sectag, modem_ca))
     wait_for_prompt(b'OK', b'ERROR')
     time.sleep(1)
