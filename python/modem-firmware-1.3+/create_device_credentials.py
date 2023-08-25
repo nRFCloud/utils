@@ -14,8 +14,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography import x509
 import OpenSSL.crypto
 from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
-
 from modem_credentials_parser import write_file
+import device_credentials_installer
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Create Device Credentials")
@@ -32,6 +32,9 @@ def parse_args():
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM files.", default="./")
     parser.add_argument("-f", "--fileprefix", type=str, help="Prefix for output files", default="")
     parser.add_argument("-csr", type=str, help="Filepath to CSR PEM from device", default="")
+    parser.add_argument("-embed_save", action='store_true',
+                        help="Save PEM files (client-cert.pem, private-key.pem, and ca-cert.pem) \
+                              formatted to be used with the Kconfig option CONFIG_NRF_CLOUD_PROVISION_CERTIFICATES")
     args = parser.parse_args()
     return args
 
@@ -98,6 +101,12 @@ def create_device_cert(dv, csr, pub_key, ca_cert, ca_key):
     device_cert.set_issuer(ca_cert.get_subject())
     device_cert.sign(ca_key, "sha256")
     return device_cert
+
+def embed_save_convert(cred_bytes):
+    converted = ''
+    for line in cred_bytes.decode().splitlines():
+        converted += '\"' + line + '\\n\"\n'
+    return converted.encode('utf-8')
 
 def main():
 
@@ -174,6 +183,8 @@ def main():
     # save device cert
     dev   = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
     write_file(args.path, args.fileprefix + common_name + "_crt.pem", dev)
+    if args.embed_save:
+        write_file(args.path, "client-cert.pem", embed_save_convert(dev))
 
     # save public key
     pub  = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
@@ -183,6 +194,13 @@ def main():
     if (len(args.csr) == 0):
         priv = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, priv_key)
         write_file(args.path, args.fileprefix + common_name + "_prv.pem", priv)
+        if args.embed_save:
+            write_file(args.path, "private-key.pem", embed_save_convert(priv))
+
+    if args.embed_save:
+        # save the AWS CA cert
+        write_file(args.path, "ca-cert.pem",
+                   embed_save_convert(device_credentials_installer.aws_ca.encode('utf-8')))
 
     return
 
