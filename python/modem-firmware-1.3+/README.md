@@ -48,32 +48,31 @@ File created: /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_pub.p
 
 ## Device Credentials Installer
 
-This script automates the process of generating and programming device credentials to a device such as a Thingy:91 or 9160DK running an nRF Connect SDK application containing the [AT Host library](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/libraries/modem/at_host.html).  
+This script automates the process of generating and programming device credentials to a device such as a Thingy:91 or 9160DK running an nRF Connect SDK application containing the [AT Host library](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/libraries/modem/at_host.html).
 The [AT Client sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/nrf9160/at_client) is the simplest implementation of the AT Host library.
 
 It can also be used on an [LTE gateway](https://github.com/nRFCloud/lte-gateway), by interacting with the built-in shell.
 
 Use the `create_ca_cert.py` script to generate the required CA certificate and CA key before running this script.
 
-This script utilizes methods within the classes inside the other scripts `modem_credentials_parser.py` and `create_device_credentials.py`.  
+This script utilizes methods within the classes inside the other scripts `modem_credentials_parser.py` and `create_device_credentials.py`.
 You do not need to use them directly unless `device_credentials_installer.py` does not meet your needs.
 
-By default, this script will attempt to connect to the device using a serial connection.  
-Depending on your device hardware and firmware application, you may need to use one or more of the following parameters:  
-`xonxoff`, `rtscts_off`, `dsrdtr`, `term`.  
+By default, this script will attempt to connect to the device using a serial connection.
+Depending on your device hardware and firmware application, you may need to use one or more of the following parameters:
+`xonxoff`, `rtscts_off`, `dsrdtr`, `term`.
 **Note**: if only a single supported device is detected on a serial port, it will be automatically selected and used. Otherwise, the script displays a list of detected devices and gives the user a choice of which to use.
 
-If the `rtt` option is specified, communication will be performed using [SEGGER's RTT](https://www.segger.com/products/debug-probes/j-link/technology/about-real-time-transfer/) interface.  
-To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/nrf9160/modem_shell) sample application [built with the RTT overlay](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/samples/nrf9160/modem_shell/README.html#segger-rtt-support).  
+If the `rtt` option is specified, communication will be performed using [SEGGER's RTT](https://www.segger.com/products/debug-probes/j-link/technology/about-real-time-transfer/) interface.
+To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/nrf9160/modem_shell) sample application [built with the RTT overlay](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/samples/nrf9160/modem_shell/README.html#segger-rtt-support).
 This script will optionally flash the modem shell application on startup if a hex file path is provided with the `mosh_rtt_hex` option.
 
 ```
-usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT]
-                                       [--id_str ID_STR] [--id_imei] [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG]
-                                       [-p PATH] [-P] [-d] [-w PASSWORD] [-t TAGS] [-T SUBTYPE] [-F FWTYPES]
-                                       [--devinfo DEVINFO] [--devinfo_append] [--xonxoff] [--rtscts_off] [--dsrdtr]
-                                       [--term TERM] [--rtt] [--jlink_sn JLINK_SN] [--mosh_rtt_hex MOSH_RTT_HEX]
-                                       [--coap] [--prov]
+usage: device_credentials_installer.py [-h] [--dv DV] [--ca CA] [--ca_key CA_KEY] [--csv CSV] [--port PORT] [--id_str ID_STR] [--id_imei]
+                                       [-a] [-A] [-g] [-f FILEPREFIX] [-v] [-s] [-S SECTAG] [-p PATH] [-P] [-d] [-w PASSWORD] [-t TAGS]
+                                       [-T SUBTYPE] [-F FWTYPES] [--coap] [--prov] [--devinfo DEVINFO] [--devinfo_append] [--xonxoff]
+                                       [--rtscts_off] [--dsrdtr] [--term TERM] [--rtt] [--jlink_sn JLINK_SN] [--mosh_rtt_hex MOSH_RTT_HEX]
+                                       [--verify]
 
 Device Credentials Installer
 
@@ -86,8 +85,6 @@ options:
   --port PORT           Specify which serial port to open, otherwise pick from list (default: None)
   --id_str ID_STR       Device ID to use instead of UUID. Will be a prefix if used with --id_imei (default: )
   --id_imei             Use IMEI for device ID instead of UUID. Add a prefix with --id_str (default: False)
-  --coap                Install the CoAP server root CA cert in addition to the AWS root CA cert
-  --prov                Install the nrf_provisioning root CA cert
   -a, --append          When saving provisioning CSV, append to it (default: False)
   -A, --all             List ports of all types, not just Nordic devices (default: False)
   -g, --gateway         Force use of shell commands to enter and exit AT command mode (default: False)
@@ -106,35 +103,47 @@ options:
   -T SUBTYPE, --subtype SUBTYPE
                         Custom device type (default: )
   -F FWTYPES, --fwtypes FWTYPES
-                        Pipe (|) delimited firmware types for FOTA of the set {APP MODEM BOOT SOFTDEVICE BOOTLOADER};
-                        enclose in double quotes (default: APP|MODEM)
-  --devinfo DEVINFO     Filepath for device info CSV file which will contain the device ID, installed modem FW version,
-                        and IMEI (default: None)
+                        Pipe (|) delimited firmware types for FOTA of the set {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double
+                        quotes (default: APP|MODEM)
+  --coap                Install the CoAP server root CA cert in addition to the AWS root CA cert (default: False)
+  --prov                Install the nrf_provisioning root CA cert (default: False)
+  --devinfo DEVINFO     Filepath for device info CSV file which will contain the device ID, installed modem FW version, and IMEI (default:
+                        None)
   --devinfo_append      When saving device info CSV, append to it (default: False)
   --xonxoff             Enable software flow control for serial connection (default: False)
   --rtscts_off          Disable hardware (RTS/CTS) flow control for serial connection (default: False)
   --dsrdtr              Enable hardware (DSR/DTR) flow control for serial connection (default: False)
   --term TERM           AT command termination: NULL CR LF CRLF (default: CR)
-  --rtt                 Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT
-                        overlay (default: False)
+  --rtt                 Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay (default:
+                        False)
   --jlink_sn JLINK_SN   Serial number of J-Link device to use for RTT; optional (default: None)
   --mosh_rtt_hex MOSH_RTT_HEX
-                        Optional filepath to RTT enabled Modem Shell hex file. If provided, device will be erased and
-                        programmed (default: )
+                        Optional filepath to RTT enabled Modem Shell hex file. If provided, device will be erased and programmed (default:
+                        )
+  --verify              Confirm credentials have been installed (default: False)
 ```
 
-## Examples
+## Example
 
-### Thingy:91 under Linux
+### 9160DK under MacOS
 
 ```
-~/src/utils$ python3 device_credentials_installer.py -A -d --port /dev/ttyS38 --ca CA0x522400c80ef6d95ea65ef4860d12adc1b031aa9_ca.pem --ca_key CA0x522400c80ef6d95ea65ef4860d12adc1b031aa9_prv.pem --csv provision.csv
+~/src/utils$ python3 device_credentials_installer.py -d --ca ./ca.pem --ca_key ./ca_prv_key.pem --verify
 
-opening port /dev/ttyS38 as generic device...
-disabling LTE and GNSS...
+Available ports:
+ 1: /dev/cu.usbmodem0009600356581 nRF9160-DK
+Opening port /dev/cu.usbmodem0009600356581 as generic device...
+Disabling LTE and GNSS...
 -> AT+CFUN=4
 <- OK
-Device IMEI: 352656123456789
+-> AT+CGSN
+<- 352656109480783
+<- OK
+Device IMEI: 352656109480783
+-> AT+CGMR
+<- mfw_nrf9160_1.3.5
+<- OK
+Modem FW version: mfw_nrf9160_1.3.5
 Deleting sectag 16842753...
 -> AT%CMNG=3,16842753,0
 <- OK
@@ -142,30 +151,30 @@ Deleting sectag 16842753...
 <- OK
 -> AT%CMNG=3,16842753,2
 <- OK
-requesting CSR for sectag 16842753...
+Generating private key and requesting a CSR for sectag 16842753...
 -> AT%KEYGEN=16842753,2,0
-<- %KEYGEN: "MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMyLTQ4MzQtODAyYi0wOTA4NzE4MzE0ZGMwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATPLBN5-YWj13l6NWeqNFW8VjHOWZB5IfeaEyfMeiUk6V1NEMuYnEBwwrBdV94F5XdscCKDLtvtyKo4VTbnK-mPoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiAO2KmzF9Ms599GC3EueXhmp6AWwtD6c7bA_lhnNc7ZgQIhAMFJC99z_GfLJxCT2U8Dt4MFCB_5wwFYSDcSg-ucfLHS.0oRDoQEmoQRBIVhM2dn3hQlQUDYxVDkySDSAKwkIcYMU3EIYKlgglFk5S_wQVOvIPvm-qjnYS4BZ4mCg7Bsf3cAVIGelPGNQVF8u_v_HrhBJH107c3QBLVhA35AZa4ZWQbm7mRQfFuGGlfLFgiNwMLxxjsmiQHNtT01o5c6pm2uEqMn0T_YY0aEXZer2hCS-YwNoW97zcH_Iug"
+<- %KEYGEN: "MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDUwMzY0Mi0zMjM5LTRmODYtODBjNC0wNjEyMmUyOTk2MjMwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARiUcy3JPF23JN4WN6ek_uEF_9BAz79CSTDx0ZQDJSlEz5EfWDTLImxXGa6_VOOonrHQ64p77hcSaZqNweE4kV6oB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiAyuRZLkBvksmLLZvxY_HnqEkZIFhpHQ9e4tIZDxX8MQwIhAN1APbTPnEA_J0AMOviRVocbGskLr-_-HFuQR1g2owZc.0oRDoQEmoQRBIVhP2dn3hQlQUFA2QjI5T4aAxAYSLimWI0UaAQEAAVgggTi2Q8GE2LqjCUpqPsoiYEjvHtPZ6CEbNAry8l3hcuRQgpdUdyqu7lyBKwz6B3EwpVhA6JwXchVqyuJHXDM_qZy91o2d7v7HpMMqOO7oDOACbmJ7iFmjaX10Iw6q_BxZw1bvRigo4lF5F35ooIt7z4ohAg"
 <- OK
 
 Parsing AT%KEYGEN output:
 
 -----BEGIN CERTIFICATE REQUEST-----
-MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMyLTQ4MzQtODAyYi0w
-OTA4NzE4MzE0ZGMwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATPLBN5+YWj13l6
-NWeqNFW8VjHOWZB5IfeaEyfMeiUk6V1NEMuYnEBwwrBdV94F5XdscCKDLtvtyKo4
-VTbnK+mPoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA+gwDAYIKoZIzj0E
-AwIFAANIADBFAiAO2KmzF9Ms599GC3EueXhmp6AWwtD6c7bA/lhnNc7ZgQIhAMFJ
-C99z/GfLJxCT2U8Dt4MFCB/5wwFYSDcSg+ucfLHS
+MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDUwMzY0Mi0zMjM5LTRmODYtODBjNC0w
+NjEyMmUyOTk2MjMwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARiUcy3JPF23JN4
+WN6ek/uEF/9BAz79CSTDx0ZQDJSlEz5EfWDTLImxXGa6/VOOonrHQ64p77hcSaZq
+NweE4kV6oB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA+gwDAYIKoZIzj0E
+AwIFAANIADBFAiAyuRZLkBvksmLLZvxY/HnqEkZIFhpHQ9e4tIZDxX8MQwIhAN1A
+PbTPnEA/J0AMOviRVocbGskLr+/+HFuQR1g2owZc
 -----END CERTIFICATE REQUEST-----
 
 Device public key:
 -----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzywTefmFo9d5ejVnqjRVvFYxzlmQ
-eSH3mhMnzHolJOldTRDLmJxAcMKwXVfeBeV3bHAigy7b7ciqOFU25yvpjw==
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYlHMtyTxdtyTeFjenpP7hBf/QQM+
+/Qkkw8dGUAyUpRM+RH1g0yyJsVxmuv1TjqJ6x0OuKe+4XEmmajcHhOJFeg==
 -----END PUBLIC KEY-----
 
 SHA256 Digest:
-9459394bfc1054ebc83ef9beaa39d84b8059e260a0ec1b1fddc0152067a53c63
+8138b643c184d8baa3094a6a3eca226048ef1ed3d9e8211b340af2f25de172e4
 
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 COSE:
@@ -174,20 +183,20 @@ COSE:
   ---------------
   Attestation:
     Payload ID: CSR_msg_v1
-    Dev UUID:   50363154-3932-4834-802b-0908718314dc
+    Dev UUID:   50503642-3239-4f86-80c4-06122e299623
     sec_tag:    16842753
-    SHA256:     9459394bfc1054ebc83ef9beaa39d84b8059e260a0ec1b1fddc0152067a53c63
-    Nonce:      545f2efeffc7ae10491f5d3b7374012d
+    SHA256:     8138b643c184d8baa3094a6a3eca226048ef1ed3d9e8211b340af2f25de172e4
+    Nonce:      829754772aaeee5c812b0cfa077130a5
   ---------------
   Sig:
-      df90196b865641b9bb99141f16e18695f2c582237030bc718ec9a240736d4f4d68e5cea99b6b84a8c9f44ff618d1a11765eaf68424be6303685bdef3707fc8ba
+      e89c1772156acae2475c333fa99cbdd68d9deefec7a4c32a38eee80ce0026e627b8859a3697d74230eaafc1c59c356ef462828e25179177e68a08b7bcf8a2102
 
 COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-Device ID: 50363154-3932-4834-802b-0908718314dc
-loading ca and key...
+Device ID: 50503642-3239-4f86-80c4-06122e299623
+Loading CA and key...
 Creating device certificate...
-writing AWS CA to modem...
+Writing CA cert(s) to modem...
 -> AT%CMNG=0,16842753,0,"-----BEGIN CERTIFICATE-----
 MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF
 ADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6
@@ -210,140 +219,36 @@ rqXRfboQnoZsG4q5WTP468SQvvG5
 -----END CERTIFICATE-----
 "
 <- OK
-writing dev cert to modem...
+Writing dev cert to modem...
 -> AT%CMNG=0,16842753,1,"-----BEGIN CERTIFICATE-----
-MIIBxzCCAW4CFDgXQgyjalFBw6ypq3BGKS/jQw4gMAoGCCqGSM49BAMCMIGdMQsw
-CQYDVQQGEwJVUzELMAkGA1UECAwCT1IxETAPBgNVBAcMCFBvcnRsYW5kMR0wGwYD
-VQQKDBROb3JkaWMgU2VtaWNvbmR1Y3RvcjELMAkGA1UECwwCUkQxFzAVBgNVBAMM
-Dm5vcmRpY3NlbWkuY29tMSkwJwYJKoZIhvcNAQkBFhpwZXRlci5za2VnZ3NAbm9y
-ZGljc2VtaS5ubzAeFw0yMTA4MjQwMDE2MjBaFw0zMTA4MjIwMDE2MjBaMC8xLTAr
-BgNVBAMMJDUwMzYzMTU0LTM5MzItNDgzNC04MDJiLTA5MDg3MTgzMTRkYzBZMBMG
-ByqGSM49AgEGCCqGSM49AwEHA0IABM8sE3n5haPXeXo1Z6o0VbxWMc5ZkHkh95oT
-J8x6JSTpXU0Qy5icQHDCsF1X3gXld2xwIoMu2+3IqjhVNucr6Y8wCgYIKoZIzj0E
-AwIDRwAwRAIgLwud64ojEI99F18wHLxzwVNe84OjcoL+NpnOKGqzZ20CIEQhqq3d
-ViL+OKPpdSX0ldid9iywwHSYOdQCwmbv86Lk
+MIIBiDCCAS8CFCDQFevZ3njwztUTy/zclM9d9j6aMAoGCCqGSM49BAMCMF8xCzAJ
+BgNVBAYTAlVTMQswCQYDVQQIDAJPUjEMMAoGA1UEBwwDUERYMQ8wDQYDVQQKDAZu
+b3JkaWMxDjAMBgNVBAsMBWNsb3VkMRQwEgYDVQQDDAtqdXN0aW5fY2VydDAeFw0y
+MzA4MjUxODMwMTlaFw0zMzA4MjIxODMwMTlaMC8xLTArBgNVBAMMJDUwNTAzNjQy
+LTMyMzktNGY4Ni04MGM0LTA2MTIyZTI5OTYyMzBZMBMGByqGSM49AgEGCCqGSM49
+AwEHA0IABGJRzLck8Xbck3hY3p6T+4QX/0EDPv0JJMPHRlAMlKUTPkR9YNMsibFc
+Zrr9U46iesdDrinvuFxJpmo3B4TiRXowCgYIKoZIzj0EAwIDRwAwRAIgI+H5/u8y
+0xxnhmglOfL030LZ5F73fPsgD8bKkyvzinUCIC7xjYflFCqz9eJam8TnlIUGGLmS
+LGje6BexVggtN1+5
 -----END CERTIFICATE-----
 "
 <- OK
-saving provisioning endpoint csv file provision.csv...
---- file provision.csv exists; overwrite, append, or quit (y,a,n)? y
-file saved
-
-~/src/utils$
-```
-
-### 9160DK under Windows
-
-```
-C:\utils>python device_credentials_installer.py -d --ca CA0x522400c80ef6d95ea65ef4860d12adc1b031aa9_ca.pem --ca_key CA0x522400c80ef6d95ea65ef4860d12adc1b031aa9_prv.pem --csv provision.csv
-
-Available ports:
- 1: COM48                nRF9160-DK
-opening port COM48 as generic device...
-disabling LTE and GNSS...
--> AT+CFUN=4
-<- +CSCON: 1
-<- [00:00:28.460,540] <inf> asset_tracker: RRC mode: Connected
-<- +CEREG: 0
-<- [00:00:28.467,834] <inf> asset_tracker: LTE cell changed: Cell ID: -1, Tracking area: -1
-<- +CSCON: 0
-<- [00:00:29.778,564] <inf> asset_tracker: RRC mode: Idle
+Verifying credentials...
+-> AT%CMNG=1,16842753,0
+<- %CMNG: 16842753,0,"2C43952EE9E000FF2ACC4E2ED0897C0A72AD5FA72C3D934E81741CBD54F05BD1"
 <- OK
-Device IMEI: 352656123456789
-Deleting sectag 16842753...
--> AT%CMNG=3,16842753,0
+CA Cert - SHA verified: 2C43952EE9E000FF2ACC4E2ED0897C0A72AD5FA72C3D934E81741CBD54F05BD1
+-> AT%CMNG=1,16842753,1
+<- %CMNG: 16842753,1,"C5B83285533307747ECB170B96C5B47F809D24CFE2BE553B4ED9B5D12551C08E"
 <- OK
--> AT%CMNG=3,16842753,1
+Client Cert - SHA verified: C5B83285533307747ECB170B96C5B47F809D24CFE2BE553B4ED9B5D12551C08E
+-> AT%CMNG=1,16842753,2
+<- %CMNG: 16842753,2,"372A8D78BFF2AB42DA1AA559A1AE2B7AA6A4694CDA1427D18609311D525F370C"
 <- OK
--> AT%CMNG=3,16842753,2
-<- OK
-requesting CSR for sectag 16842753...
--> AT%KEYGEN=16842753,2,0
-<- %KEYGEN: "MIIBCTCBrwIBADAvMS0wKwYDVQQDDCQ1MDUwMzY0Mi0zMjM5LTRmYWEtODBkYi0wZjI4ZTM1NmFkOTUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARp8RD-O71kVsE5jKDox86WMSrDAdJOR1QhGybEvRDLTOcxk71eOfWbEHXxAIXa3ZHXUFEuFz76LoivjZUdWN2KoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANHADBEAiBK1YEDqdwvdWW4y_suz3wlLv11GorZYITgqYPQZL9MmwIgMcFAgyW7hDPFoboweWlVGPys0Vi8nwGg5MaRiaqKxaE.0oRDoQEmoQRBIVhM2dn3hQlQUFA2QjI5T6qA2w8o41atlUIYKlgglD8Gwbrr2nOl8YjYqDVJ4ZqBjNo1bHO4QkdWGibvIXRQUH5ITh55jR_gjPejMo6PpVhA6Ig3EJLFwDUrXzdjRITFvIFlR1NtczbzIu8DtO6sYyWPW7HeYeaMv7EUvvOEykgA338zCKlwtzgmBT6SS1-7sQ"
-<- OK
-
-Parsing AT%KEYGEN output:
-
------BEGIN CERTIFICATE REQUEST-----
-MIIBCTCBrwIBADAvMS0wKwYDVQQDDCQ1MDUwMzY0Mi0zMjM5LTRmYWEtODBkYi0w
-ZjI4ZTM1NmFkOTUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARp8RD+O71kVsE5
-jKDox86WMSrDAdJOR1QhGybEvRDLTOcxk71eOfWbEHXxAIXa3ZHXUFEuFz76Loiv
-jZUdWN2KoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA+gwDAYIKoZIzj0E
-AwIFAANHADBEAiBK1YEDqdwvdWW4y/suz3wlLv11GorZYITgqYPQZL9MmwIgMcFA
-gyW7hDPFoboweWlVGPys0Vi8nwGg5MaRiaqKxaE=
------END CERTIFICATE REQUEST-----
-
-Device public key:
------BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEafEQ/ju9ZFbBOYyg6MfOljEqwwHS
-TkdUIRsmxL0Qy0znMZO9Xjn1mxB18QCF2t2R11BRLhc++i6Ir42VHVjdig==
------END PUBLIC KEY-----
-
-SHA256 Digest:
-943f06c1baebda73a5f188d8a83549e19a818cda356c73b84247561a26ef2174
-
-* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-COSE:
-  Prot Hdr:   1 : -7 (ECDSA w/ SHA-256)
-  Unprot Hdr: 4 : -2 (identity_key)
-  ---------------
-  Attestation:
-    Payload ID: CSR_msg_v1
-    Dev UUID:   50503642-3239-4faa-80db-0f28e356ad95
-    sec_tag:    16842753
-    SHA256:     943f06c1baebda73a5f188d8a83549e19a818cda356c73b84247561a26ef2174
-    Nonce:      507e484e1e798d1fe08cf7a3328e8fa5
-  ---------------
-  Sig:
-      e888371092c5c0352b5f37634484c5bc816547536d7336f322ef03b4eeac63258f5bb1de61e68cbfb114bef384ca4800df7f3308a970b73826053e924b5fbbb1
-
-COSE digest matches payload
-* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-Device ID: 50503642-3239-4faa-80db-0f28e356ad95
-loading ca and key...
-Creating device certificate...
-writing AWS CA to modem...
--> AT%CMNG=0,16842753,0,"-----BEGIN CERTIFICATE-----
-MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF
-ADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6
-b24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL
-MAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEZMBcGA1UEAxMQQW1hem9uIFJv
-b3QgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALJ4gHHKeNXj
-ca9HgFB0fW7Y14h29Jlo91ghYPl0hAEvrAIthtOgQ3pOsqTQNroBvo3bSMgHFzZM
-9O6II8c+6zf1tRn4SWiw3te5djgdYZ6k/oI2peVKVuRF4fn9tBb6dNqcmzU5L/qw
-IFAGbHrQgLKm+a/sRxmPUDgH3KKHOVj4utWp+UhnMJbulHheb4mjUcAwhmahRWa6
-VOujw5H5SNz/0egwLX0tdHA114gk957EWW67c4cX8jJGKLhD+rcdqsq08p8kDi1L
-93FcXmn/6pUCyziKrlA4b9v7LWIbxcceVOF34GfID5yHI9Y/QCB/IIDEgEw+OyQm
-jgSubJrIqg0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC
-AYYwHQYDVR0OBBYEFIQYzIU07LwMlJQuCFmcx7IQTgoIMA0GCSqGSIb3DQEBCwUA
-A4IBAQCY8jdaQZChGsV2USggNiMOruYou6r4lK5IpDB/G/wkjUu0yKGX9rbxenDI
-U5PMCCjjmCXPI6T53iHTfIUJrU6adTrCC2qJeHZERxhlbI1Bjjt/msv0tadQ1wUs
-N+gDS63pYaACbvXy8MWy7Vu33PqUXHeeE6V/Uq2V8viTO96LXFvKWlJbYK8U90vv
-o/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU
-5MsI+yMRQ+hDKXJioaldXgjUkK616842753M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy
-rqXRfboQnoZsG4q5WTP468SQvvG5
------END CERTIFICATE-----
-"
-<- OK
-writing dev cert to modem...
--> AT%CMNG=0,42,1,"-----BEGIN CERTIFICATE-----
-MIIByDCCAW4CFB/Z7a9srkCl7H5KYiFGAxgT+/hmMAoGCCqGSM49BAMCMIGdMQsw
-CQYDVQQGEwJVUzELMAkGA1UECAwCT1IxETAPBgNVBAcMCFBvcnRsYW5kMR0wGwYD
-VQQKDBROb3JkaWMgU2VtaWNvbmR1Y3RvcjELMAkGA1UECwwCUkQxFzAVBgNVBAMM
-Dm5vcmRpY3NlbWkuY29tMSkwJwYJKoZIhvcNAQkBFhpwZXRlci5za2VnZ3NAbm9y
-ZGljc2VtaS5ubzAeFw0yMTA4MjQwMDIwMjVaFw0zMTA4MjIwMDIwMjVaMC8xLTAr
-BgNVBAMMJDUwNTAzNjQyLTMyMzktNGZhYS04MGRiLTBmMjhlMzU2YWQ5NTBZMBMG
-ByqGSM49AgEGCCqGSM49AwEHA0IABGnxEP47vWRWwTmMoOjHzpYxKsMB0k5HVCEb
-JsS9EMtM5zGTvV459ZsQdfEAhdrdkddQUS4XPvouiK+NlR1Y3YowCgYIKoZIzj0E
-AwIDSAAwRQIgSVFtTVQiXqcJ2OeNVj2sz9s+P0pW546Dp+f+wKDKuQQCIQC1tzn9
-F5cAnMPJquIpWKusP/S/3U4QgvKjq6GYndk6nA==
------END CERTIFICATE-----
-"
-<- OK
-saving provisioning endpoint csv file provision.csv...
-file saved
-
-C:\utils>
+Private Key SHA: 372A8D78BFF2AB42DA1AA559A1AE2B7AA6A4694CDA1427D18609311D525F370C
+Credential verification: PASS
+Saving provisioning endpoint CSV file provision.csv...
+Provisioning CSV file saved
 ```
 
 ## nRF Cloud Device Provisioning
@@ -605,12 +510,12 @@ if no CSR provided:
 `<your_prefix><CN>_prv.pem`
 If no CN (common name) is provided/available, the serial number hex value will be used.
 ```
-usage: create_device_credentials.py [-h] -ca CA -ca_key CA_KEY -c C [-st ST] [-l L] [-o O] [-ou OU] [-cn CN] [-e EMAIL] [-dv DV]
-            [-p PATH] [-f FILEPREFIX] [-csr CSR]
+usage: create_device_credentials.py [-h] -ca CA -ca_key CA_KEY [-c C] [-st ST] [-l L] [-o O] [-ou OU] [-cn CN] [-e EMAIL] [-dv DV]
+                                    [-p PATH] [-f FILEPREFIX] [-csr CSR] [-embed_save]
 
 Create Device Credentials
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -ca CA                Filepath to your CA cert PEM
   -ca_key CA_KEY        Filepath to your CA's private key PEM
@@ -627,6 +532,8 @@ optional arguments:
   -f FILEPREFIX, --fileprefix FILEPREFIX
                         Prefix for output files
   -csr CSR              Filepath to CSR PEM from device
+  -embed_save           Save PEM files (client-cert.pem, private-key.pem, and ca-cert.pem) formatted to be used with the Kconfig option
+                        CONFIG_NRF_CLOUD_PROVISION_CERTIFICATES
 ```
 
 ## Examples

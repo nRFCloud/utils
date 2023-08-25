@@ -15,7 +15,7 @@ from cryptography import x509
 import OpenSSL.crypto
 from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
 from modem_credentials_parser import write_file
-import device_credentials_installer
+import ca_certs
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Create Device Credentials")
@@ -200,7 +200,7 @@ def main():
     if args.embed_save:
         # save the AWS CA cert
         write_file(args.path, "ca-cert.pem",
-                   embed_save_convert(device_credentials_installer.aws_ca.encode('utf-8')))
+                   embed_save_convert(ca_certs.aws_ca.encode('utf-8')))
 
     return
 
