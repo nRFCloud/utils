@@ -117,9 +117,6 @@ def parse_args():
     parser.add_argument("--coap",
                         help="Install the CoAP server root CA cert in addition to the AWS root CA cert",
                         action='store_true', default=False)
-    parser.add_argument("--prov",
-                        help="Install the nrf_provisioning root CA cert",
-                        action='store_true', default=False)
     parser.add_argument("--devinfo", type=str,
                         help="Filepath for device info CSV file which will contain the device ID, installed modem FW version, and IMEI",
                         default=None)
@@ -560,10 +557,6 @@ def main():
         print(local_style('OS detect: Linux={}, MacOS={}, Windows={}'.
                           format(is_linux, is_macos, is_windows)))
 
-    if args.coap and args.prov:
-        print(error_style('The options --coap and --prov are mutually exclusive'))
-        sys.exit(1)
-
     if args.rtt:
         cmd_term_key = 'CRLF'
 
@@ -739,10 +732,8 @@ def main():
     print(local_style('Writing CA cert(s) to modem...'))
     if is_gateway:
         modem_ca = ca_certs.aws_ca.replace("\n", "\\n")
-    elif args.coap and not args.prov:
-        modem_ca = ca_certs.nrf_cloud_ca + ca_certs.aws_ca
-    elif args.prov and not args.coap:
-        modem_ca = ca_certs.nrf_cloud_ca
+    elif args.coap:
+        modem_ca = ca_certs.nrf_cloud_coap_ca + ca_certs.aws_ca
     else:
         modem_ca = ca_certs.aws_ca
     write_line('AT%CMNG=0,{},0,"{}"'.format(args.sectag, modem_ca))

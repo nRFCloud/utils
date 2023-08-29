@@ -391,7 +391,7 @@ def main():
         if 0: # TODO: how to write certs via provisioning sample?
             print(local_style('Installing CA cert(s)...'))
             if args.coap:
-                modem_ca = ca_certs.nrf_cloud_ca + ca_certs.aws_ca
+                modem_ca = ca_certs.nrf_cloud_coap_ca + ca_certs.aws_ca
             else:
                 modem_ca = ca_certs.aws_ca
 
