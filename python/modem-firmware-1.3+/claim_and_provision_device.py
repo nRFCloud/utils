@@ -37,9 +37,6 @@ lf_done = False
 plain = False
 verbose = False
 serial_timeout = 1
-IMEI_LEN = 15
-DEV_ID_MAX_LEN = 64
-MAX_CSV_ROWS = 1000
 args = None
 
 def parse_args():
@@ -55,9 +52,6 @@ def parse_args():
     parser.add_argument("--ca_key", type=str,
                         help="Filepath to your CA's private key PEM",
                         default="./ca_prv_key.pem")
-    parser.add_argument("--csv", type=str,
-                        help="Filepath to provisioning CSV file",
-                        default="provision.csv")
     parser.add_argument("--port", type=str,
                         help="Specify which serial port to open, otherwise pick from list",
                         default=None)
@@ -498,6 +492,25 @@ def main():
         error_exit('Failed to obtain provisioning cmd ID')
 
     # TODO: create provisioning command to install AWS root CA?
+    #       currently, provisioning client does not support large CAs,
+    #       such as the AWS root CA.
+
+    # create provisioning finished command
+    print(local_style('\nCreating provisioning command (finished)...'))
+    api_res = nrf_cloud_diap.create_provisioning_cmd_finished(args.api_key, dev_uuid)
+    nrf_cloud_diap.print_api_result("Prov cmd finished response", api_res, args.verbose)
+    if api_res.status_code != 201:
+        error_exit('CreateDeviceProvisioningCommand API call failed')
+
+    # get the provisioning finished cmd ID from the response
+    res_json = json.loads(api_res.text)
+    if not res_json:
+        cleanup()
+        error_exit('Unexpected CreateDeviceProvisioningCommand API response')
+
+    finished_id = res_json.get('id')
+    if not finished_id:
+        error_exit('Failed to obtain provisioning finished cmd ID')
 
     # tell the device to check for commands
     write_line('nrf_provisioning now')
@@ -505,9 +518,12 @@ def main():
     if not retval:
         print(error_style('Did not receive expected response on serial port... continuing'))
 
-    # wait for device to process the command
+    # wait for device to process the commands
     print(hivis_style('\nProvisioning command (client cert) ID: ' + prov_id + '\n'))
     cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, prov_id)
+
+    print(hivis_style('\nProvisioning command (finished) ID: ' + finished_id + '\n'))
+    cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, finished_id)
 
     # add the device to nrf cloud account
     print(hivis_style('\nnRF Cloud API URL: ' + nrf_cloud_provision.set_dev_stage(args.stage)))

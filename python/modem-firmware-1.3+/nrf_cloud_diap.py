@@ -80,6 +80,21 @@ def create_provisioning_cmd_client_cert(api_key, dev_uuid, cert_pem,
 
     return requests.post(req, json=payload, headers=get_auth_header(api_key))
 
+def create_provisioning_cmd_finished(api_key, dev_uuid, description='Provisioning complete'):
+    global api_url
+
+    payload = {}
+    request = {}
+
+    req = get_create_prov_cmd_req(dev_uuid)
+
+    request['finished'] = {}
+
+    payload['description'] = description
+    payload['request'] = request
+
+    return requests.post(req, json=payload, headers=get_auth_header(api_key))
+
 def create_provisioning_cmd_csr(api_key, dev_uuid, description='Generate CSR',
                                 attributes='O=Nordic Semiconductor,L=Oslo,C=fi',
                                 key_usage='101010000', sec_tag=16842753):
