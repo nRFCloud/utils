@@ -254,6 +254,7 @@ def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
 
     if timeout == 0:
         print(error_style('Serial timeout'))
+        retval = False
 
     return retval, output
 
@@ -316,6 +317,42 @@ def wait_for_cmd_status(api_key, dev_id, cmd_id):
         nrf_cloud_diap.print_api_result("Provisioning cmd result", api_res, args.verbose)
 
         return api_result_json.get('response')
+
+def install_ca_certs(sectag, stage, install_coap):
+    print(local_style('Installing CA cert(s)...'))
+    if install_coap:
+        if stage == 'dev':
+            coap_ca = ca_certs.nrf_cloud_coap_ca_dev
+        elif stage == 'beta':
+            coap_ca = ca_certs.nrf_cloud_coap_ca_beta
+        else:
+            coap_ca = ca_certs.nrf_cloud_coap_ca
+        modem_ca = coap_ca + ca_certs.aws_ca
+    else:
+        modem_ca = ca_certs.aws_ca
+
+    # provisioning client shell requires specific formatting
+    modem_ca = modem_ca.replace('-----BEGIN CERTIFICATE-----\n',
+                                '-----BEGIN CERTIFICATE-----\\015\\012')
+    modem_ca = modem_ca.replace('\n-----END CERTIFICATE-----\n',
+                                '\\015\\012-----END CERTIFICATE-----\\015\\012')
+    modem_ca = modem_ca.replace('\n', '')
+
+    # delete first, then write CA
+    write_line('at AT%CMNG=3,{},0'.format(sectag))
+    wait_for_prompt(b'OK', b'ERROR')
+
+    write_line('at AT%CMNG=0,{},0,"{}"'.format(sectag, modem_ca))
+    retval, output = wait_for_prompt(b'OK')
+
+    if not retval:
+        print(error_style('CA cert installation failed'))
+        print(local_style('Ensure provisioning firmware is built with large RX buffers:\n'
+                          '\tCONFIG_NRF_PROVISIONING_RX_BUF_SZ=2048\n'
+                          '\tCONFIG_SHELL_BACKEND_SERIAL_RX_RING_BUFFER_SIZE=2048\n'
+                          '\tCONFIG_SHELL_CMD_BUFF_SIZE=2048'))
+
+    return retval
 
 def main():
     global args
@@ -381,17 +418,7 @@ def main():
 
     # write CA cert(s) to modem
     if args.install_ca or args.coap:
-        print(error_style('\n*** Installing CA certs currently not supported with provisioning sample ***\n'))
-        if 0: # TODO: how to write certs via provisioning sample?
-            print(local_style('Installing CA cert(s)...'))
-            if args.coap:
-                modem_ca = ca_certs.nrf_cloud_coap_ca + ca_certs.aws_ca
-            else:
-                modem_ca = ca_certs.aws_ca
-
-            write_line('at AT%CMNG=0,{},0,"{}"'.format(args.sectag, modem_ca))
-            wait_for_prompt(b'OK', b'ERROR')
-            time.sleep(1)
+            install_ca_certs(args.sectag, args.stage, args.coap)
 
     attest_tok = args.attest
     if not attest_tok:
