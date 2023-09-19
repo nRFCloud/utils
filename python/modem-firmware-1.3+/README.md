@@ -601,3 +601,23 @@ python3 nrf_cloud_device_mgmt.py --apikey enter_your_api_key_here --type MODEM -
 ...
 Created job: 17058622-683e-48d5-a752-b2a77a13c9c9
 ```
+
+## Claim and Provision Device
+This script uses the [nRF Cloud Identity and Provisioning API](https://api.provisioning.nrfcloud.com/v1/) to perform remote device provisioning tasks.
+The target device must be running the [nRF Device Provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning) sample built with the following options:
+```
+CONFIG_AT_SHELL=y
+CONFIG_NRF_PROVISIONING_RX_BUF_SZ=2048
+CONFIG_SHELL_BACKEND_SERIAL_RX_RING_BUFFER_SIZE=2048
+CONFIG_SHELL_CMD_BUFF_SIZE=2048
+```
+
+Because this script creates device credentials for use with nRF Cloud, it requires a CA certificate and the associated private key as an input.
+Use the `create_ca_cert.py` script to create a self-signed CA certificate and keys.
+Your nRF Cloud REST API key is also a required parameter. See [https://nrfcloud.com/#/account](https://nrfcloud.com/#/account).
+Use `--help` for additional parameter information.
+
+## Example
+```
+python3 ./claim_and_provision_device.py --apikey $API_KEY --ca=./ca.pem --ca_key=ca_prv_key.pem
+```
