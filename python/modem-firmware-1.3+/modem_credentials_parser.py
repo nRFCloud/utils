@@ -264,6 +264,20 @@ def parse_attesttoken_output(atokout_str):
 
     return
 
+def get_device_uuid(attest_tok):
+
+    # Input format: <base64url_body>.<base64url_cose>
+    #               cose portion is optional
+    body_cose = attest_tok.split('.')
+    body = body_cose[0]
+
+    # Decode base64url to binary
+    body_bytes = base64_decode(body)
+    # Load into CBOR parser
+    body_obj = loads(body_bytes)
+
+    return format_uuid(body_obj[1].hex())
+
 def main():
 
     if not len(sys.argv) > 1:

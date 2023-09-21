@@ -87,6 +87,53 @@ def enable_at_cmds_mosh_rtt(api):
 
     return found
 
+def reset_device(snr):
+    api = LowLevel.API(LowLevel.DeviceFamily.UNKNOWN)
+    api.open()
+
+    # Connect to and identify device
+    if snr is None:
+        api.connect_to_emu_without_snr()
+    else:
+        api.connect_to_emu_with_snr(snr)
+
+    family = api.read_device_family()
+    api.select_family(family)
+
+    api.sys_reset()
+    api.go()
+    api.disconnect_from_emu()
+    api.close()
+
+    return True
+
+def connect_and_program(snr, hex_path):
+
+    if not hex_path:
+        return False
+
+    api = LowLevel.API(LowLevel.DeviceFamily.UNKNOWN)
+    api.open()
+
+    # Connect to and identify device
+    if snr is None:
+        api.connect_to_emu_without_snr()
+    else:
+        api.connect_to_emu_with_snr(snr)
+
+    family = api.read_device_family()
+    api.select_family(family)
+
+    if not program_hex_rtt(api, hex_path):
+        return False
+
+    api.sys_reset()
+    api.go()
+    api.disconnect_from_emu()
+    api.close()
+
+    return True
+
 def program_hex_rtt(api, hex_path):
     if hex_path:
         try:
