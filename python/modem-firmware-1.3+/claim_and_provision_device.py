@@ -38,6 +38,9 @@ plain = False
 verbose = False
 serial_timeout = 1
 args = None
+IMEI_LEN = 15
+DEV_ID_MAX_LEN = 64
+CSR_ATTR_CN = 'CN='
 
 def parse_args():
     global verbose
@@ -75,6 +78,15 @@ def parse_args():
                         Pipe (|) delimited firmware types for FOTA of the set
                         {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double quotes
                         """, default="APP|MODEM")
+    parser.add_argument("--id_str", type=str,
+                        help="Device ID to use instead of UUID. Will be a prefix if used with --id_imei",
+                        default="")
+    parser.add_argument("--id_imei",
+                        help="Use IMEI for device ID instead of UUID. Add a prefix with --id_str",
+                        action='store_true', default=False)
+    parser.add_argument("--csr_attr", type=str,
+                        help="CSR attributes. Do not include CN (common name), the device ID will be used",
+                        default="")
     parser.add_argument("--install_ca",
                         help="Install the AWS root CA cert",
                         action='store_true', default=False)
@@ -290,7 +302,7 @@ def error_exit(err_msg):
     else:
         sys.exit('Error... exiting.')
 
-def wait_for_cmd_status(api_key, dev_id, cmd_id):
+def wait_for_cmd_status(api_key, dev_uuid, cmd_id):
     global args
     prev_status = ''
 
@@ -298,7 +310,7 @@ def wait_for_cmd_status(api_key, dev_id, cmd_id):
 
         time.sleep(5)
 
-        api_res = nrf_cloud_diap.get_provisioning_cmd(api_key, dev_id, cmd_id)
+        api_res = nrf_cloud_diap.get_provisioning_cmd(api_key, dev_uuid, cmd_id)
 
         if api_res.status_code != 200:
             print(error_style('Failed to fetch provisioning cmd result'))
@@ -369,6 +381,15 @@ def main():
     # Set to CRLF for interaction with provisioning sample
     cmd_term_key = 'CRLF'
 
+    # check device ID length
+    if args.id_str:
+        id_len = len(args.id_str)
+        if (id_len > DEV_ID_MAX_LEN) or (args.id_imei and ((id_len + IMEI_LEN) > DEV_ID_MAX_LEN)):
+            error_exit(f'Device ID must not exceed {DEV_ID_MAX_LEN} characters')
+
+    if CSR_ATTR_CN in args.csr_attr:
+        error_exit(f'Do not include CN in --csr_attr. The device ID will be used as the CN')
+
     # initialize colorama
     if is_windows:
         init(convert = not plain)
@@ -427,6 +448,20 @@ def main():
         if not attest_tok:
             error_exit('Failed to obtain attestation token')
 
+    # get the IMEI
+    write_line('at AT+CGSN')
+    retval, imei = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
+    if not retval:
+        print(error_style('Failed to obtain IMEI'))
+        imei = None
+
+    if imei:
+        # display the IMEI for reference
+        imei = str(imei.decode("utf-8"))[:IMEI_LEN]
+        print(send_style('\nDevice IMEI: ' + imei))
+    elif args.id_imei:
+        error_exit('Cannot format device ID without IMEI')
+
     # get device UUID from attestation token
     dev_uuid = modem_credentials_parser.get_device_uuid(attest_tok)
     print(send_style('Device UUID: ' + dev_uuid))
@@ -448,9 +483,29 @@ def main():
     if api_res.status_code != 201:
         error_exit('ClaimDeviceOwnership API call failed')
 
+    # get the device ID
+    device_id = ''
+    if args.id_str:
+        if args.id_imei:
+            device_id = args.id_str + imei
+        else:
+            device_id = args.id_str
+    elif args.id_imei:
+        device_id = imei
+    else:
+        device_id = dev_uuid
+
+    # add the device ID as the CN in the attributes
+    csr_attr = f'{CSR_ATTR_CN}{device_id}'
+    if args.csr_attr:
+        csr_attr = f'{csr_attr},{args.csr_attr}'
+
     # create provisioning command to generate a CSR
     print(local_style('\nCreating provisioning command (CSR)...'))
-    api_res = nrf_cloud_diap.create_provisioning_cmd_csr(args.api_key, dev_uuid, sec_tag=args.sectag)
+
+    api_res = nrf_cloud_diap.create_provisioning_cmd_csr(args.api_key, dev_uuid,
+                                                         attributes=csr_attr,
+                                                         sec_tag=args.sectag)
     nrf_cloud_diap.print_api_result("Prov cmd CSR response", api_res, args.verbose)
     if api_res.status_code != 201:
         error_exit('CreateDeviceProvisioningCommand API call failed')
@@ -553,10 +608,10 @@ def main():
     cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, finished_id)
 
     # add the device to nrf cloud account
-    print(hivis_style('\nnRF Cloud API URL: ' + nrf_cloud_provision.set_dev_stage(args.stage)))
-    print(hivis_style('Adding device to cloud account...'))
+    print(hivis_style(f'\nnRF Cloud API URL: {nrf_cloud_provision.set_dev_stage(args.stage)}'))
+    print(hivis_style(f'Adding device \'{device_id}\' to cloud account...'))
 
-    api_res = nrf_cloud_provision.provision_device(args.api_key, dev_uuid, '',
+    api_res = nrf_cloud_provision.provision_device(args.api_key, device_id, '',
                                                    args.tags, args.fwtypes,
                                                    dev_cert_pem_str)
     nrf_cloud_provision.print_api_result("ProvisionDevices API call response", api_res, args.verbose)

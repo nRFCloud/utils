@@ -96,7 +96,7 @@ def create_provisioning_cmd_finished(api_key, dev_uuid, description='Provisionin
     return requests.post(req, json=payload, headers=get_auth_header(api_key))
 
 def create_provisioning_cmd_csr(api_key, dev_uuid, description='Generate CSR',
-                                attributes='O=Nordic Semiconductor,L=Oslo,C=fi',
+                                attributes='',
                                 key_usage='101010000', sec_tag=16842753):
     global api_url
 
