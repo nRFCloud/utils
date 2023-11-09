@@ -228,6 +228,7 @@ def write_line(line, hidden = False):
 
 def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
     global lf_done
+    global verbose
     found = False
     retval = False
     output = None
@@ -268,6 +269,8 @@ def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
         print(error_style('Serial timeout'))
         retval = False
 
+    if verbose:
+        print("-- FOUND: {}".format(val1))
     return retval, output
 
 def cleanup():
@@ -522,9 +525,21 @@ def main():
 
     print(hivis_style('\nProvisioning command (CSR) ID: ' + prov_id + '\n'))
 
-    # reset the device since we disabled the modem
-    print(send_style('Resetting device'))
-    rtt_interface.reset_device(args.jlink_sn)
+    # re-enable the modem so we can proceed
+    print(local_style('\nEnabling modem...'))
+    write_line('at AT+CFUN=1')
+    retval = wait_for_prompt(b'OK')
+    if not retval:
+        error_exit('Unable to communicate')
+
+    # tell the device to check for commands
+    # sleep first or else command is ignored
+    time.sleep(5)
+    write_line('nrf_provisioning now')
+    retval = wait_for_prompt(b'nrf_provisioning: Externally initiated provisioning', b'ERROR',)
+    if not retval:
+        print(error_style('Did not receive expected response on serial port... continuing'))
+
     # wait for device to boot and process the command
     print(local_style('Waiting for device to process command...'))
     cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, prov_id)
