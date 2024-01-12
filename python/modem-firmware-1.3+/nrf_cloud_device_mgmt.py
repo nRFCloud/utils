@@ -183,7 +183,7 @@ def url_encode(token):
     return urllib.parse.quote_plus(token)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="nRF Cloud Device Provisioning",
+    parser = argparse.ArgumentParser(description="nRF Cloud Manage FOTA Update Jobs",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--apikey",
                         help="nRF Cloud API key",

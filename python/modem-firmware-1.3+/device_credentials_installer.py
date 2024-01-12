@@ -64,8 +64,8 @@ def parse_args():
                         help="Filepath to your CA's private key PEM",
                         default="")
     parser.add_argument("--csv", type=str,
-                        help="Filepath to provisioning CSV file",
-                        default="provision.csv")
+                        help="Filepath to onboarding CSV file",
+                        default="onboard.csv")
     parser.add_argument("--port", type=str,
                         help="Specify which serial port to open, otherwise pick from list",
                         default=None)
@@ -76,7 +76,7 @@ def parse_args():
                         help="Use IMEI for device ID instead of UUID. Add a prefix with --id_str",
                         action='store_true', default=False)
     parser.add_argument("-a", "--append",
-                        help="When saving provisioning CSV, append to it",
+                        help="When saving onboarding CSV, append to it",
                         action='store_true', default=False)
     parser.add_argument("-A", "--all",
                         help="List ports of all types, not just Nordic devices",
@@ -334,9 +334,9 @@ def check_if_device_exists_in_csv(csv_filename, dev_id):
 
     try:
         with open(csv_filename) as csvfile:
-            prov = csv.reader(csvfile, delimiter=',')
+            csv_contents = csv.reader(csvfile, delimiter=',')
 
-            for row in prov:
+            for row in csv_contents:
                 row_count += 1
                 # First column is the device ID
                 if row[0] == dev_id:
@@ -396,7 +396,7 @@ def save_devinfo_csv(csv_filename, append, dev_id, mfw_ver, imei):
     except OSError:
         print(error_style('Error opening file {}'.format(csv_filename)))
 
-def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, dev):
+def save_onboarding_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, dev):
     mode = user_request_open_mode(csv_filename, append)
 
     if mode == None:
@@ -409,18 +409,18 @@ def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types
         exists, row_count = check_if_device_exists_in_csv(csv_filename, dev_id)
 
         if verbose:
-            print(local_style("Provisioning CSV row count [max {}]: {}".format(MAX_CSV_ROWS, row_count)))
+            print(local_style("Onboarding CSV row count [max {}]: {}".format(MAX_CSV_ROWS, row_count)))
 
         if row_count >= MAX_CSV_ROWS:
-            print(error_style('Provisioning CSV file is full'))
+            print(error_style('Onboarding CSV file is full'))
             do_not_write = True
 
         if exists:
-            print(error_style('Provisioning CSV file already contains device \'{}\''.format(dev_id)))
+            print(error_style('Onboarding CSV file already contains device \'{}\''.format(dev_id)))
             do_not_write = True
 
         if do_not_write:
-            print(error_style('The following row was NOT added to the provisioning CSV file:'))
+            print(error_style('The following row was NOT added to the onboarding CSV file:'))
             print(local_style(','.join(row)))
             return
 
@@ -429,7 +429,7 @@ def save_provisioning_csv(csv_filename, append, dev_id, sub_type, tags, fw_types
             csv_writer = csv.writer(csvfile, delimiter=',', lineterminator='\n',
                                     quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(row)
-        print(local_style('Provisioning CSV file saved'))
+        print(local_style('Onboarding CSV file saved'))
     except OSError:
         print(error_style('Error opening file {}'.format(csv_filename)))
 
@@ -767,14 +767,14 @@ def main():
 
         print(local_style('Credential verification: PASS'))
 
-    # write provisioning information to csv if requested by user
+    # write onboarding information to csv if requested by user
     if len(args.csv) > 0:
-        print(local_style('{} provisioning endpoint CSV file {}...'
+        print(local_style('{} nRF Cloud device onboarding CSV file {}...'
                           .format('Appending' if args.append else 'Saving', args.csv)))
         sub_type = 'gateway' if is_gateway else ''
         if len(args.subtype) > 0:
             sub_type = args.subtype
-        save_provisioning_csv(args.csv, args.append, dev_id, sub_type, args.tags,
+        save_onboarding_csv(args.csv, args.append, dev_id, sub_type, args.tags,
                               args.fwtypes, dev)
 
     # write device ID, modem firmware version, and IMEI to a file
