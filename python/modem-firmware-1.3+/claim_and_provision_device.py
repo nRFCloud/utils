@@ -12,7 +12,7 @@ import argparse
 import platform
 import ca_certs
 import rtt_interface
-import nrf_cloud_provision
+import nrf_cloud_onboard
 import modem_credentials_parser
 import nrf_cloud_diap
 import create_device_credentials
@@ -607,13 +607,13 @@ def main():
     cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, finished_id)
 
     # add the device to nrf cloud account
-    print(hivis_style(f'\nnRF Cloud API URL: {nrf_cloud_provision.set_dev_stage(args.stage)}'))
+    print(hivis_style(f'\nnRF Cloud API URL: {nrf_cloud_onboard.set_dev_stage(args.stage)}'))
     print(hivis_style(f'Onboarding device \'{device_id}\' to cloud account...'))
 
-    api_res = nrf_cloud_provision.onboard_device(args.api_key, device_id, '',
+    api_res = nrf_cloud_onboard.onboard_device(args.api_key, device_id, '',
                                                args.tags, args.fwtypes,
                                                dev_cert_pem_str)
-    nrf_cloud_provision.print_api_result("Onboarding API call response", api_res, args.verbose)
+    nrf_cloud_onboard.print_api_result("Onboarding API call response", api_res, args.verbose)
 
     print(local_style('Done.'))
     cleanup()
