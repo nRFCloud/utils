@@ -146,6 +146,8 @@ def parse_args():
     parser.add_argument("--verify",
                         help="Confirm credentials have been installed",
                         action='store_true', default=False)
+    parser.add_argument("--stage", type=str,
+                        help="For internal (Nordic) use only", default="")
     args = parser.parse_args()
     verbose = args.verbose
     return args
@@ -733,7 +735,13 @@ def main():
     if is_gateway:
         modem_ca = ca_certs.aws_ca.replace("\n", "\\n")
     elif args.coap:
-        modem_ca = ca_certs.nrf_cloud_coap_ca + ca_certs.aws_ca
+        if args.stage == 'dev':
+            coap_ca = ca_certs.nrf_cloud_coap_ca_dev
+        elif args.stage == 'beta':
+            coap_ca = ca_certs.nrf_cloud_coap_ca_beta
+        else:
+            coap_ca = ca_certs.nrf_cloud_coap_ca
+        modem_ca = coap_ca + ca_certs.aws_ca
     else:
         modem_ca = ca_certs.aws_ca
     write_line('AT%CMNG=0,{},0,"{}"'.format(args.sectag, modem_ca))

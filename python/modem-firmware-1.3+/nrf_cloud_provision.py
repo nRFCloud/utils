@@ -72,6 +72,8 @@ def parse_args():
     parser.add_argument("--name_prefix", type=str,
                         help="Prefix string for IMEI friendly name",
                         default=None)
+    parser.add_argument("--stage", type=str,
+                        help="For internal (Nordic) use only", default="")
 
     args = parser.parse_args()
     return args
@@ -535,6 +537,9 @@ def main():
 
     if not len(args.csv):
         raise RuntimeError("Invalid provisioning CSV file")
+
+    if args.stage:
+        set_dev_stage(args.stage)
 
     prov_res = do_provisioning(args.apikey, args.csv, args.res, args.chk)
 

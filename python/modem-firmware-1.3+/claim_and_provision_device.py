@@ -110,8 +110,7 @@ def parse_args():
     parser.add_argument("--api_key", type=str,
                         help="API key",
                         default=None)
-    parser.add_argument("--stage", type=str,
-                        help="Deployment stage; default is prod (blank)", default="")
+    parser.add_argument("--stage", type=str, "For internal (Nordic) use only", default="")
     parser.add_argument("--attest", type=str,
                         help="Attestation token base64 string (AT%%ATTESTTOKEN result)",
                         default=None)
