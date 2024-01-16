@@ -9,7 +9,7 @@ Use Python pip to install required packages:
 ~$ pip3 install -r requirements.txt
 ```
 
-## Create CA Cert
+# Create CA Cert
 This script creates a self-signed CA certificate and an associated EC keypair.   The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials.
 
 The output file name format is as follows:
@@ -17,26 +17,6 @@ The output file name format is as follows:
 `<your_prefix><CA_serial_number_hex>_prv.pem`
 `<your_prefix><CA_serial_number_hex>_pub.pem`
 
-```
-usage: create_ca_cert.py [-h] -c,  C,  [-st ST] [-l L] [-o O] [-ou OU] [-cn CN] [-dv DV] [-e EMAIL] [-p PATH] [-f FILEPREFIX]
-
-Create CA Certificate
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -c,  C,               2 character country code
-  -st ST                State or Province
-  -l L                  Locality
-  -o O                  Organization
-  -ou OU                Organizational Unit
-  -cn CN                Common Name
-  -dv DV                Number of days valid
-  -e EMAIL, --email EMAIL
-                        E-mail address
-  -p PATH, --path PATH  Path to save PEM files.
-  -f FILEPREFIX, --fileprefix FILEPREFIX
-                        Prefix for output files
-```
 ### Example
 ```
 python3 create_ca_cert.py -c US -st OR -l Portland -o "My Company" -ou "RD" -cn example.com -e admin@example.com -p /my_ca -f my_company-
@@ -46,7 +26,7 @@ File created: /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.p
 File created: /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_pub.pem
 ```
 
-## Device Credentials Installer
+# Device Credentials Installer
 
 This script automates the process of generating and programming device credentials to a device such as a Thingy:91 or 9160DK running an nRF Connect SDK application containing the [AT Host library](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/libraries/modem/at_host.html).
 The [AT Client sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/nrf9160/at_client) is the simplest implementation of the AT Host library.
@@ -79,41 +59,23 @@ python3 device_credentials_installer.py -d --ca ./ca.pem --ca_key ./ca_prv_key.p
 python3 device_credentials_installer.py -d --ca ./ca.pem --ca_key ./ca_prv_key.pem --verify --id_imei --id_str nrf-
 ```
 
-## nRF Cloud Device Onboarding
+# nRF Cloud Device Onboarding
 The `nrf_cloud_onboard.py` script performs device onboarding with nRF Cloud.
 Your nRF Cloud REST API key is a required parameter. See [https://nrfcloud.com/#/account](https://nrfcloud.com/#/account).
 Also required is a CSV file compatible with the [onboarding endpoint](https://api.nrfcloud.com/v1/#operation/ProvisionDevices). You can use the onboarding CSV file produced by `device_credentials_installer.py`.
 
-## Example
+### Example
 ```
 python3 ./nrf_cloud_onboard.py --apikey $API_KEY --csv onboard.csv
 ```
 
 If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
 
-## Modem Credentials Parser
+# Modem Credentials Parser
 The script above, `device_credentials_installer.py` makes use of this script, `modem_credentials_parser.py`, so if you use the former, you do not need to also follow the directions below.  If `device_credentials_installer.py` does not meet your needs, you can use `modem_credentials_parser.py` directly to take advantage of additional options.
 
 This script parses the output of `AT%KEYGEN` and `AT%ATTESTTOKEN`.   Each command outputs two base64 strings joined by a `.` character.  The first string is the command specific data.  The second string is the [COSE](https://datatracker.ietf.org/doc/html/rfc8152) signature of the first string.
 The parsed data is displayed in the output.  Providing the COSE string to this script is optional, as it is only used to display extra information.  When providing `AT%KEYGEN` output, PEM files can be optionally saved.
-
-
-```
-usage: modem_credentials_parser.py [-h] [-k KEYGEN] [-a ATTEST] [-s] [-p PATH] [-f FILEPREFIX]
-
-Modem Credentials Parser
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -k KEYGEN, --keygen KEYGEN
-                        base64url string: KEYGEN output
-  -a ATTEST, --attest ATTEST
-                        base64url string: ATTESTTOKEN output
-  -s, --save            Save PEM file(s): <UUID>_<sec_tag>_<type>.pem
-  -p PATH, --path PATH  Path to save PEM file. Selects -s
-  -f FILEPREFIX, --fileprefix FILEPREFIX
-                        Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s
-```
 
 Parse modem [KEYGEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/keygen_set.html) output; with or without COSE string:
 
@@ -174,7 +136,7 @@ COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ```
 
-### KEYGEN - Public Key: `AT%KEYGEN=16,2,1`
+#### KEYGEN - Public Key: `AT%KEYGEN=16,2,1`
 ```
 python3 modem_credentials_parser.py -k MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZKgDx0O0FKa7i1yFoxYngNdV5Csyi4rEPHcFTfeBVtkkJX-G0QZs-yesfzIaPs91b4x5xYN_g28k63gkeVMJwA.0oRDoQEmoQRBIVhL2dn3hQhQUDYxVDkxRPCAIhIbZAFifUEQWCDlovwqMVoJ1W-x93Tqypy2v_1ALv3-GCF1R9gYIy2WVlBQXvxKqA9JTveFh3nVwce-WEAMltwSSkVh8jSBPhP79ndSG0HJTOaTF9SExIq-FstjdLUW2inxdvVfqzLa05rgXqxshN5vfQIs22QT-swCt30h
 
@@ -208,7 +170,7 @@ COSE digest matches payload
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ```
 
-### AT%ATTESTTOKEN
+#### AT%ATTESTTOKEN
 ```
 python3 modem_credentials_parser.py -a 2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY
 
@@ -233,7 +195,7 @@ COSE:
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ```
 
-### KEYGEN - Certificate Signing Request (CSR) + File Save: `AT%KEYGEN=17,2,0`
+#### KEYGEN - Certificate Signing Request (CSR) + File Save: `AT%KEYGEN=17,2,0`
 ```
 python3 modem_credentials_parser.py -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud -p /my_devices/pem_files -f hw_rev2-
 
@@ -279,7 +241,7 @@ File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d
 File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_pub.pem
 ```
 
-## Create Device Credentials
+# Create Device Credentials
 The script above, `device_credentials_installer.py` makes use of this script, `create_device_credentials.py`, so if you use the former, you do not need to also follow the directions below.
 If `device_credentials_installer.py` does not meet your needs, you can use `create_device_credentials.py` directly to take advantage of additional options.
 
@@ -293,32 +255,6 @@ The output file name format is as follows:
 if no CSR provided:
 `<your_prefix><CN>_prv.pem`
 If no CN (common name) is provided/available, the serial number hex value will be used.
-```
-usage: create_device_credentials.py [-h] -ca CA -ca_key CA_KEY [-c C] [-st ST] [-l L] [-o O] [-ou OU] [-cn CN] [-e EMAIL] [-dv DV]
-                                    [-p PATH] [-f FILEPREFIX] [-csr CSR] [-embed_save]
-
-Create Device Credentials
-
-options:
-  -h, --help            show this help message and exit
-  -ca CA                Filepath to your CA cert PEM
-  -ca_key CA_KEY        Filepath to your CA's private key PEM
-  -c C                  2 character country code; required if CSR is not provided
-  -st ST                State or Province; ignored if CSR is provided
-  -l L                  Locality; ignored if CSR is provided
-  -o O                  Organization; ignored if CSR is provided
-  -ou OU                Organizational Unit; ignored if CSR is provided
-  -cn CN                Common Name; use nRF Cloud device ID/MQTT client ID; ignored if CSR is provided
-  -e EMAIL, --email EMAIL
-                        E-mail address; ignored if CSR is provided
-  -dv DV                Number of days cert is valid
-  -p PATH, --path PATH  Path to save PEM files.
-  -f FILEPREFIX, --fileprefix FILEPREFIX
-                        Prefix for output files
-  -csr CSR              Filepath to CSR PEM from device
-  -embed_save           Save PEM files (client-cert.pem, private-key.pem, and ca-cert.pem) formatted to be used with the Kconfig option
-                        CONFIG_NRF_CLOUD_PROVISION_CERTIFICATES
-```
 
 ### Examples
 
@@ -339,31 +275,8 @@ File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_crt.
 File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_pub.pem
 ```
 
-## Device Management - Creating FOTA Updates:
+# Device Management - Creating FOTA Updates:
 Use the `nrf_cloud_device_mgmt.py` script to create FOTA update jobs.
-
-```
-usage: nrf_cloud_device_mgmt.py [-h] --apikey APIKEY [--type TYPE] [--apply] [--rd] [--ad] [--tag_list] [--tag TAG] [--dev_id DEV_ID]
-                                [--bundle_id BUNDLE_ID] [--name NAME] [--desc DESC]
-
-nRF Cloud FOTA Update Job Management
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --apikey APIKEY       nRF Cloud API key (default: )
-  --type TYPE           FOTA update type: APP, MODEM, or BOOT (default: MODEM)
-  --apply               Apply job upon creation; this starts the job. If not enabled, the job must be applied using the ApplyFOTAJob
-                        endpoint. (default: False)
-  --rd                  Display only devices that support the requested FOTA type (default: False)
-  --ad                  Display all devices. Only specified device is displayed if used with --dev_id. Overrides --rd. (default: False)
-  --tag_list            Display all tags (device groups) and prompt to select tag to use. Enabled for non-MODEM updates. (default: False)
-  --tag TAG             Create an update for the specified device tag (device group). Overrides --tag_list. (default: )
-  --dev_id DEV_ID       Create an update for the specified device ID. Overrides --tag and --tag_list. (default: )
-  --bundle_id BUNDLE_ID
-                        Create an update using the specified bundle ID. (default: )
-  --name NAME           The name to be used for the created update. (default: )
-  --desc DESC           The description of the created updated. (default: )
-```
 
 An nRF Cloud API key `--apikey` is required to create FOTA updates. It can be found on the nrfcloud.com User Account page.
 By providing `--name`, `--desc`, `--bundle_id` and either `--tag` or `--dev_id`, the script will execute without user interaction. Otherwise, the script will prompt the user for information required to create the FOTA update.
@@ -386,7 +299,7 @@ python3 nrf_cloud_device_mgmt.py --apikey enter_your_api_key_here --type MODEM -
 Created job: 17058622-683e-48d5-a752-b2a77a13c9c9
 ```
 
-## Claim and Provision Device
+# Claim and Provision Device
 This script uses the [nRF Cloud Identity and Provisioning API](https://api.provisioning.nrfcloud.com/v1/) to perform remote device provisioning tasks.
 After claiming and provisioning, this script will onboard the device to your nRF Cloud account.
 The target device must be running the [nRF Device Provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning) sample built with the following options:
