@@ -19,7 +19,8 @@ import rtt_interface
 import modem_credentials_parser
 from modem_credentials_parser import write_file
 import create_device_credentials
-from create_device_credentials import create_device_cert
+from create_device_credentials import create_device_cert, create_local_csr
+
 from serial.tools import list_ports
 from colorama import init, Fore, Back, Style
 from cryptography import x509
@@ -122,6 +123,9 @@ def parse_args():
                         default=None)
     parser.add_argument("--devinfo_append",
                         help="When saving device info CSV, append to it",
+                        action='store_true', default=False)
+    parser.add_argument("--local_cert",
+                        help="Generate device cert and private key on the host machine, rather than on the device.",
                         action='store_true', default=False)
     parser.add_argument("--xonxoff",
                         help="Enable software flow control for serial connection",
@@ -525,6 +529,71 @@ def check_mfw_version():
 
     return ver
 
+# Ask a device with modem to generate CSR usint AT%KEYGEN. Returns the CSR as an X509Req object.
+def get_device_csr_at(custom_dev_id = "", sectag = 0):
+    # provide attributes parameter if a custom device ID is specified
+    attr = f',"CN={custom_dev_id}"' if len(custom_dev_id) else ''
+
+    write_line('AT%KEYGEN={},2,0{}'.format(sectag,attr))
+    # include the CR in OK because 'OK' could be found in the CSR string
+    retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%KEYGEN:')
+    if not retval:
+        print(error_style('Unable to generate private key; does it already exist for this sectag?'))
+        cleanup()
+        sys.exit(9)
+    elif output == None:
+        print(error_style('Unable to detect KEYGEN output'))
+        cleanup()
+        sys.exit(10)
+
+    # convert the encoded blob to an actual cert
+    csr_blob = str(output).split('"')[1]
+    if verbose:
+        print(local_style('CSR blob: {}'.format(csr_blob)))
+
+    modem_credentials_parser.parse_keygen_output(csr_blob)
+
+    # load and return the CSR
+    csr_bytes = modem_credentials_parser.csr_pem_bytes
+    try:
+        return OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr_bytes)
+    except OpenSSL.crypto.Error:
+        cleanup()
+        raise RuntimeError("Error loading CSR")
+
+
+# Get a CSR, either by generating one on-device, or generating it locally.
+def get_csr(custom_dev_id = "", sectag = 0, local = False):
+    local_priv_key = None
+
+    if (local):
+        csr, local_priv_key = create_local_csr(cn = custom_dev_id)
+    else:
+        # Use AT commands to request a CSR
+        csr = get_device_csr_at(custom_dev_id, sectag)
+
+    return csr, local_priv_key
+
+def format_cred(cred, is_gateway = False):
+    formatted = cred
+
+    if not isinstance(cred, str):
+        formatted = str(cred, encoding=full_encoding)
+
+    if is_gateway:
+        formatted = formatted.replace("\n", "\\n")
+
+    return formatted
+
+# Write a modem credential. Provided credential should be plaintext
+def write_modem_cred(sectag, cred_type, cred_text):
+    cred_type_name = ["CA cert(s)", "dev cert", "private key"][cred_type]
+    print(local_style(f'Writing {cred_type_name} to modem...'))
+
+    write_line(f'AT%CMNG=0,{sectag},{cred_type},"{cred_text}"')
+    wait_for_prompt(b'OK', b'ERROR')
+    time.sleep(1)
+
 def main():
     global plain
     global ser
@@ -649,54 +718,39 @@ def main():
 
     # now get a new certificate signing request (CSR)
     print(local_style('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag)))
-    # provide attributes parameter if a custom device ID is specified
-    attr = ''
-    if len(custom_dev_id):
-        attr = ',\"CN={}\"'.format(custom_dev_id)
 
-    write_line('AT%KEYGEN={},2,0{}'.format(args.sectag,attr))
-    # include the CR in OK because 'OK' could be found in the CSR string
-    retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%KEYGEN:')
-    if not retval:
-        print(error_style('Unable to generate private key; does it already exist for this sectag?'))
-        cleanup()
-        sys.exit(9)
-    elif output == None:
-        print(error_style('Unable to detect KEYGEN output'))
-        cleanup()
-        sys.exit(10)
+    # Get a CSR
+    csr, prv_key = get_csr(custom_dev_id, args.sectag, local=args.local_cert)
 
-    # convert the encoded blob to an actual cert
-    csr_blob = str(output).split('"')[1]
-    if verbose:
-        print(local_style('CSR blob: {}'.format(csr_blob)))
+    # Collect or generate associated artifacts
+    csr_bytes = OpenSSL.crypto.dump_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr)
+    prv_bytes = None
+    prv_text = None
+    if prv_key is not None:
+        prv_bytes = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, prv_key)
+        prv_text = format_cred(prv_bytes, is_gateway)
+    pub_key = csr.get_pubkey()
+    pub_bytes = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
+    dev_id = csr.get_subject().CN
 
-    modem_credentials_parser.parse_keygen_output(csr_blob)
-    if args.save:
-        modem_credentials_parser.save_output(args.path, args.fileprefix)
-
-    # get the public key from the CSR
-    csr_bytes = modem_credentials_parser.csr_pem_bytes
-    try:
-        csr = OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM,
-                                                      csr_bytes)
-        pub_key = csr.get_pubkey()
-    except OpenSSL.crypto.Error:
-        cleanup()
-        raise RuntimeError("Error loading CSR")
-
-    if len(csr.get_subject().CN) == 0:
+    if len(dev_id) == 0:
         print(error_style('CSR\'s Common Name (CN) is empty'))
         cleanup()
         sys.exit(11)
 
-    # display info we received for the CSR
-    dev_id = csr.get_subject().CN
+    if args.save:
+        # Save CSR if desired
+        write_file(args.path, args.fileprefix + dev_id + "_csr.pem", csr_bytes)
+
+        # Save private key if available
+        if prv_key is not None:
+            write_file(args.path, args.fileprefix + dev_id + "_prv.pem", prv_bytes)
+
+    # display CSR info
     print(hivis_style('Device ID: {}'.format(dev_id)))
     if verbose:
-        pub_key_bytes = modem_credentials_parser.pub_key_bytes
         print(hivis_style('CSR PEM: {}'.format(csr_bytes)))
-        print(hivis_style('Pub key: {}'.format(pub_key_bytes)))
+        print(hivis_style('Pub key: {}'.format(pub_bytes)))
 
     # check if we have all we need to proceed
     if len(args.ca) == 0 or len(args.ca_key) == 0:
@@ -714,52 +768,36 @@ def main():
     device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
 
     # save device cert and/or print it
-    dev = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM,
-                                          device_cert)
+    dev_bytes = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
+    dev_text = format_cred(dev_bytes, is_gateway)
+
     if verbose:
-        print(local_style('Dev cert: {}'.format(dev)))
+        print(local_style('Dev cert: {}'.format(dev_bytes)))
     if args.save:
         print(local_style('Saving dev cert...'))
-        write_file(args.path, args.fileprefix + dev_id + "_crt.pem", dev)
+        write_file(args.path, args.fileprefix + dev_id + "_crt.pem", dev_bytes)
 
     # save public key and/or print it
-    pub = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
     if verbose:
-        print(local_style('Pub key: {}'.format(pub)))
+        print(local_style('Pub key: {}'.format(pub_bytes)))
     if args.save:
         print(local_style('Saving pub key...'))
-        write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub)
+        write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub_bytes)
 
-    # write to AWS CA modem
-    print(local_style('Writing CA cert(s) to modem...'))
-    if is_gateway:
-        modem_ca = ca_certs.aws_ca.replace("\n", "\\n")
-    elif args.coap:
-        if args.stage == 'dev':
-            coap_ca = ca_certs.nrf_cloud_coap_ca_dev
-        elif args.stage == 'beta':
-            coap_ca = ca_certs.nrf_cloud_coap_ca_beta
-        else:
-            coap_ca = ca_certs.nrf_cloud_coap_ca
-        modem_ca = coap_ca + ca_certs.aws_ca
-    else:
-        modem_ca = ca_certs.aws_ca
-    write_line('AT%CMNG=0,{},0,"{}"'.format(args.sectag, modem_ca))
-    wait_for_prompt(b'OK', b'ERROR')
-    time.sleep(1)
+    # write CA cert(s) to modem
+    nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), is_gateway)
+    write_modem_cred(args.sectag, 0, nrf_ca_cert_text)
 
     # write dev cert to modem
-    print(local_style('Writing dev cert to modem...'))
-    modem_dev = str(dev, encoding=full_encoding)
-    if is_gateway:
-        modem_dev = modem_dev.replace("\n", "\\n")
-    write_line('AT%CMNG=0,{},1,"{}"'.format(args.sectag, modem_dev))
-    wait_for_prompt(b'OK', b'ERROR')
-    time.sleep(1)
+    write_modem_cred(args.sectag, 1, dev_text)
+
+    # If the dev cert was locally generated, write it to the modem
+    if args.local_cert and prv_text is not None:
+        write_modem_cred(args.sectag, 2, prv_text)
 
     if args.verify:
         print(error_style('Verifying credentials...'))
-        verify_res = verify_credentials(args.sectag, modem_ca, modem_dev)
+        verify_res = verify_credentials(args.sectag, nrf_ca_cert_text, dev_text)
         if not verify_res:
             print(error_style('Credential verification: FAIL'))
             cleanup()
@@ -775,7 +813,7 @@ def main():
         if len(args.subtype) > 0:
             sub_type = args.subtype
         save_onboarding_csv(args.csv, args.append, dev_id, sub_type, args.tags,
-                              args.fwtypes, dev)
+                            args.fwtypes, dev_bytes)
 
     # write device ID, modem firmware version, and IMEI to a file
     if args.devinfo:
