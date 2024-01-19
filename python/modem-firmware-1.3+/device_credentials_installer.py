@@ -9,24 +9,22 @@ import re
 import os
 import sys
 import csv
-import time
 import serial
 import hashlib
 import getpass
 import ca_certs
 import platform
 import rtt_interface
-import modem_credentials_parser
-from modem_credentials_parser import write_file
+from cli_helpers import write_file
 import create_device_credentials
 from create_device_credentials import create_device_cert, create_local_csr
+from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
+from command_interface import ATCommandInterface, ATKeygenException
 
 from serial.tools import list_ports
-from colorama import init, Fore, Back, Style
 from cryptography import x509
 import OpenSSL.crypto
 from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
-from enum import Enum
 
 CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
@@ -39,8 +37,6 @@ is_windows = platform.system() == 'Windows'
 is_linux = platform.system() == 'Linux'
 full_encoding = 'mbcs' if is_windows else 'ascii'
 default_password = 'nordic'
-lf_done = False
-plain = False
 is_gateway = False
 verbose = False
 serial_timeout = 1
@@ -156,27 +152,6 @@ def parse_args():
     verbose = args.verbose
     return args
 
-def ensure_lf(line):
-    global lf_done
-    done = lf_done
-    lf_done = True
-    return '\n' + line if not done else line
-
-def local_style(line):
-    return ensure_lf(Fore.CYAN + line
-                     + Style.RESET_ALL) if not plain else line
-
-def hivis_style(line):
-    return ensure_lf(Fore.MAGENTA + line
-                     + Style.RESET_ALL) if not plain else line
-
-
-def send_style(line):
-    return ensure_lf(Fore.BLUE + line
-                     + Style.RESET_ALL) if not plain else line
-
-def error_style(line):
-    return ensure_lf(Fore.RED + line + Style.RESET_ALL) if not plain else line
 
 def ask_for_port(selected_port, list_all):
     """
@@ -281,11 +256,20 @@ def handle_login():
         else:
             break
 
-def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
-    global lf_done
+def wait_for_prompt(val1='gateway:# ', val2=None, timeout=15, store=None):
     found = False
     retval = False
     output = None
+
+    # Convert string arguments to bytes if needed.
+    if isinstance(val1, str):
+        val1=val1.encode()
+
+    if isinstance(val2, str):
+        val2=val2.encode()
+
+    if isinstance(store, str):
+        store=store.encode()
 
     if ser:
         ser.flush()
@@ -321,7 +305,9 @@ def wait_for_prompt(val1=b'gateway:# ', val2=None, timeout=15, store=None):
         elif store != None and (store in line or str(store) in str(line)):
             output = line
 
-    lf_done = b'\n' in line
+    if b'\n' not in line:
+        sys.stdout.write('\n')
+
     if ser:
         ser.flush()
     if store != None and output == None:
@@ -505,15 +491,13 @@ def check_ver(req, cur):
 
 def check_mfw_version():
     # get the modem firmware version
-    write_line('AT+CGMR')
-    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
-    if not retval:
+    ver = cred_if.get_mfw_version()
+    if not ver:
         print(error_style('Failed to obtain modem FW version'))
         cleanup()
         sys.exit(8)
 
     # display version for reference
-    ver = str(output.decode("utf-8")).rstrip('\r\n')
     print(hivis_style('Modem FW version: ' + ver))
 
     # check for required version
@@ -529,39 +513,6 @@ def check_mfw_version():
 
     return ver
 
-# Ask a device with modem to generate CSR usint AT%KEYGEN. Returns the CSR as an X509Req object.
-def get_device_csr_at(custom_dev_id = "", sectag = 0):
-    # provide attributes parameter if a custom device ID is specified
-    attr = f',"CN={custom_dev_id}"' if len(custom_dev_id) else ''
-
-    write_line('AT%KEYGEN={},2,0{}'.format(sectag,attr))
-    # include the CR in OK because 'OK' could be found in the CSR string
-    retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%KEYGEN:')
-    if not retval:
-        print(error_style('Unable to generate private key; does it already exist for this sectag?'))
-        cleanup()
-        sys.exit(9)
-    elif output == None:
-        print(error_style('Unable to detect KEYGEN output'))
-        cleanup()
-        sys.exit(10)
-
-    # convert the encoded blob to an actual cert
-    csr_blob = str(output).split('"')[1]
-    if verbose:
-        print(local_style('CSR blob: {}'.format(csr_blob)))
-
-    modem_credentials_parser.parse_keygen_output(csr_blob)
-
-    # load and return the CSR
-    csr_bytes = modem_credentials_parser.csr_pem_bytes
-    try:
-        return OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr_bytes)
-    except OpenSSL.crypto.Error:
-        cleanup()
-        raise RuntimeError("Error loading CSR")
-
-
 # Get a CSR, either by generating one on-device, or generating it locally.
 def get_csr(custom_dev_id = "", sectag = 0, local = False):
     local_priv_key = None
@@ -569,8 +520,13 @@ def get_csr(custom_dev_id = "", sectag = 0, local = False):
     if (local):
         csr, local_priv_key = create_local_csr(cn = custom_dev_id)
     else:
-        # Use AT commands to request a CSR
-        csr = get_device_csr_at(custom_dev_id, sectag)
+        # Use AT commands to request a CSR.
+        try:
+            csr = cred_if.get_csr(sectag, custom_dev_id)
+        except ATKeygenException as e:
+            print(error_style(str(e)))
+            cleanup()
+            sys.exit(e.exit_code)
 
     return csr, local_priv_key
 
@@ -585,26 +541,20 @@ def format_cred(cred, is_gateway = False):
 
     return formatted
 
-# Write a modem credential. Provided credential should be plaintext
-def write_modem_cred(sectag, cred_type, cred_text):
-    cred_type_name = ["CA cert(s)", "dev cert", "private key"][cred_type]
-    print(local_style(f'Writing {cred_type_name} to modem...'))
-
-    write_line(f'AT%CMNG=0,{sectag},{cred_type},"{cred_text}"')
-    wait_for_prompt(b'OK', b'ERROR')
-    time.sleep(1)
-
 def main():
-    global plain
     global ser
     global rtt
     global password
     global is_gateway
     global cmd_term_key
+    global cred_if
 
     # initialize arguments
     args = parse_args()
-    plain = args.plain
+
+    if args.plain:
+        cli_disable_styles()
+
     password = args.password
 
     rtt = None
@@ -622,11 +572,12 @@ def main():
 
     # initialize colorama
     if is_windows:
-        init(convert = not plain)
+        init_colorama()
 
     if verbose:
         print(local_style('OS detect: Linux={}, MacOS={}, Windows={}'.
                           format(is_linux, is_macos, is_windows)))
+
 
     if args.rtt:
         cmd_term_key = 'CRLF'
@@ -676,25 +627,24 @@ def main():
             write_line('at enable')
             wait_for_prompt(b'to exit AT mode')
 
+    cred_if = ATCommandInterface(write_line, wait_for_prompt, verbose)
+
     # prepare modem so we can interact with security keys
     print(local_style('Disabling LTE and GNSS...'))
-    write_line('AT+CFUN=4')
-
-    retval = wait_for_prompt(b'OK')
-    if not retval:
+    if not cred_if.go_offline():
         print(error_style('Unable to communicate'))
         cleanup()
         sys.exit(6)
 
     # get the IMEI
-    write_line('AT+CGSN')
-    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
-    if not retval:
+    imei = cred_if.get_imei()
+
+    if imei is None:
         print(error_style('Failed to obtain IMEI'))
         cleanup()
         sys.exit(7)
+
     # display the IMEI for reference
-    imei = str(output.decode("utf-8"))[:IMEI_LEN]
     print(hivis_style('Device IMEI: ' + imei))
 
     # get and verify the modem firmware version
@@ -709,12 +659,9 @@ def main():
     # it's ok if some or all of these error out -- the slots were empty already
     if args.delete:
         print(local_style('Deleting sectag {}...'.format(args.sectag)))
-        write_line('AT%CMNG=3,{},0'.format(args.sectag))
-        wait_for_prompt(b'OK', b'ERROR')
-        write_line('AT%CMNG=3,{},1'.format(args.sectag))
-        wait_for_prompt(b'OK', b'ERROR')
-        write_line('AT%CMNG=3,{},2'.format(args.sectag))
-        wait_for_prompt(b'OK', b'ERROR')
+        cred_if.delete_credential(args.sectag, 0)
+        cred_if.delete_credential(args.sectag, 1)
+        cred_if.delete_credential(args.sectag, 2)
 
     # now get a new certificate signing request (CSR)
     print(local_style('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag)))
@@ -786,18 +733,22 @@ def main():
 
     # write CA cert(s) to modem
     nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), is_gateway)
-    write_modem_cred(args.sectag, 0, nrf_ca_cert_text)
+
+    print(local_style(f'Writing CA cert(s) to device...'))
+    cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)
 
     # write dev cert to modem
-    write_modem_cred(args.sectag, 1, dev_text)
+    print(local_style(f'Writing dev cert to device...'))
+    cred_if.write_credential(args.sectag, 1, dev_text)
 
     # If the dev cert was locally generated, write it to the modem
     if args.local_cert and prv_text is not None:
-        write_modem_cred(args.sectag, 2, prv_text)
+        print(local_style(f'Writing private key to device...'))
+        cred_if.write_credential(args.sectag, 2, prv_text)
 
     if args.verify:
         print(error_style('Verifying credentials...'))
-        verify_res = verify_credentials(args.sectag, nrf_ca_cert_text, dev_text)
+        verify_res = verify_credentials(args.sectag, nrf_ca_cert_text, dev_text, prv_text)
         if not verify_res:
             print(error_style('Credential verification: FAIL'))
             cleanup()
@@ -824,89 +775,65 @@ def main():
 
     cleanup()
 
-def verify_credentials(sec_tag, ca_cert, client_cert):
+def verify_credentials(sec_tag, ca_cert, client_cert, client_prv=None):
     global parsed_mfw_ver
+    global cred_if
 
     # SHA check has a modem firmware version requirement
-    do_sha_check = check_ver(MIN_REQD_MFW_VER_FOR_VERIFY, parsed_mfw_ver)
-    if not do_sha_check:
+    check_sha = check_ver(MIN_REQD_MFW_VER_FOR_VERIFY, parsed_mfw_ver)
+    if not check_sha:
         print(error_style('Skipping SHA verification, modem FW version must be >= {}.{}.{}'.
                           format(MIN_REQD_MFW_VER_FOR_VERIFY[0],
                                  MIN_REQD_MFW_VER_FOR_VERIFY[1],
                                  MIN_REQD_MFW_VER_FOR_VERIFY[2])))
 
-    # list the CA cert
-    write_line('AT%CMNG=1,{},0'.format(sec_tag))
-    retval, ca_res = wait_for_prompt(b'OK', b'ERROR', store=b'%CMNG')
-    if retval and ca_res:
-        retval = check_credential(do_sha_check, ca_res.decode(), ca_cert, 'CA Cert')
-
-    if not retval or not ca_res:
-        print(error_style('...CA cert verification failed'))
+    # verify the CA cert
+    if not verify_credential(sec_tag, 0, ca_cert, verify_hash = check_sha):
         return False
 
-    # list the client cert
-    write_line('AT%CMNG=1,{},1'.format(sec_tag))
-    retval, client_res = wait_for_prompt(b'OK', b'ERROR', store=b'%CMNG')
-    if retval and client_res:
-        retval = check_credential(do_sha_check, client_res.decode(), client_cert, 'Client Cert')
-
-    if not retval or not client_res:
-        print(error_style('...Client cert verification failed'))
+    # verify client cert
+    if not verify_credential(sec_tag, 1, client_cert, verify_hash = check_sha):
         return False
 
-    prv_sha = None
-    # list the private key
-    write_line('AT%CMNG=1,{},2'.format(sec_tag))
-    retval, prv_res = wait_for_prompt(b'OK', b'ERROR', store=b'%CMNG')
-    if retval and prv_res:
-        prv_sha = parse_sha(prv_res.decode())
-
-    if not prv_sha:
-        print(error_style('...Private key not found'))
+    if not verify_credential(sec_tag, 2, client_prv, get_hash = check_sha,
+                             verify_hash = (client_prv is not None) and check_sha):
         return False
-
-    if do_sha_check:
-        print(hivis_style('Private Key SHA: {}'.format(prv_sha)))
-    else:
-        print(hivis_style('Private Key exists, SHA not verified'))
 
     return True
 
-def parse_sha(cmng_result_str):
-    # Example AT%CMNG response:
-    #   %CMNG: 123,0,"2C43952EE9E000FF2ACC4E2ED0897C0A72AD5FA72C3D934E81741CBD54F05BD1"
-    # The first item in " is the SHA.
-    try:
-        return cmng_result_str.split('"')[1]
-    except (ValueError, IndexError):
-        return None
+def verify_credential(sec_tag, cred_type, cred = None, get_hash = False, verify_hash = False):
+    if (verify_hash):
+        get_hash = True
 
-def check_credential(verify_sha, cmng_result_str, credential_str, credential_name='Credential'):
+    cred_type_name = ['CA Cert', 'Client Cert', 'Private Key'][cred_type]
+    print(local_style(f'Verifying {cred_type_name}'))
 
-    if not credential_str:
+    if verify_hash and not cred:
         print(error_style('Invalid credential string'))
         return False
 
-    calculated_sha = hashlib.sha256(credential_str.encode('utf-8')).hexdigest().upper()
+    present, hash = cred_if.check_credential_exists(sec_tag, cred_type, get_hash = get_hash)
 
-    modem_sha = parse_sha(cmng_result_str)
-    if not modem_sha:
-        print(error_style(f'{credential_name} - Invalid modem result: {cmng_result_str}'))
+    if not present:
+        print(error_style(f'...{cred_type_name} not found'))
         return False
 
-    if not verify_sha:
-        print(hivis_style(f'{credential_name} exists, SHA not verified'))
-        return True
-
-    if modem_sha != calculated_sha:
-        print(error_style(f'{credential_name} - SHA mismatch:'))
-        print(error_style(f'\tModem     : {modem_sha}'))
-        print(error_style(f'\tCalculated: {calculated_sha}'))
+    if get_hash and not hash:
+        print(error_style(f'...{cred_type_name} has invalid hash'))
         return False
 
-    print(hivis_style(f'{credential_name} - SHA verified: {calculated_sha}'))
+    if verify_hash:
+        expected_hash = hashlib.sha256(cred.encode('utf-8')).hexdigest().upper()
+        if hash != expected_hash:
+                print(error_style(f'{cred_type_name} - SHA mismatch:'))
+                print(error_style(f'\tDevice    : {hash}'))
+                print(error_style(f'\tCalculated: {expected_hash}'))
+                return False
+    else:
+        print(hivis_style(f'{cred_type_name} exists, SHA not verified'))
+
     return True
+
 
 if __name__ == '__main__':
     main()
