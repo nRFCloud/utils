@@ -16,6 +16,7 @@ import ca_certs
 import platform
 import rtt_interface
 from cli_helpers import write_file
+import semver
 import create_device_credentials
 from create_device_credentials import create_device_cert, create_local_csr
 from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
@@ -43,9 +44,8 @@ serial_timeout = 1
 IMEI_LEN = 15
 DEV_ID_MAX_LEN = 64
 MAX_CSV_ROWS = 1000
-MIN_REQD_MFW_VER = [1, 3, 0]
-MIN_REQD_MFW_VER_FOR_VERIFY = [1, 3, 2]
-parsed_mfw_ver=[]
+MIN_REQD_MFW_VER = "1.3.0"
+MIN_REQD_MFW_VER_FOR_VERIFY = "1.3.2"
 
 def parse_args():
     global verbose
@@ -434,60 +434,24 @@ def cleanup():
     print(local_style('\nDone.'))
 
 def parse_mfw_ver(ver_str):
-    global parsed_mfw_ver
-
     # example modem fw version formats:
     #   'mfw_nrf9160_1.3.0'
     #   'mfw_nrf9160_1.3.0-FOTA-TEST'
     #   'mfw_nrf9161_2.0.0'
-    ver_list = ver_str.split('.')
 
-    if len(ver_list) < 3:
+    # Use regex to match the numeric portion (x.x.x) of the version string
+    # lookahead/lookbehind ensure the version is prefixed/suffixed by - or _, or is at either
+    # end of the string.
+    matches = re.findall(r"(?:(?<=-_)|(?<=^))[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(?=-_|$)",
+                         ver_str.strip())
+
+    # If the version regex does not match exactly once, then we are dealing with a malformed
+    # version number.
+    if len(matches) != 1:
         print(error_style('Unexpected modem firmware version format'))
         return None
 
-    # major should have an underscore in front
-    maj_list = ver_list[0].split('_')
-    if not len(maj_list):
-        return None
-
-    # it will be the last item in the list
-    maj = maj_list[-1]
-
-    # minor should be the second item
-    min = ver_list[1]
-
-    # revision should be the third item
-    rev = ver_list[2]
-    # in case there is additional info after the revision
-    if rev.isnumeric() == False:
-        rev = re.split(r'\D+', rev)
-        if not rev:
-            return None
-        rev = rev[0]
-
-    parsed_mfw_ver = [int(maj), int(min), int(rev)]
-    return parsed_mfw_ver
-
-def check_ver(req, cur):
-    if not req or not cur:
-        return None
-
-    # expect 3 values: major, minor, rev
-    if (len(req) < 3) or (len(cur) < 3):
-        return None
-
-    # check major
-    if (cur[0] > req[0]):
-        return True
-    # check minor
-    elif (cur[0] == req[0]) and (cur[1] > req[1]):
-        return True
-    # check rev
-    elif (cur[0] == req[0]) and (cur[1] == req[1]) and (cur[2] >= req[2]):
-        return True
-
-    return False
+    return matches[0]
 
 def check_mfw_version():
     # get the modem firmware version
@@ -501,16 +465,14 @@ def check_mfw_version():
     print(hivis_style('Modem FW version: ' + ver))
 
     # check for required version
-    check_res = check_ver(MIN_REQD_MFW_VER, parse_mfw_ver(ver))
-    if check_res is False:
-        print(error_style('Modem FW version must be >= {}.{}.{}'.format(MIN_REQD_MFW_VER[0],
-                                                                        MIN_REQD_MFW_VER[1],
-                                                                        MIN_REQD_MFW_VER[2])))
+    parsed_ver = parse_mfw_ver(ver)
+
+    if parsed_ver is None:
+        print(error_style('Unexpected modem FW version format... continuing'))
+    elif semver.compare(parsed_ver, MIN_REQD_MFW_VER) >= 0:
+        print(error_style(f'Modem FW version must be >= {MIN_REQD_MFW_VER}'))
         cleanup()
         sys.exit(8)
-    elif check_res is None:
-        print(error_style('Unexpected modem FW version format... continuing'))
-
     return ver
 
 # Get a CSR, either by generating one on-device, or generating it locally.
@@ -748,7 +710,16 @@ def main():
 
     if args.verify:
         print(error_style('Verifying credentials...'))
-        verify_res = verify_credentials(args.sectag, nrf_ca_cert_text, dev_text, prv_text)
+        check_sha = True
+
+        # SHA check has a modem firmware version requirement
+        if (semver.compare(parse_mfw_ver(mfw_ver), MIN_REQD_MFW_VER_FOR_VERIFY) < 0):
+            print(error_style('Skipping SHA verification, ' +
+                              f'modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}'))
+            check_sha = False
+
+        verify_res = verify_credentials(args.sectag, nrf_ca_cert_text, dev_text, prv_text,
+                                        check_sha=check_sha)
         if not verify_res:
             print(error_style('Credential verification: FAIL'))
             cleanup()
@@ -775,17 +746,8 @@ def main():
 
     cleanup()
 
-def verify_credentials(sec_tag, ca_cert, client_cert, client_prv=None):
-    global parsed_mfw_ver
+def verify_credentials(sec_tag, ca_cert, client_cert, client_prv=None, check_sha=False):
     global cred_if
-
-    # SHA check has a modem firmware version requirement
-    check_sha = check_ver(MIN_REQD_MFW_VER_FOR_VERIFY, parsed_mfw_ver)
-    if not check_sha:
-        print(error_style('Skipping SHA verification, modem FW version must be >= {}.{}.{}'.
-                          format(MIN_REQD_MFW_VER_FOR_VERIFY[0],
-                                 MIN_REQD_MFW_VER_FOR_VERIFY[1],
-                                 MIN_REQD_MFW_VER_FOR_VERIFY[2])))
 
     # verify the CA cert
     if not verify_credential(sec_tag, 0, ca_cert, verify_hash = check_sha):

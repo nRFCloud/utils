@@ -9,3 +9,4 @@ pynrfjprog>=10.23.0
 pyOpenSSL>=23.2.0
 pyserial>=3.5
 requests>=2.27.1
+semver>=3.0.0
