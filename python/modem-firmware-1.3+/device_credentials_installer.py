@@ -10,7 +10,6 @@ import os
 import sys
 import csv
 import serial
-import hashlib
 import getpass
 import ca_certs
 import platform
@@ -20,7 +19,7 @@ import semver
 import create_device_credentials
 from create_device_credentials import create_device_cert, create_local_csr
 from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
-from command_interface import ATCommandInterface, ATKeygenException
+from command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
 
 from serial.tools import list_ports
 from cryptography import x509
@@ -32,6 +31,10 @@ CMD_TERM_DICT = {'NULL': '\0',
                  'LF':   '\n',
                  'CRLF': '\r\n'}
 # 'CR' is the default termination value for the at_host library in the nRF Connect SDK
+
+CMD_TYPE_AT = "at"
+CMD_TYPE_TLS_SHELL = "tls_cred_shell"
+
 cmd_term_key = 'CR'
 is_macos = platform.system() == 'Darwin'
 is_windows = platform.system() == 'Windows'
@@ -138,6 +141,8 @@ def parse_args():
     parser.add_argument("--rtt",
                         help="Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay",
                         action='store_true', default=False)
+    parser.add_argument("--cmd_type", default=CMD_TYPE_AT, choices=[CMD_TYPE_AT, CMD_TYPE_TLS_SHELL], type=str.lower,
+                    help=f"Specify the device command line type. '{CMD_TYPE_AT}' will use AT commands, '{CMD_TYPE_TLS_SHELL}' will use TLS Credentials Shell commands.")
     parser.add_argument("--jlink_sn", type=int,
                         help="Serial number of J-Link device to use for RTT; optional",
                         default=None)
@@ -166,6 +171,7 @@ def ask_for_port(selected_port, list_all):
                     (r'PCA20035', 'Thingy:91', False),
                     (r'0009600',  'nRF9160-DK', False),
                     (r'0010509',  'nRF9161-DK', False),
+                    (r'0009601',  'nRF5340-DK', False),
                     (r'NRFBLEGW', 'nRF Cloud Gateway', True)]
     if selected_port == None and not list_all:
         pattern = r'SER=(' + r'|'.join(name[0] for name in usb_patterns) + r')'
@@ -362,13 +368,13 @@ def user_request_open_mode(filename, append):
 
     return mode
 
-def save_devinfo_csv(csv_filename, append, dev_id, mfw_ver, imei):
+def save_devinfo_csv(csv_filename, append, dev_id, mfw_ver = None, imei = None):
     mode = user_request_open_mode(csv_filename, append)
 
     if mode == None:
         return
 
-    row = str('{},{},{}\n'.format(dev_id, mfw_ver, imei))
+    row = f'{dev_id},{mfw_ver if mfw_ver else ""},{imei if imei else ""}\n'
 
     if mode == 'a':
         exists, row_count = check_if_device_exists_in_csv(csv_filename, dev_id)
@@ -540,6 +546,18 @@ def main():
         print(local_style('OS detect: Linux={}, MacOS={}, Windows={}'.
                           format(is_linux, is_macos, is_windows)))
 
+    if args.cmd_type == CMD_TYPE_TLS_SHELL and not args.local_cert:
+        # This check can be removed once the TLS Credential Shell supports CSR generation.
+        print(error_style(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert"))
+        cleanup()
+        sys.exit(0)
+
+    if args.gateway and args.cmd_type != CMD_TYPE_AT:
+        print(error_style(f"--gateway requires cmd_type '{CMD_TYPE_AT}'"))
+        cleanup()
+        sys.exit(0)
+
+    cmd_type_has_at = args.cmd_type == CMD_TYPE_AT
 
     if args.rtt:
         cmd_term_key = 'CRLF'
@@ -589,32 +607,42 @@ def main():
             write_line('at enable')
             wait_for_prompt(b'to exit AT mode')
 
-    cred_if = ATCommandInterface(write_line, wait_for_prompt, verbose)
+    cred_if = None
+    if args.cmd_type == CMD_TYPE_AT:
+        cred_if = ATCommandInterface(write_line, wait_for_prompt, verbose)
+
+    if args.cmd_type == CMD_TYPE_TLS_SHELL:
+        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, verbose)
 
     # prepare modem so we can interact with security keys
-    print(local_style('Disabling LTE and GNSS...'))
-    if not cred_if.go_offline():
-        print(error_style('Unable to communicate'))
-        cleanup()
-        sys.exit(6)
+    if (cmd_type_has_at):
+        print(local_style('Disabling LTE and GNSS...'))
+        if not cred_if.go_offline():
+            print(error_style('Unable to communicate'))
+            cleanup()
+            sys.exit(6)
 
     # get the IMEI
-    imei = cred_if.get_imei()
+    imei = None
+    if (cmd_type_has_at):
+        imei = cred_if.get_imei()
 
-    if imei is None:
-        print(error_style('Failed to obtain IMEI'))
-        cleanup()
-        sys.exit(7)
+        if imei is None:
+            print(error_style('Failed to obtain IMEI'))
+            cleanup()
+            sys.exit(7)
 
-    # display the IMEI for reference
-    print(hivis_style('Device IMEI: ' + imei))
+        # display the IMEI for reference
+        print(hivis_style('Device IMEI: ' + imei))
 
     # get and verify the modem firmware version
-    mfw_ver = check_mfw_version()
+    mfw_ver = None
+    if (cmd_type_has_at):
+        mfw_ver = check_mfw_version()
 
     # set custom device ID
     custom_dev_id = args.id_str
-    if args.id_imei:
+    if args.id_imei and imei is not None:
         custom_dev_id += imei
 
     # remove old keys if we are replacing existing ones;
@@ -693,18 +721,18 @@ def main():
         print(local_style('Saving pub key...'))
         write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub_bytes)
 
-    # write CA cert(s) to modem
+    # write CA cert(s) to device
     nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), is_gateway)
 
     print(local_style(f'Writing CA cert(s) to device...'))
     cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)
 
-    # write dev cert to modem
+    # write dev cert to device
     print(local_style(f'Writing dev cert to device...'))
     cred_if.write_credential(args.sectag, 1, dev_text)
 
-    # If the dev cert was locally generated, write it to the modem
-    if args.local_cert and prv_text is not None:
+    # If the private key was locally generated, write it to the device
+    if prv_text is not None:
         print(local_style(f'Writing private key to device...'))
         cred_if.write_credential(args.sectag, 2, prv_text)
 
@@ -712,11 +740,13 @@ def main():
         print(error_style('Verifying credentials...'))
         check_sha = True
 
-        # SHA check has a modem firmware version requirement
-        if (semver.compare(parse_mfw_ver(mfw_ver), MIN_REQD_MFW_VER_FOR_VERIFY) < 0):
-            print(error_style('Skipping SHA verification, ' +
-                              f'modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}'))
-            check_sha = False
+        # AT-command-based SHA check has a modem firmware version requirement
+        if (cmd_type_has_at):
+            parsed_ver = parse_mfw_ver(mfw_ver)
+            if parsed_ver and semver.compare(parsed_ver, MIN_REQD_MFW_VER_FOR_VERIFY) < 0:
+                print(error_style('Skipping SHA verification, ' +
+                                f'modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}'))
+                check_sha = False
 
         verify_res = verify_credentials(args.sectag, nrf_ca_cert_text, dev_text, prv_text,
                                         check_sha=check_sha)
@@ -785,7 +815,7 @@ def verify_credential(sec_tag, cred_type, cred = None, get_hash = False, verify_
         return False
 
     if verify_hash:
-        expected_hash = hashlib.sha256(cred.encode('utf-8')).hexdigest().upper()
+        expected_hash = cred_if.calculate_expected_hash(cred)
         if hash != expected_hash:
                 print(error_style(f'{cred_type_name} - SHA mismatch:'))
                 print(error_style(f'\tDevice    : {hash}'))
@@ -795,7 +825,6 @@ def verify_credential(sec_tag, cred_type, cred = None, get_hash = False, verify_
         print(hivis_style(f'{cred_type_name} exists, SHA not verified'))
 
     return True
-
 
 if __name__ == '__main__':
     main()

@@ -1,8 +1,11 @@
 from enum import Enum
 from abc import ABC, abstractmethod
 from cli_helpers import local_style, error_style
+import math
 import time
 import modem_credentials_parser
+import base64
+import hashlib
 
 import OpenSSL.crypto
 from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
@@ -42,6 +45,11 @@ class CredentialCommandInterface(ABC):
     @abstractmethod
     def check_credential_exists(self, sectag, cred_type, get_hash=True):
         """Verify that a credential is installed. If check_hash is true, retrieve the SHA hash."""
+        return
+
+    @abstractmethod
+    def calculate_expected_hash(self, cred_text):
+        """Returns the expected digest/hash for a given credential as a string"""
         return
 
     @abstractmethod
@@ -117,6 +125,10 @@ class ATCommandInterface(CredentialCommandInterface):
 
         return False, None
 
+    def calculate_expected_hash(self, cred_text):
+        # AT Command host returns hex of SHA256 hash of credential plaintext
+        return hashlib.sha256(cred_text.encode('utf-8')).hexdigest().upper()
+
     def get_csr(self, sectag = 0, cn = ""):
         """Ask a device with modem to generate CSR using AT%KEYGEN.
 
@@ -166,3 +178,89 @@ class ATCommandInterface(CredentialCommandInterface):
         if not retval:
             return None
         return output.decode("utf-8").rstrip('\r\n')
+
+TLS_CRED_TYPES = ["CA", "SERV", "PK"]
+# This chunk size can be any multiple of 4, as long as it is small enough to fit within the
+# Zephyr shell buffer.
+TLS_CRED_CHUNK_SIZE = 48
+
+class TLSCredShellInterface(CredentialCommandInterface):
+    def write_credential(self, sectag, cred_type, cred_text):
+        # Because the Zephyr shell does not support multi-line commands,
+        # we must base-64 encode our PEM strings and install them as if they were binary.
+        # Yes, this does mean we are base-64 encoding a string which is already mostly base-64.
+        # We could alternatively strip the ===== BEGIN/END XXXX ===== header/footer, and then pass
+        # everything else directly as a binary payload (using BIN mode instead of BINT, since
+        # MBedTLS uses the NULL terminator to determine if the credential is raw DER, or is a
+        # PEM string). But this will fail for multi-CA installs, such as CoAP.
+
+        # text -> bytes -> base64 bytes -> base64 text
+        encoded = base64.b64encode(cred_text.encode()).decode()
+
+        # Clear credential buffer -- If it is already clear, there may not be text feedback
+        self.write_raw("cred buf clear")
+
+        # Write the encoded credential in chunks
+        chunks = math.ceil(len(encoded)/TLS_CRED_CHUNK_SIZE)
+        for c in range(chunks):
+            chunk = encoded[c*TLS_CRED_CHUNK_SIZE:(c+1)*TLS_CRED_CHUNK_SIZE]
+            self.write_raw(f"cred buf {chunk}")
+            self.serial_wait_for_response("Stored")
+
+        # Store the buffered credential
+        self.write_raw(f"cred add {sectag} {TLS_CRED_TYPES[cred_type]} DEFAULT bint")
+        result, output = self.serial_wait_for_response("Added TLS credential")
+        time.sleep(1)
+        return result
+
+    def delete_credential(self, sectag, cred_type):
+        self.write_raw(f'cred del {sectag} {TLS_CRED_TYPES[cred_type]}')
+        result, output = self.serial_wait_for_response("Deleted TLS credential", "There is no TLS credential")
+        time.sleep(2)
+        return result
+
+    def check_credential_exists(self, sectag, cred_type, get_hash=True):
+        self.write_raw(f'cred list {sectag} {TLS_CRED_TYPES[cred_type]}')
+
+        # This will capture the list dump for the credential if it exists.
+        result, output = self.serial_wait_for_response("1 credentials found.",
+                                                       "0 credentials found.",
+                                                       store=
+                                                       f"{sectag},{TLS_CRED_TYPES[cred_type]}")
+
+        if not output:
+            return False, None
+
+        if not get_hash:
+            return True, None
+
+        # Output is a comma separated list of positional items
+        data = output.decode().split(",")
+        hash = data[2].strip()
+        status_code = data[3].strip()
+
+        if (status_code != "0"):
+            print(error_style(f"Error retrieving credential hash: {output.decode().strip()}."))
+            print(error_style("Device might not support credential digests."))
+            return True, None
+
+        return True, hash
+
+    def calculate_expected_hash(self, cred_text):
+        # TLS Credentials shell returns base-64 of SHA256 hash of full credential, including NULL
+        # termination.
+        hash = hashlib.sha256(cred_text.encode('utf-8') + b'\x00')
+        return base64.b64encode(hash.digest()).decode()
+
+    def get_csr(self, sectag = 0, cn = ""):
+        raise RuntimeError("The TLS Credentials Shell does not support CSR generation")
+
+    def go_offline(self):
+        # TLS credentials shell has no concept of online/offline. Just no-op.
+        pass
+
+    def get_imei(self):
+        raise RuntimeError("The TLS Credentials Shell does not support IMEI extraction")
+
+    def get_mfw_version(self):
+        raise RuntimeError("The TLS Credentials Shell does not support MFW version extraction")
