@@ -12,7 +12,7 @@ import argparse
 import platform
 import ca_certs
 import rtt_interface
-import nrf_cloud_provision
+import nrf_cloud_onboard
 import modem_credentials_parser
 import nrf_cloud_diap
 import create_device_credentials
@@ -45,7 +45,7 @@ CSR_ATTR_CN = 'CN='
 def parse_args():
     global verbose
 
-    parser = argparse.ArgumentParser(description="Device Credentials Installer",
+    parser = argparse.ArgumentParser(description="nRF Cloud Claim and Provision",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("--dv", type=int, help="Number of days cert is valid",
@@ -110,8 +110,7 @@ def parse_args():
     parser.add_argument("--api_key", type=str,
                         help="API key",
                         default=None)
-    parser.add_argument("--stage", type=str,
-                        help="Deployment stage; default is prod (blank)", default="")
+    parser.add_argument("--stage", type=str, "For internal (Nordic) use only", default="")
     parser.add_argument("--attest", type=str,
                         help="Attestation token base64 string (AT%%ATTESTTOKEN result)",
                         default=None)
@@ -608,13 +607,13 @@ def main():
     cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, finished_id)
 
     # add the device to nrf cloud account
-    print(hivis_style(f'\nnRF Cloud API URL: {nrf_cloud_provision.set_dev_stage(args.stage)}'))
-    print(hivis_style(f'Adding device \'{device_id}\' to cloud account...'))
+    print(hivis_style(f'\nnRF Cloud API URL: {nrf_cloud_onboard.set_dev_stage(args.stage)}'))
+    print(hivis_style(f'Onboarding device \'{device_id}\' to cloud account...'))
 
-    api_res = nrf_cloud_provision.provision_device(args.api_key, device_id, '',
-                                                   args.tags, args.fwtypes,
-                                                   dev_cert_pem_str)
-    nrf_cloud_provision.print_api_result("ProvisionDevices API call response", api_res, args.verbose)
+    api_res = nrf_cloud_onboard.onboard_device(args.api_key, device_id, '',
+                                               args.tags, args.fwtypes,
+                                               dev_cert_pem_str)
+    nrf_cloud_onboard.print_api_result("Onboarding API call response", api_res, args.verbose)
 
     print(local_style('Done.'))
     cleanup()

@@ -18,7 +18,7 @@ from os import makedirs
 from ast import literal_eval
 from enum import Enum
 
-class ProvisionResult(Enum):
+class OnboardResult(Enum):
     PERFORMED_SUCCESSFULLY = 0
     PERFORMED_WITH_ERRORS = 1
     PERFORMED_RESULTS_NOT_CONFIRMED = 2
@@ -27,7 +27,7 @@ class ProvisionResult(Enum):
     NOT_PERFORMED_INVALID_CSV_FORMAT = 6
     NOT_PERFORMED_DEVICE_EXISTS = 7
     NOT_PERFORMED_DEV_CHK_FAILED = 8
-    NOT_PERFORMED_PROVDEV_CALL_FAILED = 9
+    NOT_PERFORMED_ONBOARD_CALL_FAILED = 9
 
 from modem_credentials_parser import write_file
 
@@ -50,16 +50,16 @@ DEV_LIST_RES_IDX = 1
 BULK_OP_REQ_ID = "bulkOpsRequestId"
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="nRF Cloud Device Provisioning",
+    parser = argparse.ArgumentParser(description="nRF Cloud Device Onboarding",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--apikey", type=str, required=True,
                         help="nRF Cloud API key", default="")
     parser.add_argument("--chk", action='store_true', default=False,
-                        help="For single device provisioning, check if device exists before provisioning")
+                        help="For single device onboarding, check if device exists before onboarding")
     parser.add_argument("--csv", type=str,
-                        help="Filepath to provisioning CSV file", default="provision.csv")
+                        help="Filepath to onboarding CSV file", default="onboard.csv")
     parser.add_argument("--res", type=str,
-                        help="Filepath where the CSV-formatted provisioning result(s) will be saved", default="")
+                        help="Filepath where the CSV-formatted onboarding result(s) will be saved", default="")
     parser.add_argument("--devinfo", type=str,
                         help="Optional filepath to device info CSV file containing device ID, installed modem FW version, and IMEI",
                         default=None)
@@ -72,6 +72,8 @@ def parse_args():
     parser.add_argument("--name_prefix", type=str,
                         help="Prefix string for IMEI friendly name",
                         default=None)
+    parser.add_argument("--stage", type=str,
+                        help="For internal (Nordic) use only", default="")
 
     args = parser.parse_args()
     return args
@@ -109,7 +111,7 @@ def update_device_name(api_key, device_id, name):
     json_payload = [name]
     return requests.put(req, json=json_payload, headers=hdr)
 
-def provision_device(api_key, dev_id, sub_type, tags, fw_types, cert_pem_str):
+def onboard_device(api_key, dev_id, sub_type, tags, fw_types, cert_pem_str):
     hdr = {'Authorization': 'Bearer ' + api_key,
            'content-type' : 'text/plain',
            'Accept-Encoding' : '*'}
@@ -120,7 +122,7 @@ def provision_device(api_key, dev_id, sub_type, tags, fw_types, cert_pem_str):
 
     return requests.post(req, data=payload, headers=hdr)
 
-def provision_devices(api_key, csv_filepath):
+def onboard_devices(api_key, csv_filepath):
     hdr = {'Authorization': 'Bearer ' + api_key,
            'content-type' : 'text/csv',
            'Accept-Encoding' : '*'}
@@ -137,7 +139,7 @@ def print_api_result(custom_text, api_result, print_response_txt):
     if print_response_txt:
         print("Response: {}".format(api_result.text))
 
-def get_provisioning_results(api_key, bulk_ops_req_id):
+def get_onboarding_results(api_key, bulk_ops_req_id):
 
     print("Fetching results for {}: {}".format(BULK_OP_REQ_ID, bulk_ops_req_id))
 
@@ -148,12 +150,12 @@ def get_provisioning_results(api_key, bulk_ops_req_id):
         api_result = get_bulk_ops_result(api_key, bulk_ops_req_id)
 
         if api_result.status_code != 200:
-            print("Failed to fetch provisioning result")
+            print("Failed to fetch onboarding result")
             return None
 
         api_result_json = api_result.json()
 
-        print("Provisioning status: " + api_result_json["status"])
+        print("Onboarding status: " + api_result_json["status"])
 
         if api_result_json["status"] == "IN_PROGRESS" or api_result_json["status"] == "PENDING":
             continue
@@ -204,7 +206,7 @@ def update_device_list_err(dev_list, err_dict):
     for err_item in err_dict:
 
         # The key is the error text and the value is a json array (python list)
-        # of indicies into the provisioning CSV file, and also the device list
+        # of indicies into the onboarding CSV file, and also the device list
         idx_list = err_dict[err_item]
 
         # Use the indicies to access the device list
@@ -238,11 +240,11 @@ def update_device_list_ok(dev_list):
 
     return dev_list
 
-def read_prov_csv(csv_filepath):
+def read_onboarding_csv(csv_filepath):
     device_list = []
     with open(csv_filepath) as csvfile:
-        prov = csv.reader(csvfile, delimiter=',')
-        row_count = sum(1 for row in prov)
+        csv_contents = csv.reader(csvfile, delimiter=',')
+        row_count = sum(1 for row in csv_contents)
 
         if row_count > MAX_CSV_ROWS:
             print("CSV file contains {} rows; must not exceed {}".format(row_count, MAX_CSV_ROWS))
@@ -250,15 +252,15 @@ def read_prov_csv(csv_filepath):
             return None
 
         csvfile.seek(0)
-        prov = csv.reader(csvfile, delimiter=',')
+        csv_contents = csv.reader(csvfile, delimiter=',')
 
-        for row_idx, row in enumerate(prov):
+        for row_idx, row in enumerate(csv_contents):
             # First column in each row is the device ID
             # Add a list to the list [ <device_id>, <result_string> ]
             try:
                 device_list.append([row[0], ''])
             except IndexError:
-                print("Error reading row {} of provisioning CSV file.".format(row_idx + 1   ))
+                print("Error reading row {} of onboarding CSV file.".format(row_idx + 1   ))
 
     return device_list
 
@@ -349,30 +351,30 @@ def check_file_path(file):
 
     return file_path
 
-def do_provisioning(api_key, csv_in, res_out, do_check):
+def do_onboarding(api_key, csv_in, res_out, do_check):
 
     if len(api_key) < 1:
         print("API key must be provided")
-        return ProvisionResult.NOT_PERFORMED_NO_API_KEY
+        return OnboardResult.NOT_PERFORMED_NO_API_KEY
 
     result_filepath = ''
     if len(res_out):
         result_filepath = check_file_path(res_out)
         if not result_filepath:
-            return ProvisionResult.NOT_PERFORMED_BAD_FILE_PATH
+            return OnboardResult.NOT_PERFORMED_BAD_FILE_PATH
 
     csv_filepath = os.path.abspath(csv_in)
     if not os.path.exists(csv_filepath):
         print("CSV file does not exist: " + csv_filepath)
-        return ProvisionResult.NOT_PERFORMED_BAD_FILE_PATH
+        return OnboardResult.NOT_PERFORMED_BAD_FILE_PATH
 
-    device_list = read_prov_csv(csv_filepath)
+    device_list = read_onboarding_csv(csv_filepath)
     if device_list is None:
         print("CSV file is not valid")
-        return ProvisionResult.NOT_PERFORMED_INVALID_CSV_FORMAT
+        return OnboardResult.NOT_PERFORMED_INVALID_CSV_FORMAT
 
     device_list_len = len(device_list)
-    print("Devices to be provisioned: " + str(device_list_len))
+    print("Devices to be onboarded: " + str(device_list_len))
 
     if do_check and device_list_len == 1:
          # Get the device ID of the first (only) item in the list
@@ -380,40 +382,40 @@ def do_provisioning(api_key, csv_in, res_out, do_check):
         result = fetch_device(api_key, dev_id)
 
         if result.status_code == 404:
-            print("Device \"{}\" does not yet exist, provisioning...".format(dev_id))
+            print("Device \"{}\" does not yet exist, onboarding...".format(dev_id))
         elif result.status_code == 200:
-            print("Device \"{}\" already provisioned".format(dev_id))
-            return ProvisionResult.NOT_PERFORMED_DEVICE_EXISTS
+            print("Device \"{}\" already onboarded".format(dev_id))
+            return OnboardResult.NOT_PERFORMED_DEVICE_EXISTS
         else:
             print_api_result("FetchDevice API call failed", result, True)
-            return ProvisionResult.NOT_PERFORMED_DEV_CHK_FAILED
+            return OnboardResult.NOT_PERFORMED_DEV_CHK_FAILED
 
     elif do_check:
         print("More than one device in CSV file, ignoring chk flag")
 
-    # Call the ProvisionDevices endpoint
-    prov_result = provision_devices(api_key, csv_filepath)
-    print_api_result("ProvisionDevices API call result", prov_result, True)
+    # Call the onboarding endpoint
+    onboard_result = onboard_devices(api_key, csv_filepath)
+    print_api_result("Onboarding API call result", onboard_result, True)
 
-    if prov_result.status_code != 202:
-        print("Provisioning failed")
-        return ProvisionResult.NOT_PERFORMED_PROVDEV_CALL_FAILED
+    if onboard_result.status_code != 202:
+        print("Onboarding failed")
+        return OnboardResult.NOT_PERFORMED_ONBOARD_CALL_FAILED
 
-    # The response to a successful ProvisionDevices call will contain a bulk operations request ID
-    bulk_req_id = prov_result.json()[BULK_OP_REQ_ID]
+    # The response to a successful onboarding API call will contain a bulk operations request ID
+    bulk_req_id = onboard_result.json()[BULK_OP_REQ_ID]
 
-    # The device provisioning status is obtained through the FetchBulkOpsRequest endpoint
-    bulk_results = get_provisioning_results(api_key, bulk_req_id)
+    # The device onboarding status is obtained through the FetchBulkOpsRequest endpoint
+    bulk_results = get_onboarding_results(api_key, bulk_req_id)
     if bulk_results is None:
         print("Could not get results for {}: {}".format(BULK_OP_REQ_ID, bulk_req_id))
         save_bulk_ops_id(bulk_req_id, result_filepath)
-        return ProvisionResult.PERFORMED_RESULTS_NOT_CONFIRMED
+        return OnboardResult.PERFORMED_RESULTS_NOT_CONFIRMED
 
     err_count = 0
     bulk_results_json = bulk_results.json()
 
     if bulk_results_json["status"] == "FAILED":
-        print("Failure during provisioning, downloading error summary...")
+        print("Failure during onboarding, downloading error summary...")
 
         # Errors are detailed in a JSON file, which must be downloaded separately
         error_results = requests.get(bulk_results_json["errorSummaryUrl"])
@@ -435,9 +437,9 @@ def do_provisioning(api_key, csv_in, res_out, do_check):
     save_results(bulk_results_json, err_count, device_list, result_filepath)
 
     if err_count == 0:
-        return ProvisionResult.PERFORMED_SUCCESSFULLY
+        return OnboardResult.PERFORMED_SUCCESSFULLY
     else:
-        return ProvisionResult.PERFORMED_WITH_ERRORS
+        return OnboardResult.PERFORMED_WITH_ERRORS
 
 def update_mfwv_in_shadow(api_key, devinfo_list, res_out):
     err_cnt = 0
@@ -534,13 +536,16 @@ def main():
     args = parse_args()
 
     if not len(args.csv):
-        raise RuntimeError("Invalid provisioning CSV file")
+        raise RuntimeError("Invalid onboarding CSV file")
 
-    prov_res = do_provisioning(args.apikey, args.csv, args.res, args.chk)
+    if args.stage:
+        set_dev_stage(args.stage)
 
-    if prov_res is ProvisionResult.PERFORMED_SUCCESSFULLY or \
-       prov_res is ProvisionResult.PERFORMED_RESULTS_NOT_CONFIRMED or \
-       prov_res is ProvisionResult.PERFORMED_WITH_ERRORS:
+    res = do_onboarding(args.apikey, args.csv, args.res, args.chk)
+
+    if res is OnboardResult.PERFORMED_SUCCESSFULLY or \
+       res is OnboardResult.PERFORMED_RESULTS_NOT_CONFIRMED or \
+       res is OnboardResult.PERFORMED_WITH_ERRORS:
         process_device_info_csv(args.apikey, args.devinfo, args.res,
                               args.set_mfwv, args.name_imei, args.name_prefix)
 
