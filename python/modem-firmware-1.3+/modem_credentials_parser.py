@@ -13,6 +13,7 @@ import base64
 import OpenSSL.crypto
 from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
 import hashlib
+from cli_helpers import write_file
 
 msg_type_dict = {
     1: 'Device identity message v1',
@@ -127,30 +128,6 @@ def parse_cose(cose_str):
         else:
             print("\nCOSE digest does NOT match payload")
     print("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
-
-    return
-
-def write_file(pathname, filename, bytes):
-    """
-    save bytes to file
-    """
-
-    if not path.isdir(pathname):
-        try:
-            makedirs(pathname, exist_ok=True)
-        except OSError as e:
-            raise RuntimeError("Error creating file path")
-
-    full_path = path.join(pathname, filename)
-
-    try:
-        f = open(full_path, "wb")
-    except OSError:
-        raise RuntimeError("Error opening file: " + full_path)
-
-    f.write(bytes)
-    print("File created: " + path.abspath(f.name))
-    f.close()
 
     return
 

@@ -6,8 +6,6 @@
 
 import argparse
 import sys
-from os import path
-from os import makedirs
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -108,6 +106,55 @@ def embed_save_convert(cred_bytes):
         converted += '\"' + line + '\\n\"\n'
     return converted.encode('utf-8')
 
+# Locally generate a device credential CSR.
+# (As opposed requesting one from a modem)
+# Also generates local public/private keypair.
+def create_local_csr(c = "", st = "", l = "", o = "", ou = "", cn = "", email = ""):
+    # create EC keypair
+    private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+    public_key = private_key.public_key()
+    # format to DER for loading into OpenSSL
+    priv_der = private_key.private_bytes(encoding=serialization.Encoding.DER, format=serialization.PrivateFormat.PKCS8, encryption_algorithm=serialization.NoEncryption())
+    pub_der = public_key.public_bytes(encoding=serialization.Encoding.DER, format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    # load into OpenSSL
+    priv_key = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_ASN1, priv_der)
+    pub_key = OpenSSL.crypto.load_publickey(OpenSSL.crypto.FILETYPE_ASN1, pub_der)
+
+    # create a CSR
+    csr = OpenSSL.crypto.X509Req()
+
+    csr.set_version(0)
+    csr.add_extensions([OpenSSL.crypto.X509Extension(b'keyUsage', True, b'digitalSignature, nonRepudiation, keyEncipherment, keyAgreement'),])
+
+    # add subject info
+    subject = csr.get_subject()
+
+    if len(c):
+        subject.C = c
+
+    if len(st):
+        subject.ST = st
+
+    if len(l):
+        subject.L = l
+
+    if len(o):
+        subject.O = o
+
+    if len(ou):
+        subject.OU = ou
+
+    if len(cn):
+        subject.CN = cn
+
+    if len(email):
+        subject.emailAddress = email
+
+    csr.set_pubkey(pub_key)
+    csr.sign(priv_key, 'sha256')
+
+    return csr, priv_key
+
 def main():
 
     if not len(sys.argv) > 1:
@@ -125,52 +172,23 @@ def main():
 
     print("Creating device credentials...")
 
+    local_priv_key = None
+
     if (len(args.csr)):
         # load CSR from provided file
         csr = load_csr(args.csr)
-        pub_key = csr.get_pubkey()
     else:
-         # create EC keypair
-        private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
-        public_key = private_key.public_key()
-        # format to DER for loading into OpenSSL
-        priv_der = private_key.private_bytes(encoding=serialization.Encoding.DER, format=serialization.PrivateFormat.PKCS8, encryption_algorithm=serialization.NoEncryption())
-        pub_der = public_key.public_bytes(encoding=serialization.Encoding.DER, format=serialization.PublicFormat.SubjectPublicKeyInfo)
-        # load into OpenSSL
-        priv_key = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_ASN1, priv_der)
-        pub_key = OpenSSL.crypto.load_publickey(OpenSSL.crypto.FILETYPE_ASN1, pub_der)
+        csr, local_priv_key = create_local_csr(
+            c       = args.c,
+            st      = args.st,
+            l       = args.l,
+            o       = args.o,
+            ou      = args.ou,
+            cn      = args.cn,
+            email   = args.email
+        )
 
-        # create a CSR
-        csr = OpenSSL.crypto.X509Req()
-
-        csr.set_version(0)
-        csr.add_extensions([
-            OpenSSL.crypto.X509Extension(b'keyUsage', True, b'digitalSignature, nonRepudiation, keyEncipherment, keyAgreement'),])
-
-        # add subject info
-        if len(args.c):
-            csr.get_subject().C = args.c
-
-        if len(args.st):
-            csr.get_subject().ST = args.st
-
-        if len(args.l):
-            csr.get_subject().L = args.l
-
-        if len(args.o):
-            csr.get_subject().O = args.o
-
-        if len(args.ou):
-            csr.get_subject().OU = args.ou
-
-        if len(args.cn):
-            csr.get_subject().CN = args.cn
-
-        if len(args.email):
-            csr.get_subject().emailAddress = args.email
-
-        csr.set_pubkey(pub_key)
-        csr.sign(priv_key, 'sha256')
+    pub_key = csr.get_pubkey()
 
     # create a device cert
     device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
@@ -190,9 +208,10 @@ def main():
     pub  = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
     write_file(args.path, args.fileprefix + common_name + "_pub.pem", pub)
 
-    # we only have a private key if a CSR was NOT provided
-    if (len(args.csr) == 0):
-        priv = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, priv_key)
+    # If we generated a local private key, save that to disk too, so it can be installed to the
+    # device.
+    if local_priv_key is not None:
+        priv = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, local_priv_key)
         write_file(args.path, args.fileprefix + common_name + "_prv.pem", priv)
         if args.embed_save:
             write_file(args.path, "private-key.pem", embed_save_convert(priv))

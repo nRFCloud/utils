@@ -110,7 +110,7 @@ def parse_args():
     parser.add_argument("--api_key", type=str,
                         help="API key",
                         default=None)
-    parser.add_argument("--stage", type=str, "For internal (Nordic) use only", default="")
+    parser.add_argument("--stage", type=str, help="For internal (Nordic) use only", default="")
     parser.add_argument("--attest", type=str,
                         help="Attestation token base64 string (AT%%ATTESTTOKEN result)",
                         default=None)
@@ -331,16 +331,7 @@ def wait_for_cmd_status(api_key, dev_uuid, cmd_id):
 
 def install_ca_certs(sectag, stage, install_coap):
     print(local_style('Installing CA cert(s)...'))
-    if install_coap:
-        if stage == 'dev':
-            coap_ca = ca_certs.nrf_cloud_coap_ca_dev
-        elif stage == 'beta':
-            coap_ca = ca_certs.nrf_cloud_coap_ca_beta
-        else:
-            coap_ca = ca_certs.nrf_cloud_coap_ca
-        modem_ca = coap_ca + ca_certs.aws_ca
-    else:
-        modem_ca = ca_certs.aws_ca
+    modem_ca = ca_certs.get_ca_certs(install_coap, stage=stage)
 
     # provisioning client shell requires specific formatting
     modem_ca = modem_ca.replace('-----BEGIN CERTIFICATE-----\n',
