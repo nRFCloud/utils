@@ -169,6 +169,8 @@ def ask_for_port(selected_port, list_all):
     dev_types = []
     usb_patterns = [(r'THINGY91', 'Thingy:91', False),
                     (r'PCA20035', 'Thingy:91', False),
+                    (r'0010550',  'Thingy:91 X', False),
+                    (r'0010551',  'Thingy:91 X', False),
                     (r'0009600',  'nRF9160-DK', False),
                     (r'0010509',  'nRF9161-DK', False),
                     (r'0009601',  'nRF5340-DK', False),
