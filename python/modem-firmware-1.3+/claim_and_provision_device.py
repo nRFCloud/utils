@@ -37,6 +37,7 @@ lf_done = False
 plain = False
 verbose = False
 serial_timeout = 1
+at_cmd_prefix = ''
 args = None
 IMEI_LEN = 15
 DEV_ID_MAX_LEN = 64
@@ -116,6 +117,9 @@ def parse_args():
                         default=None)
     parser.add_argument("--unclaim",
                         help="Perform a call to the UnclaimDevice API before claiming and provisioning",
+                        action='store_true', default=False)
+    parser.add_argument("--noshell",
+                        help="Assume raw AT commands OK -- not using provisioning shell",
                         action='store_true', default=False)
     args = parser.parse_args()
     verbose = args.verbose
@@ -225,6 +229,9 @@ def write_line(line, hidden = False):
         print(send_style('-> {}'.format(line)))
     ser.write(bytes((line + CMD_TERM_DICT[cmd_term_key]).encode('utf-8')))
 
+def write_at_cmd(at_cmd):
+    write_line(f'{at_cmd_prefix}{at_cmd}')
+
 def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
     global lf_done
     found = False
@@ -275,7 +282,7 @@ def cleanup():
         ser.close()
 
 def get_attestation_token():
-    write_line('at AT%ATTESTTOKEN')
+    write_at_cmd('AT%ATTESTTOKEN')
     # include the CRLF in OK because 'OK' could be found in the CSR string
     retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%ATTESTTOKEN: ')
     if not retval:
@@ -329,22 +336,23 @@ def wait_for_cmd_status(api_key, dev_uuid, cmd_id):
 
         return api_result_json.get('response')
 
-def install_ca_certs(sectag, stage, install_coap):
+def install_ca_certs(sectag, stage, install_coap, no_shell):
     print(local_style('Installing CA cert(s)...'))
     modem_ca = ca_certs.get_ca_certs(install_coap, stage=stage)
 
-    # provisioning client shell requires specific formatting
-    modem_ca = modem_ca.replace('-----BEGIN CERTIFICATE-----\n',
-                                '-----BEGIN CERTIFICATE-----\\015\\012')
-    modem_ca = modem_ca.replace('\n-----END CERTIFICATE-----\n',
-                                '\\015\\012-----END CERTIFICATE-----\\015\\012')
-    modem_ca = modem_ca.replace('\n', '')
+    if not no_shell:
+        # provisioning client shell requires specific formatting
+        modem_ca = modem_ca.replace('-----BEGIN CERTIFICATE-----\n',
+                                    '-----BEGIN CERTIFICATE-----\\015\\012')
+        modem_ca = modem_ca.replace('\n-----END CERTIFICATE-----\n',
+                                    '\\015\\012-----END CERTIFICATE-----\\015\\012')
+        modem_ca = modem_ca.replace('\n', '')
 
     # delete first, then write CA
-    write_line('at AT%CMNG=3,{},0'.format(sectag))
+    write_at_cmd('AT%CMNG=3,{},0'.format(sectag))
     wait_for_prompt(b'OK', b'ERROR')
 
-    write_line('at AT%CMNG=0,{},0,"{}"'.format(sectag, modem_ca))
+    write_at_cmd('AT%CMNG=0,{},0,"{}"'.format(sectag, modem_ca))
     retval, output = wait_for_prompt(b'OK')
 
     if not retval:
@@ -361,6 +369,7 @@ def main():
     global plain
     global ser
     global cmd_term_key
+    global at_cmd_prefix
 
     # initialize arguments
     args = parse_args()
@@ -370,6 +379,9 @@ def main():
 
     # Set to CRLF for interaction with provisioning sample
     cmd_term_key = 'CRLF'
+
+    # Adjust method to send an AT command
+    at_cmd_prefix = '' if args.noshell else 'at '
 
     # check device ID length
     if args.id_str:
@@ -422,14 +434,14 @@ def main():
 
     # disable modem, just so the provisioning client doesn't try to do anything...
     print(local_style('\nDisabling modem...'))
-    write_line('at AT+CFUN=4')
+    write_at_cmd('AT+CFUN=4')
     retval = wait_for_prompt(b'OK')
     if not retval:
         error_exit('Unable to communicate')
 
     # write CA cert(s) to modem
     if args.install_ca or args.coap:
-            install_ca_certs(args.sectag, args.stage, args.coap)
+            install_ca_certs(args.sectag, args.stage, args.coap, args.noshell)
 
     attest_tok = args.attest
     if not attest_tok:
@@ -439,7 +451,7 @@ def main():
             error_exit('Failed to obtain attestation token')
 
     # get the IMEI
-    write_line('at AT+CGSN')
+    write_at_cmd('AT+CGSN')
     retval, imei = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
     if not retval:
         print(error_style('Failed to obtain IMEI'))
@@ -585,10 +597,13 @@ def main():
         error_exit('Failed to obtain provisioning finished cmd ID')
 
     # tell the device to check for commands
-    write_line('nrf_provisioning now')
-    retval = wait_for_prompt(b'nrf_provisioning: Externally initiated provisioning', b'ERROR',)
-    if not retval:
-        print(error_style('Did not receive expected response on serial port... continuing'))
+    if not args.noshell:
+        write_line('nrf_provisioning now')
+        retval = wait_for_prompt(b'nrf_provisioning: Externally initiated provisioning', b'ERROR',)
+        if not retval:
+            print(error_style('Did not receive expected response on serial port... continuing'))
+    else:
+        print(local_style('Waiting for provisioning client to check for commands...'))
 
     # wait for device to process the commands
     print(hivis_style('\nProvisioning command (client cert) ID: ' + prov_id + '\n'))
