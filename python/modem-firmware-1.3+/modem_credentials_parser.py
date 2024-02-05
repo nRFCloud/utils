@@ -109,6 +109,9 @@ def parse_cose(cose_str):
         print("    Dev UUID:   " + dev_uuid_hex_str)
         # sec_tag is another cbor object
         sec_tag = loads(attest_obj[2])
+        if sec_tag < 0:
+            # sec_tag was encoded as a negative integer, convert it to unsigned
+            sec_tag = (-sec_tag ^ 0xFFFFFFFF) + 1
         sec_tag_str = str(sec_tag)
         print("    sec_tag:    " + sec_tag_str)
         # SHA256 digest of cert/key in the payload
