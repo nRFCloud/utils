@@ -47,6 +47,8 @@ If the `rtt` option is specified, communication will be performed using [SEGGER'
 To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/nrf9160/modem_shell) sample application [built with the RTT overlay](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/samples/nrf9160/modem_shell/README.html#segger-rtt-support).
 This script will optionally flash the modem shell application on startup if a hex file path is provided with the `mosh_rtt_hex` option.
 
+If CoAP protocol is used on the device, specify `--coap` when executing the command. This will add the CoAP server root CA cert and the AWS root CA cert to create the proper handshakes for CoAP.
+
 ### Examples
 
 #### UUID device ID with verification enabled
@@ -66,7 +68,7 @@ Also required is a CSV file compatible with the [onboarding endpoint](https://ap
 
 ### Example
 ```
-python3 ./nrf_cloud_onboard.py --apikey $API_KEY --csv onboard.csv
+python3 ./nrf_cloud_onboard.py --apikey YOUR_API_KEY --csv onboard.csv
 ```
 
 If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
@@ -317,5 +319,5 @@ Use `--help` for additional parameter information.
 
 ### Example
 ```
-python3 ./claim_and_provision_device.py --apikey $API_KEY --ca=./ca.pem --ca_key=ca_prv_key.pem
+python3 ./claim_and_provision_device.py --api_key YOUR_API_KEY --ca=./ca.pem --ca_key=ca_prv_key.pem
 ```
