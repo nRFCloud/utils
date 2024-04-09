@@ -450,7 +450,7 @@ def parse_mfw_ver(ver_str):
     # Use regex to match the numeric portion (x.x.x) of the version string
     # lookahead/lookbehind ensure the version is prefixed/suffixed by - or _, or is at either
     # end of the string.
-    matches = re.findall(r"(?:(?<=-_)|(?<=^))[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(?=-_|$)",
+    matches = re.findall(r"(?:(?<=[-_])|(?<=^))[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(?=[-_]|$)",
                          ver_str.strip())
 
     # If the version regex does not match exactly once, then we are dealing with a malformed
@@ -477,7 +477,7 @@ def check_mfw_version():
 
     if parsed_ver is None:
         print(error_style('Unexpected modem FW version format... continuing'))
-    elif semver.compare(parsed_ver, MIN_REQD_MFW_VER) >= 0:
+    elif semver.compare(parsed_ver, MIN_REQD_MFW_VER) < 0:
         print(error_style(f'Modem FW version must be >= {MIN_REQD_MFW_VER}'))
         cleanup()
         sys.exit(8)
