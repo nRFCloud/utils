@@ -533,6 +533,10 @@ def main():
 
     # get the CSR from the response
     csr_txt = cmd_response.get('certificateSigningRequest').get('csr')
+    if csr_txt == None:
+        csr_txt = cmd_response.get('certificateSigningRequest').get('message')
+        if csr_txt == None:
+            error_exit('CSR response not found')
     if csr_txt:
         print(hivis_style('CSR:\n' + csr_txt + '\n'))
 
