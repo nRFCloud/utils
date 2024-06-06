@@ -29,7 +29,7 @@ File created: /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_pub.p
 # Device Credentials Installer
 
 This script automates the process of generating and programming device credentials to a device such as a Thingy:91 or 9160DK running an nRF Connect SDK application containing the [AT Host library](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/libraries/modem/at_host.html).
-The [AT Client sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/nrf9160/at_client) is the simplest implementation of the AT Host library.
+The [AT Client sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/at_client) is the simplest implementation of the AT Host library.
 
 It can also be used on an [LTE gateway](https://github.com/nRFCloud/lte-gateway), by interacting with the built-in shell.
 
@@ -44,7 +44,7 @@ Depending on your device hardware and firmware application, you may need to use 
 **Note**: if only a single supported device is detected on a serial port, it will be automatically selected and used. Otherwise, the script displays a list of detected devices and gives the user a choice of which to use.
 
 If the `rtt` option is specified, communication will be performed using [SEGGER's RTT](https://www.segger.com/products/debug-probes/j-link/technology/about-real-time-transfer/) interface.
-To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/nrf9160/modem_shell) sample application [built with the RTT overlay](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/samples/nrf9160/modem_shell/README.html#segger-rtt-support).
+To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/modem_shell) sample application [built with the RTT overlay](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/samples/cellular/modem_shell/README.html#segger-rtt-support).
 This script will optionally flash the modem shell application on startup if a hex file path is provided with the `mosh_rtt_hex` option.
 
 ### Examples
