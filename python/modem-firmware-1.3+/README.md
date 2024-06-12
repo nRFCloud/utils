@@ -10,7 +10,7 @@ Use Python pip to install required packages:
 ```
 
 # Create CA Cert
-This script creates a self-signed CA certificate and an associated EC keypair.   The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials.
+This script creates a self-signed CA certificate and an associated EC keypair.   The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials.  The specific values that you specify for the various options are not important, though it is recommended to use reasonable and accurate values for country code, state or province, locality, organization and its unit.  The number of days valid defaults to 10 years.  The common name could be your company domain name or something similar.
 
 The output file name format is as follows:
 `<your_prefix><CA_serial_number_hex>_ca.pem`
@@ -46,6 +46,9 @@ Depending on your device hardware and firmware application, you may need to use 
 If the `rtt` option is specified, communication will be performed using [SEGGER's RTT](https://www.segger.com/products/debug-probes/j-link/technology/about-real-time-transfer/) interface.
 To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/modem_shell) sample application [built with the RTT overlay](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/samples/cellular/modem_shell/README.html#segger-rtt-support).
 This script will optionally flash the modem shell application on startup if a hex file path is provided with the `mosh_rtt_hex` option.
+
+**Note**: the device ID options must match those used to build the device firmware, or else the device will fail to connect to nRF Cloud.
+See: [Configuration options for device ID](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/networking/nrf_cloud.html#configuration_options_for_device_id).
 
 ### Examples
 
