@@ -123,6 +123,9 @@ def parse_args():
     parser.add_argument("--devinfo_append",
                         help="When saving device info CSV, append to it",
                         action='store_true', default=False)
+    parser.add_argument("--replace",
+                        help="When appending to onboarding or device info CSV files: if device ID exists in file, replace old data with current",
+                        action='store_true', default=False)
     parser.add_argument("--local_cert",
                         help="Generate device cert and private key on the host machine, rather than on the device.",
                         action='store_true', default=False)
@@ -328,9 +331,11 @@ def wait_for_prompt(val1='gateway:# ', val2=None, timeout=15, store=None):
 
     return retval, output
 
-def check_if_device_exists_in_csv(csv_filename, dev_id):
-    exists = False
+def check_if_device_exists_in_csv(csv_filename, dev_id, delete_duplicates):
     row_count = 0
+    duplicate_rows = list()
+    if delete_duplicates:
+        keep_rows = list()
 
     try:
         with open(csv_filename) as csvfile:
@@ -340,13 +345,31 @@ def check_if_device_exists_in_csv(csv_filename, dev_id):
                 row_count += 1
                 # First column is the device ID
                 if row[0] == dev_id:
-                    exists = True
+                    # Device ID found, save the row
+                    duplicate_rows.append(row)
+                else:
+                    if delete_duplicates:
+                        # Copy all non-duplicate rows if the delete flag is set
+                        keep_rows.append(row)
 
             csvfile.close()
     except OSError:
-        print(error_style('Error opening file {}'.format(csv_filename)))
+        print(error_style(f'Error opening (read) file {csv_filename}'))
 
-    return exists, row_count
+    # Re-write the file without the duplicate rows
+    if delete_duplicates and len(duplicate_rows):
+        # Get new row count
+        row_count = len(keep_rows)
+        try:
+            with open(csv_filename, 'w', newline='\n') as csvfile:
+                csv_writer = csv.writer(csvfile, delimiter=',', lineterminator='\n',
+                                        quoting=csv.QUOTE_MINIMAL)
+                csv_writer.writerows(keep_rows)
+                csvfile.close()
+        except OSError:
+            print(error_style(f'Error opening file (write) {csv_filename}'))
+
+    return duplicate_rows, row_count
 
 def user_request_open_mode(filename, append):
     mode = 'a' if append else 'w'
@@ -372,41 +395,47 @@ def user_request_open_mode(filename, append):
 
     return mode
 
-def save_devinfo_csv(csv_filename, append, dev_id, mfw_ver = None, imei = None):
+def save_devinfo_csv(csv_filename, append, replace, dev_id, mfw_ver = None, imei = None):
     mode = user_request_open_mode(csv_filename, append)
 
     if mode == None:
         return
+
+    row_count = 0
 
     row = f'{dev_id},{mfw_ver if mfw_ver else ""},{imei if imei else ""}\n'
 
     if mode == 'a':
-        exists, row_count = check_if_device_exists_in_csv(csv_filename, dev_id)
+        duplicate_rows, row_count = check_if_device_exists_in_csv(csv_filename, dev_id, replace)
 
-        if exists:
-            print(error_style('Device already exists in device info CSV, the following row was NOT added:'))
-            print(local_style(','.join(row)))
-            return
+        if len(duplicate_rows):
+            if replace:
+                print(hivis_style(f'Removed existing device info data:\r\n\t{duplicate_rows}'))
+            else:
+                print(error_style('Device already exists in device info CSV, the following row was NOT added:'))
+                print(local_style(row))
+                return
 
     try:
         with open(csv_filename, mode, newline='\n') as devinfo_file:
             devinfo_file.write(row)
-        print(local_style('Device info CSV file saved'))
-
+        print(local_style(f'Device info CSV file saved, row count: {row_count + 1}'))
     except OSError:
         print(error_style('Error opening file {}'.format(csv_filename)))
 
-def save_onboarding_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, dev):
+def save_onboarding_csv(csv_filename, append, replace, dev_id, sub_type, tags, fw_types, dev):
     mode = user_request_open_mode(csv_filename, append)
 
     if mode == None:
         return
+
+    row_count = 0
 
     row = [dev_id, sub_type, tags, fw_types, str(dev, encoding=full_encoding)]
 
     if mode == 'a':
         do_not_write = False
-        exists, row_count = check_if_device_exists_in_csv(csv_filename, dev_id)
+        duplicate_rows, row_count = check_if_device_exists_in_csv(csv_filename, dev_id, replace)
 
         if verbose:
             print(local_style("Onboarding CSV row count [max {}]: {}".format(MAX_CSV_ROWS, row_count)))
@@ -415,13 +444,16 @@ def save_onboarding_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, 
             print(error_style('Onboarding CSV file is full'))
             do_not_write = True
 
-        if exists:
-            print(error_style('Onboarding CSV file already contains device \'{}\''.format(dev_id)))
-            do_not_write = True
+        if len(duplicate_rows):
+            if replace:
+                print(hivis_style(f'Removed existing device onboarding data:\r\n\t{duplicate_rows}'))
+            else:
+                print(error_style(f'Onboarding CSV file already contains device \'{dev_id}\''))
+                do_not_write = True
 
         if do_not_write:
             print(error_style('The following row was NOT added to the onboarding CSV file:'))
-            print(local_style(','.join(row)))
+            print(local_style(str(row)))
             return
 
     try:
@@ -429,9 +461,9 @@ def save_onboarding_csv(csv_filename, append, dev_id, sub_type, tags, fw_types, 
             csv_writer = csv.writer(csvfile, delimiter=',', lineterminator='\n',
                                     quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(row)
-        print(local_style('Onboarding CSV file saved'))
+        print(local_style(f'Onboarding CSV file saved, row count: {row_count + 1}'))
     except OSError:
-        print(error_style('Error opening file {}'.format(csv_filename)))
+        print(error_style(f'Error opening file {csv_filename}'))
 
 def cleanup():
     if not is_gateway:
@@ -768,12 +800,12 @@ def main():
         sub_type = 'gateway' if is_gateway else ''
         if len(args.subtype) > 0:
             sub_type = args.subtype
-        save_onboarding_csv(args.csv, args.append, dev_id, sub_type, args.tags,
+        save_onboarding_csv(args.csv, args.append, args.replace, dev_id, sub_type, args.tags,
                             args.fwtypes, dev_bytes)
 
     # write device ID, modem firmware version, and IMEI to a file
     if args.devinfo:
-        save_devinfo_csv(args.devinfo, args.devinfo_append, dev_id, mfw_ver, imei)
+        save_devinfo_csv(args.devinfo, args.devinfo_append, args.replace, dev_id, mfw_ver, imei)
 
     if rtt:
         rtt.close()
