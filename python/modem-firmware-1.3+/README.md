@@ -47,6 +47,10 @@ If the `rtt` option is specified, communication will be performed using [SEGGER'
 To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/modem_shell) sample application [built with the RTT overlay](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/samples/cellular/modem_shell/README.html#segger-rtt-support).
 This script will optionally flash the modem shell application on startup if a hex file path is provided with the `mosh_rtt_hex` option.
 
+In addition to the device specific credentials, this script will install the CA certificate(s) necessary for connecting to nRF Cloud.
+By default, the script will install the AWS root CA.
+If your device uses CoAP, add the `coap` option to also install the nRF Cloud CoAP CA.
+
 **Note**: the device ID options must match those used to build the device firmware, or else the device will fail to connect to nRF Cloud.
 See: [Configuration options for device ID](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/networking/nrf_cloud.html#configuration_options_for_device_id).
 
