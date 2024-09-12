@@ -82,6 +82,8 @@ class ATKeygenException(Exception):
         self.exit_code = exit_code
 
 class ATCommandInterface(CredentialCommandInterface):
+    shell = False
+
     def _parse_sha(self, cmng_result_str):
         # Example AT%CMNG response:
         #   %CMNG: 123,0,"2C43952EE9E000FF2ACC4E2ED0897C0A72AD5FA72C3D934E81741CBD54F05BD1"
@@ -92,11 +94,15 @@ class ATCommandInterface(CredentialCommandInterface):
             print(error_style(f'Could not parse credential hash: {cmng_result_str}'))
             return None
 
+    def set_shell_mode(self, shell):
+        self.shell = shell
+
     def at_command(self, at_command, wait_for_result=False):
         """Write an AT command to the command interface. Optionally wait for OK"""
 
         # AT commands are written directly as-is with the ATCommandInterface:
-        self.write_raw(at_command)
+        at_cmd_prefix = 'at ' if self.shell else ''
+        self.write_raw(f'{at_cmd_prefix}{at_command}')
 
         if wait_for_result:
             result, output = self.serial_wait_for_response(b'OK', b'ERROR')
