@@ -23,6 +23,7 @@ BEARER = 'Bearer '
 CLAIMED_DEV = 'claimed-devices'
 PROV = 'provisioning'
 CLAIM_TOK = 'claimToken'
+CLAIM_TAGS = 'tags'
 
 def set_dev_stage(stage = ''):
     global api_url
@@ -41,10 +42,13 @@ def get_auth_header(api_key):
         return None
     return  { AUTH : BEARER + api_key}
 
-def claim_device(api_key, claim_token):
+def claim_device(api_key, claim_token, tags = None):
     global api_url
     req = f'{api_url}{CLAIMED_DEV}'
-    payload = {CLAIM_TOK : claim_token}
+    if tags is None:
+        payload = {CLAIM_TOK : claim_token}
+    else:
+        payload = {CLAIM_TOK : claim_token, CLAIM_TAGS : [tags]}
 
     return requests.post(req, json=payload, headers=get_auth_header(api_key))
 

@@ -18,7 +18,7 @@ import nrf_cloud_diap
 import create_device_credentials
 from create_device_credentials import create_device_cert
 from serial.tools import list_ports
-from colorama import init, Fore, Back, Style
+from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
 from cryptography import x509
 import OpenSSL.crypto
 from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
@@ -33,8 +33,6 @@ is_macos = platform.system() == 'Darwin'
 is_windows = platform.system() == 'Windows'
 is_linux = platform.system() == 'Linux'
 full_encoding = 'mbcs' if is_windows else 'ascii'
-lf_done = False
-plain = False
 verbose = False
 serial_timeout = 1
 at_cmd_prefix = ''
@@ -51,10 +49,10 @@ def parse_args():
 
     parser.add_argument("--dv", type=int, help="Number of days cert is valid",
                         default=(10 * 365))
-    parser.add_argument("--ca", type=str, help="Filepath to your CA cert PEM",
+    parser.add_argument("--ca", type=str, help="Filepath to your CA cert PEM. Not used with '--provisioning_tags'.",
                         default="./ca.pem")
     parser.add_argument("--ca_key", type=str,
-                        help="Filepath to your CA's private key PEM",
+                        help="Filepath to your CA's private key PEM. Not used with '--provisioning_tags'.",
                         default="./ca_prv_key.pem")
     parser.add_argument("--port", type=str,
                         help="Specify which serial port to open, otherwise pick from list",
@@ -72,6 +70,9 @@ def parse_args():
                         action='store_true', default=False)
     parser.add_argument("-t", "--tags", type=str,
                         help="Pipe (|) delimited device tags; enclose in double quotes", default="")
+    parser.add_argument("--provisioning_tags", type=str,
+                        help="Comma (,) delimited provisioning tags; enclose in double quotes. Example: use \"nrf-cloud-onboarding\" to onboard to nRF Cloud.",
+                        default=None)
     parser.add_argument("-T", "--subtype", type=str,
                         help="Custom device type", default='')
     parser.add_argument("-F", "--fwtypes", type=str,
@@ -125,27 +126,6 @@ def parse_args():
     verbose = args.verbose
     return args
 
-def ensure_lf(line):
-    global lf_done
-    done = lf_done
-    lf_done = True
-    return '\n' + line if not done else line
-
-def local_style(line):
-    return ensure_lf(Fore.CYAN + line
-                     + Style.RESET_ALL) if not plain else line
-
-def hivis_style(line):
-    return ensure_lf(Fore.MAGENTA + line
-                     + Style.RESET_ALL) if not plain else line
-
-def send_style(line):
-    return ensure_lf(Fore.BLUE + line
-                     + Style.RESET_ALL) if not plain else line
-
-def error_style(line):
-    return ensure_lf(Fore.RED + line + Style.RESET_ALL) if not plain else line
-
 def ask_for_port(selected_port, list_all):
     """
     Show a list of ports and ask the user for a choice, unless user specified
@@ -156,8 +136,13 @@ def ask_for_port(selected_port, list_all):
     dev_types = []
     usb_patterns = [(r'THINGY91', 'Thingy:91', False),
                     (r'PCA20035', 'Thingy:91', False),
+                    (r'0010550',  'Thingy:91 X', False),
+                    (r'0010551',  'Thingy:91 X', False),
+                    (r'0010513',  'Thingy:91 X', False),
                     (r'0009600',  'nRF9160-DK', False),
                     (r'0010509',  'nRF9161-DK', False),
+                    (r'0010512',  'nRF9151-DK', False),
+                    (r'0009601',  'nRF5340-DK', False),
                     (r'NRFBLEGW', 'nRF Cloud Gateway', True)]
     if selected_port == None and not list_all:
         pattern = r'SER=(' + r'|'.join(name[0] for name in usb_patterns) + r')'
@@ -238,6 +223,16 @@ def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
     retval = False
     output = None
 
+    # Convert string arguments to bytes if needed.
+    if isinstance(val1, str):
+        val1=val1.encode()
+
+    if isinstance(val2, str):
+        val2=val2.encode()
+
+    if isinstance(store, str):
+        store=store.encode()
+
     ser.flush()
 
     while not found and timeout != 0:
@@ -263,7 +258,9 @@ def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
         elif store != None and (store in line or str(store) in str(line)):
             output = line
 
-    lf_done = b'\n' in line
+    if b'\n' not in line:
+        sys.stdout.write('\n')
+
     if ser:
         ser.flush()
     if store != None and output == None:
@@ -373,7 +370,9 @@ def main():
 
     # initialize arguments
     args = parse_args()
-    plain = args.plain
+
+    if args.plain:
+        cli_disable_styles()
 
     ser = None
 
@@ -394,16 +393,20 @@ def main():
 
     # initialize colorama
     if is_windows:
-        init(convert = not plain)
+        init_colorama()
 
     if args.verbose:
         print(send_style('OS detect: Linux={}, MacOS={}, Windows={}\n'.
                           format(is_linux, is_macos, is_windows)))
 
-     # check for valid CA files...
-    print(local_style('Loading CA and key...'))
-    ca_cert = create_device_credentials.load_ca(args.ca)
-    ca_key = create_device_credentials.load_ca_key(args.ca_key)
+    # load local CA cert and key if needed; assume not needed if using provisioning tags
+    if args.provisioning_tags is None:
+         # check for valid CA files...
+        print(local_style('Loading CA and key...'))
+        ca_cert = create_device_credentials.load_ca(args.ca)
+        ca_key = create_device_credentials.load_ca_key(args.ca_key)
+    elif args.ca or args.ca_key:
+        print(local_style('Ignoring "ca" and "ca_key".'))
 
      # flash prov client
     if args.prov_hex:
@@ -471,19 +474,26 @@ def main():
     print(hivis_style('\nProvisioning API URL: ' + nrf_cloud_diap.set_dev_stage(args.stage)))
 
     if args.unclaim:
-        print(local_style('Unclaiming device...'))
+        print(local_style(f'Unclaiming device {dev_uuid}...'))
         api_res = nrf_cloud_diap.unclaim_device(args.api_key, dev_uuid)
         if api_res.status_code == 204:
             print(local_style(f'...success\n'))
         else:
             nrf_cloud_diap.print_api_result("Unclaim device response", api_res, True)
+            error_exit('Failed to unclaim device')
 
     # claim device
     print(local_style('Claiming device...'))
-    api_res = nrf_cloud_diap.claim_device(args.api_key, attest_tok)
+    if args.provisioning_tags is not None:
+        print(local_style(f'with provisioning tags: {args.provisioning_tags}'))
+    api_res = nrf_cloud_diap.claim_device(args.api_key, attest_tok, args.provisioning_tags)
     nrf_cloud_diap.print_api_result("Claim device response", api_res, args.verbose)
     if api_res.status_code != 201:
         error_exit('ClaimDeviceOwnership API call failed')
+    elif args.provisioning_tags is not None:
+        print(local_style('Done. It is assumed the provisioning tags complete the process over the air.'))
+        cleanup()
+        sys.exit(0)
 
     # get the device ID
     device_id = ''
