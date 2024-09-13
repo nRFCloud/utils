@@ -24,6 +24,7 @@ CLAIMED_DEV = 'claimed-devices'
 PROV = 'provisioning'
 CLAIM_TOK = 'claimToken'
 CLAIM_TAGS = 'tags'
+CONTENT_TYPE = 'contentType'
 
 def set_dev_stage(stage = ''):
     global api_url
@@ -51,6 +52,13 @@ def claim_device(api_key, claim_token, tags = None):
         payload = {CLAIM_TOK : claim_token, CLAIM_TAGS : [tags]}
 
     return requests.post(req, json=payload, headers=get_auth_header(api_key))
+
+def bulk_claim_devices(api_key, csv_rows):
+    global api_url
+    req = f'{api_url}{CLAIMED_DEV}'
+    h = get_auth_header(api_key)
+    h[CONTENT_TYPE] = 'text/csv'
+    return requests.post(req, data=csv_rows, headers=h)
 
 def unclaim_device(api_key, dev_uuid):
     global api_url
