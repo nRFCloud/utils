@@ -33,6 +33,7 @@ CMD_TERM_DICT = {'NULL': '\0',
 # 'CR' is the default termination value for the at_host library in the nRF Connect SDK
 
 CMD_TYPE_AT = "at"
+CMD_TYPE_AT_SHELL = "at_shell"
 CMD_TYPE_TLS_SHELL = "tls_cred_shell"
 
 cmd_term_key = 'CR'
@@ -131,6 +132,7 @@ def parse_args():
                         action='store_true', default=False)
     parser.add_argument("--xonxoff",
                         help="Enable software flow control for serial connection",
+
                         action='store_true', default=False)
     parser.add_argument("--rtscts_off",
                         help="Disable hardware (RTS/CTS) flow control for serial connection",
@@ -144,8 +146,8 @@ def parse_args():
     parser.add_argument("--rtt",
                         help="Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay",
                         action='store_true', default=False)
-    parser.add_argument("--cmd_type", default=CMD_TYPE_AT, choices=[CMD_TYPE_AT, CMD_TYPE_TLS_SHELL], type=str.lower,
-                    help=f"Specify the device command line type. '{CMD_TYPE_AT}' will use AT commands, '{CMD_TYPE_TLS_SHELL}' will use TLS Credentials Shell commands.")
+    parser.add_argument("--cmd_type", default=CMD_TYPE_AT, choices=[CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL], type=str.lower,
+                    help=f"Specify the device command line type. '{CMD_TYPE_AT}' will use AT commands, '{CMD_TYPE_AT_SHELL}' will prefix AT commands with 'at ', and '{CMD_TYPE_TLS_SHELL}' will use TLS Credentials Shell commands.")
     parser.add_argument("--jlink_sn", type=int,
                         help="Serial number of J-Link device to use for RTT; optional",
                         default=None)
@@ -296,7 +298,6 @@ def wait_for_prompt(val1='gateway:# ', val2=None, timeout=15, store=None):
             if len(rtt_lines) == 0:
                 break
             line = rtt_lines.pop(0).encode()
-
 
         if line == b'\r\n':
             # Skip the initial CRLF (see 3GPP TS 27.007 AT cmd specification)
@@ -588,12 +589,13 @@ def main():
         cleanup()
         sys.exit(0)
 
-    if args.gateway and args.cmd_type != CMD_TYPE_AT:
-        print(error_style(f"--gateway requires cmd_type '{CMD_TYPE_AT}'"))
+    cmd_type_has_at = args.cmd_type in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL)
+    has_shell = (args.cmd_type == CMD_TYPE_AT_SHELL)
+
+    if args.gateway and not cmd_type_has_at:
+        print(error_style(f"--gateway requires cmd_type '{CMD_TYPE_AT}' or '{CMD_TYPE_AT_SHELL}'"))
         cleanup()
         sys.exit(0)
-
-    cmd_type_has_at = args.cmd_type == CMD_TYPE_AT
 
     if args.rtt:
         cmd_term_key = 'CRLF'
@@ -644,11 +646,13 @@ def main():
             wait_for_prompt(b'to exit AT mode')
 
     cred_if = None
-    if args.cmd_type == CMD_TYPE_AT:
+    if cmd_type_has_at:
         cred_if = ATCommandInterface(write_line, wait_for_prompt, verbose)
+        if args.cmd_type == CMD_TYPE_AT_SHELL:
+            cred_if.set_shell_mode(True)
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
-        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, verbose)
+        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, verbose, True)
 
     # prepare modem so we can interact with security keys
     if (cmd_type_has_at):
@@ -701,7 +705,7 @@ def main():
     prv_text = None
     if prv_key is not None:
         prv_bytes = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, prv_key)
-        prv_text = format_cred(prv_bytes, is_gateway)
+        prv_text = format_cred(prv_bytes, has_shell)
     pub_key = csr.get_pubkey()
     pub_bytes = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
     dev_id = csr.get_subject().CN
@@ -742,7 +746,7 @@ def main():
 
     # save device cert and/or print it
     dev_bytes = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
-    dev_text = format_cred(dev_bytes, is_gateway)
+    dev_text = format_cred(dev_bytes, has_shell)
 
     if verbose:
         print(local_style('Dev cert: {}'.format(dev_bytes)))
@@ -758,7 +762,7 @@ def main():
         write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub_bytes)
 
     # write CA cert(s) to device
-    nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), is_gateway)
+    nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), has_shell)
 
     print(local_style(f'Writing CA cert(s) to device...'))
     cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)
