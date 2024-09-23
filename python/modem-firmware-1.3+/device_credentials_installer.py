@@ -652,7 +652,7 @@ def main():
             cred_if.set_shell_mode(True)
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
-        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, verbose, True)
+        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, verbose)
 
     # prepare modem so we can interact with security keys
     if (cmd_type_has_at):
