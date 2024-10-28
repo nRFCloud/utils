@@ -69,13 +69,17 @@ AiEA7sD3ABtaQa4df/uhnytbO5W2Qf8YfHtZLsrWmPKKR5w=
 -----END CERTIFICATE-----
 """
 
-def get_ca_certs(coap=False, stage="prod"):
-    if not coap:
-        return aws_ca
+def get_ca_certs(coap=False, aws=True, stage="prod"):
+    cert = ""
 
-    if stage == "dev":
-        return nrf_cloud_coap_ca_dev + aws_ca
-    if stage == "beta":
-        return nrf_cloud_coap_ca_beta + aws_ca
+    if coap:
+        if stage == "prod":
+            cert += nrf_cloud_coap_ca
+        if stage == "dev":
+            cert += nrf_cloud_coap_ca_dev
+        if stage == "beta":
+            cert += nrf_cloud_coap_ca_beta
+    if aws:
+        cert += aws_ca
 
-    return nrf_cloud_coap_ca + aws_ca
+    return cert

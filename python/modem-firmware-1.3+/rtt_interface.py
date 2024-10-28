@@ -3,36 +3,70 @@ from pynrfjprog import LowLevel
 
 CRLF = '\r\n'
 
+# Accumulates RTT characters until lines are completed
+rtt_tail = ""
+
 def send_rtt(api, tx_data):
     for i in range(0, len(tx_data), 12):
        api.rtt_write(channel_index=0, msg=tx_data[i:i+12])
        time.sleep(0.01)
 
-def readlines_at_rtt(api, timeout_s):
-    elapsed_s = 0
+# Accumulate new characters to the rtt tail
+def accumulate_lines_rtt(api):
+    global rtt_tail
+    rx_new = api.rtt_read(channel_index=0, length=4096)
+    if rx_new:
+        rx = rx + rx_new
+
+# Attempt to take a line from the rtt tail
+def take_line_rtt(api):
+    global rtt_tail
+    lines = rtt_tail.splitlines(keepends=True)
+    if len(lines) > 1:
+        # Remove first line from rtt_tail, return it.
+        rtt_tail = "".join(lines[1:])
+        return lines[0]
+    return None
+
+# Clear the rtt tail. Called by functions in this interface that directly read RTT without
+# accumulating it, or otherwise invalidate the RTT tail.
+def clear_rtt_tail():
+    global rtt_tail
+    rtt_tail = ""
+
+# Continually accumulate rtt chars until we either timeout, or successfully take a line.
+def readline_rtt(api, timeout_s):
+    global rtt_tail
+    deadline = time.time() + timeout_s
     rx = ''
-
-    while elapsed_s < timeout_s:
-        rx_new = api.rtt_read(channel_index=0, length=4096)
-        if rx_new:
-            rx = rx + rx_new
-
-            if rx:
-                last_line = rx.splitlines().pop()
-                if last_line == 'OK' or last_line == 'ERROR':
-                    break
-
+    while time.time() < deadline:
+        accumulate_lines_rtt(api)
+        line = take_line_rtt(api)
+        if line is not None:
+            return line
         time.sleep(0.1)
-        elapsed_s = elapsed_s + 0.1
+    return None
 
-    if elapsed_s >= timeout_s:
+# Continually accumulate rtt lines until the timeout is reached, or an AT status is printed
+def readlines_at_rtt(api, timeout_s):
+    deadline = time.time() + timeout_s
+    lines = []
+
+    while time.time() < deadline:
+        line = readline_rtt(api, deadline - time.time())
+        lines.append(line)
+        if line.strip() == 'OK' or line.strip() == 'ERROR':
+            break
+
+    if time.time() >= deadline:
         print('RTT read timeout')
 
-    return rx.splitlines(keepends=True)
+    return lines
 
 def read_string_rtt(api, expected_str, timeout_s):
     elapsed_s = 0
     rx = ''
+    clear_rtt_tail()
 
     while elapsed_s < timeout_s:
         rx_new = api.rtt_read(channel_index=0, length=4096)
@@ -62,6 +96,7 @@ def read_string_rtt(api, expected_str, timeout_s):
 def enable_at_cmds_mosh_rtt(api):
     MOSH_TERM = 'mosh:~$ '
     AT_CMD_MODE = 'at_cmd_mode start' + CRLF
+    clear_rtt_tail()
 
     found = read_string_rtt(api, MOSH_TERM, 1)
     if not found:
@@ -90,6 +125,7 @@ def enable_at_cmds_mosh_rtt(api):
 def reset_device(snr):
     api = LowLevel.API(LowLevel.DeviceFamily.UNKNOWN)
     api.open()
+    clear_rtt_tail()
 
     # Connect to and identify device
     if snr is None:
@@ -111,6 +147,8 @@ def connect_and_program(snr, hex_path):
 
     if not hex_path:
         return False
+
+    clear_rtt_tail()
 
     api = LowLevel.API(LowLevel.DeviceFamily.UNKNOWN)
     api.open()
@@ -158,6 +196,7 @@ def program_hex_rtt(api, hex_path):
 def connect_rtt(snr=None, hex_path=''):
     api = LowLevel.API(LowLevel.DeviceFamily.UNKNOWN)
     api.open()
+    clear_rtt_tail()
 
     # Connect to and identify device
     if snr is None:

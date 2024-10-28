@@ -12,14 +12,18 @@ import csv
 import serial
 import getpass
 import ca_certs
-import platform
 import rtt_interface
 from cli_helpers import write_file
 import semver
 import create_device_credentials
 from create_device_credentials import create_device_cert, create_local_csr
-from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
+import cli_helpers
+from cli_helpers import (
+    error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles,
+    print_os_detect
+)
 from command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
+from serial_interface import SerialInterfaceGeneric
 
 from serial.tools import list_ports
 from cryptography import x509
@@ -37,10 +41,7 @@ CMD_TYPE_AT_SHELL = "at_shell"
 CMD_TYPE_TLS_SHELL = "tls_cred_shell"
 
 cmd_term_key = 'CR'
-is_macos = platform.system() == 'Darwin'
-is_windows = platform.system() == 'Windows'
-is_linux = platform.system() == 'Linux'
-full_encoding = 'mbcs' if is_windows else 'ascii'
+
 default_password = 'nordic'
 is_gateway = False
 verbose = False
@@ -116,8 +117,11 @@ def parse_args():
                         {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double quotes
                         """, default="APP|MODEM")
     parser.add_argument("--coap",
-                        help="Install the CoAP server root CA cert in addition to the AWS root CA cert",
-                        action='store_true', default=False)
+                        help="Install the CoAP server root CA cert",
+                        action='store_true')
+    parser.add_argument("--aws",
+                        help="Install the AWS root CA cert",
+                        action='store_true')
     parser.add_argument("--devinfo", type=str,
                         help="Filepath for device info CSV file which will contain the device ID, installed modem FW version, and IMEI",
                         default=None)
@@ -157,7 +161,7 @@ def parse_args():
                         help="Confirm credentials have been installed",
                         action='store_true', default=False)
     parser.add_argument("--stage", type=str,
-                        help="For internal (Nordic) use only", default="")
+                        help="For internal (Nordic) use only", default="prod")
     args = parser.parse_args()
     verbose = args.verbose
     return args
@@ -191,7 +195,7 @@ def ask_for_port(selected_port, list_all):
     port_num = 1
     for n, (port, desc, hwid) in enumerate(sorted(list_ports.grep(pattern)), 1):
 
-        if not is_macos:
+        if not cli_helpers.is_macos:
             # if a specific port is not requested, filter out ports with
             # LOCATION in hwid that do not end in '.0' because these are
             # usually not the logging or shell ports
@@ -248,89 +252,22 @@ def ask_for_port(selected_port, list_all):
             port = ports[index]
         return port
 
-def write_line(line, hidden = False):
-    global cmd_term_key
-    if not hidden:
-        print(send_style('-> {}'.format(line)))
-    if ser:
-        ser.write(bytes((line + CMD_TERM_DICT[cmd_term_key]).encode('utf-8')))
-    elif rtt:
-        rtt_interface.send_rtt(rtt, line + CMD_TERM_DICT[cmd_term_key])
-
-def handle_login():
+def login_gateway():
     global password
-    ser.write('\r'.encode('utf-8'))
+
+    if ser:
+        ser.write('\r'.encode('utf-8'))
+
     while True:
-        if wait_for_prompt(b'login: ', b'gateway:# ', 10)[0]:
-            write_line(password, hidden=True)
-            ser.flush()
-            if not wait_for_prompt(val2=b'Incorrect password!')[0]:
+        if sif.wait_for_prompt(b'login: ', b'gateway:# ', 10)[0]:
+            sif.write_line(password, hidden=True)
+            sif.flush()
+            if not ser.wait_for_prompt(val2=b'Incorrect password!')[0]:
                 password = getpass.getpass('Enter correct password:')
             else:
                 break
         else:
             break
-
-def wait_for_prompt(val1='gateway:# ', val2=None, timeout=15, store=None):
-    found = False
-    retval = False
-    output = None
-
-    # Convert string arguments to bytes if needed.
-    if isinstance(val1, str):
-        val1=val1.encode()
-
-    if isinstance(val2, str):
-        val2=val2.encode()
-
-    if isinstance(store, str):
-        store=store.encode()
-
-    if ser:
-        ser.flush()
-    else:
-        rtt_lines = rtt_interface.readlines_at_rtt(rtt, timeout)
-
-    while not found and timeout != 0:
-        if ser:
-            line = ser.readline()
-        else:
-            if len(rtt_lines) == 0:
-                break
-            line = rtt_lines.pop(0).encode()
-
-        if line == b'\r\n':
-            # Skip the initial CRLF (see 3GPP TS 27.007 AT cmd specification)
-            continue
-
-        if line == None or len(line) == 0:
-            if timeout > 0:
-                timeout -= serial_timeout
-            continue
-
-        sys.stdout.write('<- ' + str(line, encoding=full_encoding))
-
-        if val1 in line:
-            found = True
-            retval = True
-        elif val2 != None and val2 in line:
-            found = True
-            retval = False
-        elif store != None and (store in line or str(store) in str(line)):
-            output = line
-
-    if b'\n' not in line:
-        sys.stdout.write('\n')
-
-    if ser:
-        ser.flush()
-    if store != None and output == None:
-        print(error_style('String {} not detected in line {}'.format(store, line)))
-
-    if timeout == 0:
-        print(error_style('Serial timeout'))
-
-    return retval, output
 
 def check_if_device_exists_in_csv(csv_filename, dev_id, delete_duplicates):
     row_count = 0
@@ -432,7 +369,7 @@ def save_onboarding_csv(csv_filename, append, replace, dev_id, sub_type, tags, f
 
     row_count = 0
 
-    row = [dev_id, sub_type, tags, fw_types, str(dev, encoding=full_encoding)]
+    row = [dev_id, sub_type, tags, fw_types, str(dev, encoding=cli_helpers.full_encoding)]
 
     if mode == 'a':
         do_not_write = False
@@ -470,10 +407,10 @@ def cleanup():
     if not is_gateway:
         return
     print(local_style('Restoring terminal...'))
-    write_line('exit')
-    wait_for_prompt()
-    write_line('logout')
-    wait_for_prompt(b'login:')
+    sif.write_line('exit')
+    sif.wait_for_prompt()
+    sif.write_line('logout')
+    sif.wait_for_prompt(b'login:')
     print(local_style('\nDone.'))
 
 def parse_mfw_ver(ver_str):
@@ -539,7 +476,7 @@ def format_cred(cred, is_gateway = False):
     formatted = cred
 
     if not isinstance(cred, str):
-        formatted = str(cred, encoding=full_encoding)
+        formatted = str(cred, encoding=cli_helpers.full_encoding)
 
     if is_gateway:
         formatted = formatted.replace("\n", "\\n")
@@ -549,6 +486,7 @@ def format_cred(cred, is_gateway = False):
 def main():
     global ser
     global rtt
+    global sif
     global password
     global is_gateway
     global cmd_term_key
@@ -564,6 +502,15 @@ def main():
 
     rtt = None
 
+    if not args.aws:
+        print(error_style("Warning: The AWS root cert is no longer included by default. Add the -aws argument if you need this cert."))
+
+    print("args", args.aws, args.coap)
+    if not args.aws and not args.coap:
+        print(error_style('At least one CA cert must be installed. Enable -aws, -coap, or both.'))
+        cleanup()
+        sys.exit(0)
+
     if args.term in CMD_TERM_DICT.keys():
         cmd_term_key = args.term
     else:
@@ -575,19 +522,11 @@ def main():
         cleanup()
         sys.exit(0)
 
-    # initialize colorama
-    if is_windows:
-        init_colorama()
+    # initialize colorama (if needed)
+    init_colorama()
 
     if verbose:
-        print(local_style('OS detect: Linux={}, MacOS={}, Windows={}'.
-                          format(is_linux, is_macos, is_windows)))
-
-    if args.cmd_type == CMD_TYPE_TLS_SHELL and not args.local_cert:
-        # This check can be removed once the TLS Credential Shell supports CSR generation.
-        print(error_style(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert"))
-        cleanup()
-        sys.exit(0)
+        cli_helpers.print_os_detect()
 
     cmd_type_has_at = args.cmd_type in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL)
     has_shell = (args.cmd_type == CMD_TYPE_AT_SHELL)
@@ -632,27 +571,33 @@ def main():
             sys.stderr.write(error_style('Port could not be opened; not a device, or open already\n'))
             sys.exit(5)
 
-        # for gateways, get to the AT command prompt first
-        if is_gateway:
-            print(local_style('Getting to prompt...'))
-            handle_login()
+    # Create a SerialInterface wrapping either the `ser` or `rtt` interfaces.
+    sif = SerialInterfaceGeneric(ser, rtt)
+    sif.set_terminator(CMD_TERM_DICT[cmd_term_key])
 
-            print(local_style('Disabling logs...'))
-            write_line('log disable')
-            wait_for_prompt()
+    # for gateways, get to the AT command prompt first
+    if is_gateway:
+        sif.set_default_prompt('gateway:# ')
 
-            print(local_style('Getting to AT mode...'))
-            write_line('at enable')
-            wait_for_prompt(b'to exit AT mode')
+        print(local_style('Getting to prompt...'))
+        login_gateway()
+
+        print(local_style('Disabling logs...'))
+        sif.write_line('log disable')
+        sif.wait_for_prompt()
+
+        print(local_style('Getting to AT mode...'))
+        sif.write_line('at enable')
+        sif.wait_for_prompt(b'to exit AT mode')
 
     cred_if = None
     if cmd_type_has_at:
-        cred_if = ATCommandInterface(write_line, wait_for_prompt, verbose)
+        cred_if = ATCommandInterface(sif, verbose)
         if args.cmd_type == CMD_TYPE_AT_SHELL:
             cred_if.set_shell_mode(True)
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
-        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, verbose, True)
+        cred_if = TLSCredShellInterface(sif, verbose)
 
     # prepare modem so we can interact with security keys
     if (cmd_type_has_at):
@@ -762,7 +707,8 @@ def main():
         write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub_bytes)
 
     # write CA cert(s) to device
-    nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), has_shell)
+    nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, args.aws, stage=args.stage), has_shell)
+    print("the cert" + nrf_ca_cert_text)
 
     print(local_style(f'Writing CA cert(s) to device...'))
     cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)

@@ -335,7 +335,7 @@ def wait_for_cmd_status(api_key, dev_uuid, cmd_id):
 
 def install_ca_certs(sectag, stage, install_coap, no_shell):
     print(local_style('Installing CA cert(s)...'))
-    modem_ca = ca_certs.get_ca_certs(install_coap, stage=stage)
+    modem_ca = ca_certs.get_ca_certs(install_coap, True, stage=stage)
 
     if not no_shell:
         # provisioning client shell requires specific formatting
