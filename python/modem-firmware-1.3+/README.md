@@ -6,8 +6,17 @@ The goal of these scripts is to help users provision devices with the credential
 
 ## Prerequisites
 
-Use Python pip to install required packages:
+These scripts require Python3.
+
+**Note**: you must clone this full repository onto your computer in order to use any of the scripts within it.
+It is not sufficient to only download a specific script by itself, as they are all interconnected.
 ```
+~$ git clone https://github.com/nRFCloud/utils.git
+```
+
+Then use Python pip to install required packages:
+```
+~$ cd utils/python/modem-firmware-1.3+
 ~$ pip3 install -r requirements.txt
 ```
 
