@@ -6,9 +6,7 @@ import time
 import modem_credentials_parser
 import base64
 import hashlib
-
-import OpenSSL.crypto
-from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
+from cryptography import x509
 
 IMEI_LEN = 15
 
@@ -139,7 +137,7 @@ class ATCommandInterface(CredentialCommandInterface):
         """Ask a device with modem to generate CSR using AT%KEYGEN.
 
         Returns:
-            CSR as X509Req object.
+            x509.CertificateSigningRequest object.
         """
 
         # provide attributes parameter if a custom CN is specified
@@ -163,10 +161,7 @@ class ATCommandInterface(CredentialCommandInterface):
 
         # load and return the CSR
         csr_bytes = modem_credentials_parser.csr_pem_bytes
-        try:
-            return OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr_bytes)
-        except OpenSSL.crypto.Error:
-            raise RuntimeError("Error loading CSR")
+        return x509.load_pem_x509_csr(csr_bytes)
 
     def go_offline(self):
         return self.at_command('AT+CFUN=4', wait_for_result=True)

@@ -6,12 +6,22 @@
 
 import argparse
 import sys
+import datetime
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import NameOID
 from cryptography import x509
-import OpenSSL.crypto
-from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
+from cryptography.x509 import (
+    Name,
+    NameAttribute,
+    BasicConstraints,
+    KeyUsage,
+    AuthorityKeyIdentifier,
+    SubjectKeyIdentifier,
+)
+
 from modem_credentials_parser import write_file
 import ca_certs
 
@@ -37,68 +47,47 @@ def parse_args():
     return args
 
 def load_csr(csr_pem_filepath):
+    with open(csr_pem_filepath, "rb") as f:
+        csr_data = f.read()
 
-    try:
-        csr_file = open(csr_pem_filepath, "rt")
-    except OSError:
-        raise RuntimeError("Error opening file: " + csr_pem_filepath)
-
-    file_bytes  = csr_file.read()
-    csr_file.close()
-
-    try:
-        csr_out = OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM, file_bytes)
-
-    except OpenSSL.crypto.Error:
-        raise RuntimeError("Error loading PEM file " + csr_pem_filepath)
-
-    return csr_out
+    return x509.load_pem_x509_csr(csr_data)
 
 def load_ca(ca_pem_filepath):
+    with open(ca_pem_filepath, "rb") as f:
+        ca_data = f.read()
 
-    try:
-        ca_file = open(ca_pem_filepath, "rt")
-    except OSError:
-        raise RuntimeError("Error opening file: " + ca_pem_filepath)
-
-    file_bytes  = ca_file.read()
-    ca_file.close()
-
-    try:
-        ca_out = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, file_bytes)
-
-    except OpenSSL.crypto.Error:
-        raise RuntimeError("Error loading PEM file " + ca_pem_filepath)
-
-    return ca_out
+    return x509.load_pem_x509_certificate(ca_data)
 
 def load_ca_key(ca_key_filepath):
+    with open(ca_key_filepath, "rb") as f:
+        key_data = f.read()
 
-    try:
-        ca_key_file = open(ca_key_filepath, "rt")
-    except OSError:
-        raise RuntimeError("Error opening file: " + ca_key_filepath)
+    return serialization.load_pem_private_key(key_data, password=None)
 
-    file_bytes  = ca_key_file.read()
-    ca_key_file.close()
+def csr_get_cn(csr):
+    cn_list = csr.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)
+    if len(cn_list) == 0:
+        return ""
+    return cn_list[0].value
 
-    key_out = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, file_bytes)
+def create_device_cert(dv, csr, ca_cert, ca_key):
+    cert = x509.CertificateBuilder().subject_name(
+        csr.subject
+    ).issuer_name(
+        ca_cert.subject
+    ).public_key(
+        csr.public_key()
+    ).serial_number(
+        x509.random_serial_number()
+    ).not_valid_before(
+        datetime.datetime.now(datetime.timezone.utc)
+    ).not_valid_after(
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(days=dv)
+    ).sign(ca_key, hashes.SHA256())
 
-    return key_out
+    return cert
 
-def create_device_cert(dv, csr, pub_key, ca_cert, ca_key):
-    device_cert = OpenSSL.crypto.X509()
-    serial_no = x509.random_serial_number()
-    device_cert.set_serial_number(serial_no)
-    device_cert.gmtime_adj_notBefore(0)
-    device_cert.gmtime_adj_notAfter(dv * 24 * 60 * 60)
-    # use subject and public key from CSR
-    device_cert.set_subject(csr.get_subject())
-    device_cert.set_pubkey(pub_key)
-    # sign with the CA
-    device_cert.set_issuer(ca_cert.get_subject())
-    device_cert.sign(ca_key, "sha256")
-    return device_cert
 
 def embed_save_convert(cred_bytes):
     converted = ''
@@ -110,50 +99,38 @@ def embed_save_convert(cred_bytes):
 # (As opposed requesting one from a modem)
 # Also generates local public/private keypair.
 def create_local_csr(c = "", st = "", l = "", o = "", ou = "", cn = "", email = ""):
-    # create EC keypair
+    print("Warning: Generating private key locally is not recommended. Private keys should never leave the device.")
     private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
-    public_key = private_key.public_key()
-    # format to DER for loading into OpenSSL
-    priv_der = private_key.private_bytes(encoding=serialization.Encoding.DER, format=serialization.PrivateFormat.PKCS8, encryption_algorithm=serialization.NoEncryption())
-    pub_der = public_key.public_bytes(encoding=serialization.Encoding.DER, format=serialization.PublicFormat.SubjectPublicKeyInfo)
-    # load into OpenSSL
-    priv_key = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_ASN1, priv_der)
-    pub_key = OpenSSL.crypto.load_publickey(OpenSSL.crypto.FILETYPE_ASN1, pub_der)
 
-    # create a CSR
-    csr = OpenSSL.crypto.X509Req()
+    name_attributes = [
+        (NameOID.COUNTRY_NAME, c),
+        (NameOID.STATE_OR_PROVINCE_NAME, st),
+        (NameOID.LOCALITY_NAME, l),
+        (NameOID.ORGANIZATION_NAME, o),
+        (NameOID.ORGANIZATIONAL_UNIT_NAME, ou),
+        (NameOID.COMMON_NAME, cn),
+        (NameOID.EMAIL_ADDRESS, email),
+    ]
+    name_attributes = [x509.NameAttribute(oid, value) for oid, value in name_attributes if value]
 
-    csr.set_version(0)
-    csr.add_extensions([OpenSSL.crypto.X509Extension(b'keyUsage', True, b'digitalSignature, nonRepudiation, keyEncipherment, keyAgreement'),])
+    csr = x509.CertificateSigningRequestBuilder().subject_name(
+        x509.Name(name_attributes)
+    ).add_extension(
+        KeyUsage(
+                digital_signature=True,
+                content_commitment=True,
+                key_encipherment=True,
+                key_agreement=True,
+                data_encipherment=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False,
+        ),
+        critical=False,
+    ).sign(private_key, hashes.SHA256())
 
-    # add subject info
-    subject = csr.get_subject()
-
-    if len(c):
-        subject.C = c
-
-    if len(st):
-        subject.ST = st
-
-    if len(l):
-        subject.L = l
-
-    if len(o):
-        subject.O = o
-
-    if len(ou):
-        subject.OU = ou
-
-    if len(cn):
-        subject.CN = cn
-
-    if len(email):
-        subject.emailAddress = email
-
-    csr.set_pubkey(pub_key)
-    csr.sign(priv_key, 'sha256')
-
-    return csr, priv_key
+    return csr, private_key
 
 def main():
 
@@ -188,30 +165,28 @@ def main():
             email   = args.email
         )
 
-    pub_key = csr.get_pubkey()
-
     # create a device cert
-    device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
+    device_cert = create_device_cert(args.dv, csr, ca_cert, ca_key)
 
-    if (csr.get_subject().CN is None) or (len(csr.get_subject().CN) == 0):
-        common_name = str(hex(device_cert.get_serial_number()))
-    else:
-        common_name = csr.get_subject().CN
+    common_name = csr_get_cn(csr)
+
+    if common_name == "":
+        common_name = str(hex(device_cert.serial_number))
 
     # save device cert
-    dev   = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
+    dev   = device_cert.public_bytes(serialization.Encoding.PEM)
     write_file(args.path, args.fileprefix + common_name + "_crt.pem", dev)
     if args.embed_save:
         write_file(args.path, "client-cert.pem", embed_save_convert(dev))
 
     # save public key
-    pub  = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
+    pub  = csr.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
     write_file(args.path, args.fileprefix + common_name + "_pub.pem", pub)
 
     # If we generated a local private key, save that to disk too, so it can be installed to the
     # device.
     if local_priv_key is not None:
-        priv = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, local_priv_key)
+        priv = local_priv_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
         write_file(args.path, args.fileprefix + common_name + "_prv.pem", priv)
         if args.embed_save:
             write_file(args.path, "private-key.pem", embed_save_convert(priv))
