@@ -546,6 +546,21 @@ def format_cred(cred, is_gateway = False):
 
     return formatted
 
+def get_existing_credentials(args, dev_id):
+    files = [
+        args.path + args.fileprefix + dev_id + "_prv.pem",
+        args.path + args.fileprefix + dev_id + "_crt.pem",
+    ]
+    result = []
+    if all(os.path.isfile(f) for f in files):
+        for f in files:
+            with open(f, "r") as file:
+                result.append(file.read())
+    else:
+        result = [None, None]
+    return result
+
+
 def main():
     global ser
     global rtt
@@ -693,73 +708,81 @@ def main():
         cred_if.delete_credential(args.sectag, 1)
         cred_if.delete_credential(args.sectag, 2)
 
-    # now get a new certificate signing request (CSR)
-    print(local_style('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag)))
+    dev_id = custom_dev_id
+    prv_bytes, dev_bytes = get_existing_credentials(args, dev_id)
 
-    # Get a CSR
-    csr, prv_key = get_csr(custom_dev_id, args.sectag, local=args.local_cert)
+    if prv_bytes is None:
+        # now get a new certificate signing request (CSR)
+        print(local_style('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag)))
 
-    # Collect or generate associated artifacts
-    csr_bytes = OpenSSL.crypto.dump_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr)
-    prv_bytes = None
-    prv_text = None
-    if prv_key is not None:
-        prv_bytes = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, prv_key)
-        prv_text = format_cred(prv_bytes, has_shell)
-    pub_key = csr.get_pubkey()
-    pub_bytes = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
-    dev_id = csr.get_subject().CN
+        # Get a CSR
+        csr, prv_key = get_csr(custom_dev_id, args.sectag, local=args.local_cert)
 
-    if len(dev_id) == 0:
-        print(error_style('CSR\'s Common Name (CN) is empty'))
-        cleanup()
-        sys.exit(11)
-
-    if args.save:
-        # Save CSR if desired
-        write_file(args.path, args.fileprefix + dev_id + "_csr.pem", csr_bytes)
-
-        # Save private key if available
+        # Collect or generate associated artifacts
+        csr_bytes = OpenSSL.crypto.dump_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr)
+        prv_bytes = None
+        prv_text = None
         if prv_key is not None:
-            write_file(args.path, args.fileprefix + dev_id + "_prv.pem", prv_bytes)
+            prv_bytes = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, prv_key)
 
-    # display CSR info
-    print(hivis_style('Device ID: {}'.format(dev_id)))
-    if verbose:
-        print(hivis_style('CSR PEM: {}'.format(csr_bytes)))
-        print(hivis_style('Pub key: {}'.format(pub_bytes)))
+        pub_key = csr.get_pubkey()
+        pub_bytes = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
+        dev_id = csr.get_subject().CN
 
-    # check if we have all we need to proceed
-    if len(args.ca) == 0 or len(args.ca_key) == 0:
-        print(local_style('No CA or CA key provided; skipping creating dev cert'))
-        cleanup()
-        sys.exit(0)
+        if len(dev_id) == 0:
+            print(error_style('CSR\'s Common Name (CN) is empty'))
+            cleanup()
+            sys.exit(11)
 
-    # load the user's certificate authority (CA)
-    print(local_style('Loading CA and key...'))
-    ca_cert = create_device_credentials.load_ca(args.ca)
-    ca_key = create_device_credentials.load_ca_key(args.ca_key)
+        if args.save:
+            # Save CSR if desired
+            write_file(args.path, args.fileprefix + dev_id + "_csr.pem", csr_bytes)
 
-    # create a device cert
-    print(local_style('Creating device certificate...'))
-    device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
+            # Save private key if available
+            if prv_key is not None:
+                write_file(args.path, args.fileprefix + dev_id + "_prv.pem", prv_bytes)
 
-    # save device cert and/or print it
-    dev_bytes = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
+        # display CSR info
+        print(hivis_style('Device ID: {}'.format(dev_id)))
+        if verbose:
+            print(hivis_style('CSR PEM: {}'.format(csr_bytes)))
+            print(hivis_style('Pub key: {}'.format(pub_bytes)))
+
+        # check if we have all we need to proceed
+        if len(args.ca) == 0 or len(args.ca_key) == 0:
+            print(local_style('No CA or CA key provided; skipping creating dev cert'))
+            cleanup()
+            sys.exit(0)
+
+        # load the user's certificate authority (CA)
+        print(local_style('Loading CA and key...'))
+        ca_cert = create_device_credentials.load_ca(args.ca)
+        ca_key = create_device_credentials.load_ca_key(args.ca_key)
+
+        # create a device cert
+        print(local_style('Creating device certificate...'))
+        device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
+
+        # save device cert and/or print it
+        dev_bytes = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
+        if verbose:
+            print(local_style('Dev cert: {}'.format(dev_bytes)))
+        if args.save:
+            print(local_style('Saving dev cert...'))
+            write_file(args.path, args.fileprefix + dev_id + "_crt.pem", dev_bytes)
+
+        # save public key and/or print it
+        if verbose:
+            print(local_style('Pub key: {}'.format(pub_bytes)))
+        if args.save:
+            print(local_style('Saving pub key...'))
+            write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub_bytes)
+    else:
+        print(local_style('Using existing private key and device certificate...'))
+
+    if prv_bytes is not None:
+        prv_text = format_cred(prv_bytes, has_shell)
     dev_text = format_cred(dev_bytes, has_shell)
-
-    if verbose:
-        print(local_style('Dev cert: {}'.format(dev_bytes)))
-    if args.save:
-        print(local_style('Saving dev cert...'))
-        write_file(args.path, args.fileprefix + dev_id + "_crt.pem", dev_bytes)
-
-    # save public key and/or print it
-    if verbose:
-        print(local_style('Pub key: {}'.format(pub_bytes)))
-    if args.save:
-        print(local_style('Saving pub key...'))
-        write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub_bytes)
 
     # write CA cert(s) to device
     nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), has_shell)
