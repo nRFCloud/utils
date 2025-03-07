@@ -20,8 +20,7 @@ from create_device_credentials import create_device_cert
 from serial.tools import list_ports
 from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
 from cryptography import x509
-import OpenSSL.crypto
-from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
+from cryptography.hazmat.primitives import serialization
 
 CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
@@ -555,18 +554,12 @@ def main():
 
     # get the public key from the CSR
     csr_bytes = modem_credentials_parser.csr_pem_bytes
-    try:
-        csr = OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_PEM,
-                                                      csr_bytes)
-        pub_key = csr.get_pubkey()
-    except OpenSSL.crypto.Error:
-        cleanup()
-        raise RuntimeError("Error loading CSR")
+    csr = x509.load_pem_x509_csr(csr_bytes)
 
     # create a device cert
     print(local_style('Creating device certificate...'))
-    device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
-    dev_cert_pem_bytes = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
+    device_cert = create_device_cert(args.dv, csr, ca_cert, ca_key)
+    dev_cert_pem_bytes = device_cert.public_bytes(serialization.Encoding.PEM)
     dev_cert_pem_str = dev_cert_pem_bytes.decode()
     print(local_style('Dev cert: \n{}'.format(dev_cert_pem_str)))
 

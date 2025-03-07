@@ -10,10 +10,10 @@ from os import path
 from os import makedirs
 from cbor2 import loads
 import base64
-import OpenSSL.crypto
-from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
 import hashlib
 from cli_helpers import write_file
+from cryptography.hazmat.primitives import serialization
+from cryptography import x509
 
 msg_type_dict = {
     1: 'Device identity message v1',
@@ -176,22 +176,22 @@ def parse_keygen_output(keygen_str):
     # This can be either a CSR or device public key
     try:
         # Try to load CSR, if it fails, assume public key
-        csr_asn1 = OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_ASN1, body_bytes)
+        csr = x509.load_der_x509_csr(body_bytes)
 
-    except OpenSSL.crypto.Error:
+    except ValueError:
         # Handle public key only
-        pub_key = OpenSSL.crypto.load_publickey(OpenSSL.crypto.FILETYPE_ASN1, body_bytes)
-        pub_key_bytes = OpenSSL.crypto.dump_publickey(FILETYPE_PEM, pub_key)
+        pub_key = serialization.load_der_public_key(body_bytes)
+        pub_key_bytes = pub_key.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
     else:
         # CSR loaded, print it
-        csr_pem_bytes = OpenSSL.crypto.dump_certificate_request(FILETYPE_PEM, csr_asn1)
+        csr_pem_bytes = csr.public_bytes(serialization.Encoding.PEM)
         csr_pem_list = str(csr_pem_bytes.decode()).split('\n')
         for line in csr_pem_list:
             print(line)
 
         # Extract public key
-        pub_key_bytes = OpenSSL.crypto.dump_publickey(FILETYPE_PEM, csr_asn1.get_pubkey())
+        pub_key_bytes = csr.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
     print("Device public key:")
     print(pub_key_bytes.decode())

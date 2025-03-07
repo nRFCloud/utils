@@ -23,8 +23,7 @@ from command_interface import ATCommandInterface, ATKeygenException, TLSCredShel
 
 from serial.tools import list_ports
 from cryptography import x509
-import OpenSSL.crypto
-from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
+from cryptography.hazmat.primitives import serialization
 
 CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
@@ -719,20 +718,23 @@ def main():
         csr, prv_key = get_csr(custom_dev_id, args.sectag, local=args.local_cert)
 
         # Collect or generate associated artifacts
-        csr_bytes = OpenSSL.crypto.dump_certificate_request(OpenSSL.crypto.FILETYPE_PEM, csr)
+        csr_bytes = csr.public_bytes(serialization.Encoding.PEM)
         prv_bytes = None
         prv_text = None
         if prv_key is not None:
-            prv_bytes = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, prv_key)
+            prv_bytes = prv_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
 
-        pub_key = csr.get_pubkey()
-        pub_bytes = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, pub_key)
-        dev_id = csr.get_subject().CN
+        pub_key = csr.public_key()
+        pub_bytes = pub_key.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
-        if len(dev_id) == 0:
+        cn_list = csr.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)
+
+        if len(cn_list) == 0:
             print(error_style('CSR\'s Common Name (CN) is empty'))
             cleanup()
             sys.exit(11)
+
+        dev_id = cn_list[0].value
 
         if args.save:
             # Save CSR if desired
@@ -761,10 +763,10 @@ def main():
 
         # create a device cert
         print(local_style('Creating device certificate...'))
-        device_cert = create_device_cert(args.dv, csr, pub_key, ca_cert, ca_key)
+        device_cert = create_device_cert(args.dv, csr, ca_cert, ca_key)
 
         # save device cert and/or print it
-        dev_bytes = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, device_cert)
+        dev_bytes = device_cert.public_bytes(serialization.Encoding.PEM)
         if verbose:
             print(local_style('Dev cert: {}'.format(dev_bytes)))
         if args.save:

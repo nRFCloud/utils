@@ -36,7 +36,7 @@ def write_file(pathname, filename, bytes):
         try:
             makedirs(pathname, exist_ok=True)
         except OSError as e:
-            raise RuntimeError("Error creating file path")
+            raise RuntimeError(f"Error creating file path [{pathname}]")
 
     full_path = path.join(pathname, filename)
 
