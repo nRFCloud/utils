@@ -1,6 +1,7 @@
 from enum import Enum
 from abc import ABC, abstractmethod
 from cli_helpers import local_style, error_style
+from serial_interface import SerialInterfaceGeneric
 import math
 import time
 import modem_credentials_parser
@@ -13,24 +14,21 @@ from OpenSSL.crypto import load_certificate_request, FILETYPE_PEM
 IMEI_LEN = 15
 
 class CredentialCommandInterface(ABC):
-    def __init__(self, serial_write_line, serial_wait_for_response, verbose):
+    def __init__(self, serial_interface, verbose):
         """Initialize a Credentials Command Interface
 
         Args:
-            write_line: A function which the interface will use to write commands to the serial
-                        interface. Should accept a single string, and write that string as a single
-                        line to the serial interface.
-            serial_wait_for_prompt: A function which can be called to wait for responses or prompts
-                                    from the serial interface.
+            serial_interface: An instance of SerialInterface to which commands will be written and
+                              from which responses or prompts will be read.
             verbose: Whether or not to operate in verbose mode.
         """
-        self.serial_write_line = serial_write_line
-        self.serial_wait_for_response = serial_wait_for_response
+
+        self.sif = serial_interface
         self.verbose = verbose
 
     def write_raw(self, command):
         """Write a raw line directly to the serial interface."""
-        self.serial_write_line(command)
+        self.sif.write_line(command)
 
     @abstractmethod
     def write_credential(self, sectag, cred_type, cred_text):
@@ -105,7 +103,7 @@ class ATCommandInterface(CredentialCommandInterface):
         self.write_raw(f'{at_cmd_prefix}{at_command}')
 
         if wait_for_result:
-            result, output = self.serial_wait_for_response(b'OK', b'ERROR')
+            result, output = self.sif.wait_for_success_or_fail(b'OK', b'ERROR')
             return result
         else:
             return True
@@ -122,7 +120,7 @@ class ATCommandInterface(CredentialCommandInterface):
 
     def check_credential_exists(self, sectag, cred_type, get_hash=True):
         self.at_command(f'AT%CMNG=1,{sectag},{cred_type}')
-        retval, res = self.serial_wait_for_response(b'OK', b'ERROR', store=b'%CMNG')
+        retval, res = self.sif.wait_for_success_or_fail(b'OK', b'ERROR', capture=b'%CMNG')
         if retval and res:
             if not get_hash:
                 return True, None
@@ -148,7 +146,7 @@ class ATCommandInterface(CredentialCommandInterface):
         self.at_command(f'AT%KEYGEN={sectag},2,0{attr}')
 
         # include the CR in OK because 'OK' could be found in the CSR string
-        retval, output = self.serial_wait_for_response(b'OK\r', b'ERROR', store=b'%KEYGEN:')
+        retval, output = self.sif.wait_for_success_or_fail(b'OK\r', b'ERROR', capture=b'%KEYGEN:')
         if not retval:
             raise ATKeygenException('Unable to generate private key; does it already exist for this sectag?', 9)
         elif output == None:
@@ -173,14 +171,14 @@ class ATCommandInterface(CredentialCommandInterface):
 
     def get_imei(self):
         self.at_command('AT+CGSN')
-        retval, output = self.serial_wait_for_response('OK', 'ERROR', store='\r\n')
+        retval, output = self.sif.wait_for_success_or_fail('OK', 'ERROR', capture='\r\n')
         if not retval:
             return None
         return output.decode("utf-8")[:IMEI_LEN]
 
     def get_mfw_version(self):
         self.at_command('AT+CGMR')
-        retval, output = self.serial_wait_for_response('OK', 'ERROR', store='\r\n')
+        retval, output = self.sif.wait_for_success_or_fail('OK', 'ERROR', capture='\r\n')
         if not retval:
             return None
         return output.decode("utf-8").rstrip('\r\n')
@@ -211,17 +209,18 @@ class TLSCredShellInterface(CredentialCommandInterface):
         for c in range(chunks):
             chunk = encoded[c*TLS_CRED_CHUNK_SIZE:(c+1)*TLS_CRED_CHUNK_SIZE]
             self.write_raw(f"cred buf {chunk}")
-            self.serial_wait_for_response("Stored")
+            self.sif.wait_for_success_or_fail("Stored")
 
         # Store the buffered credential
         self.write_raw(f"cred add {sectag} {TLS_CRED_TYPES[cred_type]} DEFAULT bint")
-        result, output = self.serial_wait_for_response("Added TLS credential")
+        result, output = self.sif.wait_for_success_or_fail("Added TLS credential")
         time.sleep(1)
         return result
 
     def delete_credential(self, sectag, cred_type):
         self.write_raw(f'cred del {sectag} {TLS_CRED_TYPES[cred_type]}')
-        result, output = self.serial_wait_for_response("Deleted TLS credential", "There is no TLS credential")
+        result, output = self.sif.wait_for_success_or_fail("Deleted TLS credential",
+                                                           "There is no TLS credential")
         time.sleep(2)
         return result
 
@@ -229,10 +228,10 @@ class TLSCredShellInterface(CredentialCommandInterface):
         self.write_raw(f'cred list {sectag} {TLS_CRED_TYPES[cred_type]}')
 
         # This will capture the list dump for the credential if it exists.
-        result, output = self.serial_wait_for_response("1 credentials found.",
-                                                       "0 credentials found.",
-                                                       store=
-                                                       f"{sectag},{TLS_CRED_TYPES[cred_type]}")
+        result, output = self.sif.wait_for_success_or_fail("1 credentials found.",
+                                                           "0 credentials found.",
+                                                           capture=
+                                                           f"{sectag},{TLS_CRED_TYPES[cred_type]}")
 
         if not output:
             return False, None
@@ -241,7 +240,7 @@ class TLSCredShellInterface(CredentialCommandInterface):
             return True, None
 
         # Output is a comma separated list of positional items
-        data = output.decode().split(",")
+        data = output.split(",")
         hash = data[2].strip()
         status_code = data[3].strip()
 
@@ -258,8 +257,40 @@ class TLSCredShellInterface(CredentialCommandInterface):
         hash = hashlib.sha256(cred_text.encode('utf-8') + b'\x00')
         return base64.b64encode(hash.digest()).decode()
 
+    def read_block(self):
+        """Parses base-64 payloads formatted like this:
+        #CSH: BEGA1UEAwwKZ190
+        #CSH: yqGSM49AgEGCCqG
+        #CSH: pZf2Yg=
+        #CSH-END
+        """
+
+        # Scan for block output with prefix `#CSH: `, stopping when `#CSH-END` is encountered.
+        result, output = self.sif.wait_for_pattern(["^#CSH-END\s*$"], ["^#CSH: "], regex=True)
+        if result == -1 or len(output) == 0:
+            print(error_style(f"Could not parse block output"))
+            return None
+
+        # Remove prefixes and join lines
+        return "\n".join(line.strip().split("#CSH: ")[1] for line in output)
+
     def get_csr(self, sectag = 0, cn = ""):
-        raise RuntimeError("The TLS Credentials Shell does not support CSR generation")
+        # CN is not optional for the TLS Credentials Shell
+        if len(cn) == 0:
+            print(error_style(f"The TLS Credentials Shell requires a Common Name for CSR."))
+
+        self.write_raw(f'cred csr {sectag} default "CN={cn}" default')
+        self.sif.wait_for_success_or_fail("CSR generated", "TODO")
+
+        # TODO: handle failure
+
+        csr_b64 = self.read_block()
+        csr_bytes = base64.b64decode(csr_b64)
+
+        try:
+            return OpenSSL.crypto.load_certificate_request(OpenSSL.crypto.FILETYPE_ASN1, csr_bytes)
+        except OpenSSL.crypto.Error:
+            raise RuntimeError("Error loading CSR")
 
     def go_offline(self):
         # TLS credentials shell has no concept of online/offline. Just no-op.
