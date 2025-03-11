@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2023 Nordic Semiconductor ASA
+# Copyright (c) 2025 Nordic Semiconductor ASA
 #
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+# SPDX-License-Identifier: BSD-3-Clause
 
 # Amazon Root CA 1 for connection to nRF Cloud: MQTT, REST, file downloads
 aws_ca  = """-----BEGIN CERTIFICATE-----

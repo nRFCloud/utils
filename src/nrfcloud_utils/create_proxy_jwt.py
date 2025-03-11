@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2022 Nordic Semiconductor ASA
+# Copyright (c) 2025 Nordic Semiconductor ASA
 #
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+# SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
 import sys

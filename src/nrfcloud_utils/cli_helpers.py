@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+#
+# Copyright (c) 2025 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 from colorama import init, Fore, Back, Style
 from os import path
 from os import makedirs

@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+#
+# Copyright (c) 2025 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 from enum import Enum
 from abc import ABC, abstractmethod
 from nrfcloud_utils.cli_helpers import local_style, error_style
