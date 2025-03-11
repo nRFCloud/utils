@@ -4,6 +4,6 @@
 .ez-cache
 .vscode
 .DS_Store
-python/modem-firmware-1.3+/__pycache__/
 *.pem
 *.csv
+src/nrfcloud_utils/__pycache__/

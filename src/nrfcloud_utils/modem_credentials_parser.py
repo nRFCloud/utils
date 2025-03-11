@@ -11,9 +11,9 @@ from os import makedirs
 from cbor2 import loads
 import base64
 import hashlib
-from cli_helpers import write_file
 from cryptography.hazmat.primitives import serialization
 from cryptography import x509
+from nrfcloud_utils.cli_helpers import write_file
 
 msg_type_dict = {
     1: 'Device identity message v1',
@@ -44,14 +44,14 @@ dev_uuid_hex_str=""
 sec_tag_str=""
 payload_digest = ""
 
-def parse_args():
+def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Modem Credentials Parser")
     parser.add_argument("-k", "--keygen", type=str, help="base64url string: KEYGEN output", default="")
     parser.add_argument("-a", "--attest", type=str, help="base64url string: ATTESTTOKEN output", default="")
     parser.add_argument("-s", "--save", action='store_true', help="Save PEM file(s): <UUID>_<sec_tag>_<type>.pem")
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM file.  Selects -s", default="")
     parser.add_argument("-f", "--fileprefix", type=str, help="Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s", default="")
-    args = parser.parse_args()
+    args = parser.parse_args(in_args)
     return args
 
 def base64_decode(string):
@@ -258,12 +258,12 @@ def get_device_uuid(attest_tok):
 
     return format_uuid(body_obj[1].hex())
 
-def main():
+def main(in_args):
 
     if not len(sys.argv) > 1:
         raise RuntimeError("No input provided")
 
-    args = parse_args()
+    args = parse_args(in_args)
 
     if len(args.keygen) > 0:
         parse_keygen_output(args.keygen)
@@ -283,5 +283,8 @@ def main():
 
     return
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()

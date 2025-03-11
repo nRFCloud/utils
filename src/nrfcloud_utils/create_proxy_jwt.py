@@ -13,7 +13,7 @@ from os import path
 import colorama
 from colorama import Fore, Back, Style
 
-def parse_args():
+def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create JWT for proxy (cloud-to-cloud) requests to nRF Cloud",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -37,7 +37,7 @@ def parse_args():
                               Zero indicates no expiration.",
                         default=30)
 
-    args = parser.parse_args()
+    args = parser.parse_args(in_args)
     return args
 
 def create_nrf_cloud_jwt(prv_key_bytes, team_id, dev_id, days_valid):
@@ -84,13 +84,8 @@ def read_private_key(key_path):
 
     return key_bytes
 
-def main():
-
-    if not len(sys.argv) > 1:
-        print("No input provided. Use --help to view required parameters.")
-        return
-
-    args = parse_args()
+def main(in_args):
+    args = parse_args(in_args)
 
     # Init colors for display
     colorama.init(convert = (platform.system() == 'Windows'))
@@ -124,5 +119,8 @@ def main():
 
     return
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()

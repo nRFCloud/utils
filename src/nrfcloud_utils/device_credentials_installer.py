@@ -11,15 +11,11 @@ import sys
 import csv
 import serial
 import getpass
-import ca_certs
 import platform
-import rtt_interface
-from cli_helpers import write_file
 import semver
-import create_device_credentials
-from create_device_credentials import create_device_cert, create_local_csr
-from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
-from command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
+from nrfcloud_utils import create_device_credentials, ca_certs, rtt_interface
+from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles, write_file
+from nrfcloud_utils.command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
 
 from serial.tools import list_ports
 from cryptography import x509
@@ -50,9 +46,7 @@ MAX_CSV_ROWS = 1000
 MIN_REQD_MFW_VER = "1.3.0"
 MIN_REQD_MFW_VER_FOR_VERIFY = "1.3.2"
 
-def parse_args():
-    global verbose
-
+def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Device Credentials Installer",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -157,8 +151,7 @@ def parse_args():
                         action='store_true', default=False)
     parser.add_argument("--stage", type=str,
                         help="For internal (Nordic) use only", default="")
-    args = parser.parse_args()
-    verbose = args.verbose
+    args = parser.parse_args(in_args)
     return args
 
 
@@ -522,7 +515,7 @@ def get_csr(custom_dev_id = "", sectag = 0, local = False):
     local_priv_key = None
 
     if (local):
-        csr, local_priv_key = create_local_csr(cn = custom_dev_id)
+        csr, local_priv_key = create_device_credentials.create_local_csr(cn = custom_dev_id)
     else:
         # Use AT commands to request a CSR.
         try:
@@ -560,7 +553,7 @@ def get_existing_credentials(args, dev_id):
     return result
 
 
-def main():
+def main(in_args):
     global ser
     global rtt
     global password
@@ -569,7 +562,7 @@ def main():
     global cred_if
 
     # initialize arguments
-    args = parse_args()
+    args = parse_args(in_args)
 
     if args.plain:
         cli_disable_styles()
@@ -763,7 +756,7 @@ def main():
 
         # create a device cert
         print(local_style('Creating device certificate...'))
-        device_cert = create_device_cert(args.dv, csr, ca_cert, ca_key)
+        device_cert = create_device_credentials.create_device_cert(args.dv, csr, ca_cert, ca_key)
 
         # save device cert and/or print it
         dev_bytes = device_cert.public_bytes(serialization.Encoding.PEM)
@@ -891,5 +884,8 @@ def verify_credential(sec_tag, cred_type, cred = None, get_hash = False, verify_
 
     return True
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()

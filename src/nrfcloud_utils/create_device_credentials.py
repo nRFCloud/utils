@@ -22,28 +22,28 @@ from cryptography.x509 import (
     SubjectKeyIdentifier,
 )
 
-from modem_credentials_parser import write_file
-import ca_certs
+from nrfcloud_utils.modem_credentials_parser import write_file
+import nrfcloud_utils.ca_certs
 
-def parse_args():
+def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create Device Credentials")
-    parser.add_argument("-ca", type=str, required=True, help="Filepath to your CA cert PEM", default="")
-    parser.add_argument("-ca_key", type=str, required=True, help="Filepath to your CA's private key PEM", default="")
-    parser.add_argument("-c", type=str, help="2 character country code; required if CSR is not provided", default="")
+    parser.add_argument("--ca", type=str, required=True, help="Filepath to your CA cert PEM", default="")
+    parser.add_argument("--ca-key", type=str, required=True, help="Filepath to your CA's private key PEM", default="")
+    parser.add_argument("-c", type=str, help="2 character country code; required if CSR is not provided", default="NO")
     parser.add_argument("-st", type=str, help="State or Province; ignored if CSR is provided", default="")
     parser.add_argument("-l", type=str, help="Locality; ignored if CSR is provided", default="")
     parser.add_argument("-o", type=str, help="Organization; ignored if CSR is provided", default="")
     parser.add_argument("-ou", type=str, help="Organizational Unit; ignored if CSR is provided", default="")
-    parser.add_argument("-cn", type=str, help="Common Name; use nRF Cloud device ID/MQTT client ID; ignored if CSR is provided", default="")
+    parser.add_argument("-cn", type=str, required=True, help="Common Name; use nRF Cloud device ID/MQTT client ID; ignored if CSR is provided", default="")
     parser.add_argument("-e", "--email", type=str, help="E-mail address; ignored if CSR is provided", default="")
     parser.add_argument("-dv", type=int, help="Number of days cert is valid", default=(10 * 365))
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM files.", default="./")
     parser.add_argument("-f", "--fileprefix", type=str, help="Prefix for output files", default="")
-    parser.add_argument("-csr", type=str, help="Filepath to CSR PEM from device", default="")
-    parser.add_argument("-embed_save", action='store_true',
+    parser.add_argument("--csr", type=str, help="Filepath to CSR PEM from device", default="")
+    parser.add_argument("--embed_save", action='store_true',
                         help="Save PEM files (client-cert.pem, private-key.pem, and ca-cert.pem) \
                               formatted to be used with the Kconfig option CONFIG_NRF_CLOUD_PROVISION_CERTIFICATES")
-    args = parser.parse_args()
+    args = parser.parse_args(in_args)
     return args
 
 def load_csr(csr_pem_filepath):
@@ -132,17 +132,8 @@ def create_local_csr(c = "", st = "", l = "", o = "", ou = "", cn = "", email = 
 
     return csr, private_key
 
-def main():
-
-    if not len(sys.argv) > 1:
-        raise RuntimeError("No input provided")
-
-    args = parse_args()
-    if (len(args.csr) == 0) and (len(args.c) != 2):
-        raise RuntimeError("Required country code must be 2 characters")
-
-    if (len(args.csr) == 0) and (len(args.cn) == 0):
-        raise RuntimeError("CN required; use nRF Cloud device ID/MQTT client ID")
+def main(in_args):
+    args = parse_args(in_args)
 
     ca_cert = load_ca(args.ca)
     ca_key = load_ca_key(args.ca_key)
@@ -198,5 +189,8 @@ def main():
 
     return
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()

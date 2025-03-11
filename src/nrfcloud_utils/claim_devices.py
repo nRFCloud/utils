@@ -11,8 +11,8 @@ import time
 import json
 import argparse
 import platform
-import nrf_cloud_diap
-from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
+from nrfcloud_utils import nrf_cloud_diap
+from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
 
 is_macos = platform.system() == 'Darwin'
 is_windows = platform.system() == 'Windows'
@@ -22,9 +22,7 @@ args = None
 IMEI_LEN = 15
 MAX_CSV_ROWS = 1000
 
-def parse_args():
-    global verbose
-
+def parse_args(in_args):
     parser = argparse.ArgumentParser(description="nRF Cloud Claim Devices",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -44,17 +42,16 @@ def parse_args():
                         help="API key",
                         default=None, required=True)
     parser.add_argument("--stage", type=str, help="For internal (Nordic) use only", default="")
-    args = parser.parse_args()
-    verbose = args.verbose
+    args = parser.parse_args(in_args)
     return args
 
-def bulk_claim(api_key, array_of_claims):
+def bulk_claim(api_key, array_of_claims, verbose):
     # convert arrays of claims to properly formatted csv string
     csv_out = io.StringIO()
     csv_writer = csv.writer(csv_out, lineterminator='\n', quoting=csv.QUOTE_ALL)
     csv_writer.writerows(array_of_claims)
     csv_str = csv_out.getvalue()
-    if args.verbose:
+    if verbose:
         print(f'Claim payload:\n{str(csv_str)}')
 
     # bulk claim then process response
@@ -90,12 +87,9 @@ def error_exit(err_msg):
     else:
         sys.exit('Error... exiting.')
 
-def main():
-    global args
-    global plain
-
+def main(in_args):
     # initialize arguments
-    args = parse_args()
+    args = parse_args(in_args)
     if args.plain:
         cli_disable_styles()
 
@@ -139,13 +133,13 @@ def main():
 
                 # if we are at the limit, claim them
                 if row_count == MAX_CSV_ROWS:
-                    pass_count += bulk_claim(args.api_key, bulk_prov_csv)
+                    pass_count += bulk_claim(args.api_key, bulk_prov_csv, args.verbose)
                     bulk_prov_csv = list()
                     row_count = 0
 
             # claim and remaining devices
             if len(bulk_prov_csv) > 0:
-                pass_count += bulk_claim(args.api_key, bulk_prov_csv)
+                pass_count += bulk_claim(args.api_key, bulk_prov_csv, args.verbose)
 
             print(hivis_style(f'\nDone. {pass_count} of {total_rows} devices claimed.'))
             csvfile.close()
@@ -155,5 +149,8 @@ def main():
 
     sys.exit(0)
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()

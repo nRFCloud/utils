@@ -17,6 +17,7 @@ from os import path
 from os import makedirs
 from ast import literal_eval
 from enum import Enum
+from nrfcloud_utils.modem_credentials_parser import write_file
 
 class OnboardResult(Enum):
     PERFORMED_SUCCESSFULLY = 0
@@ -29,7 +30,6 @@ class OnboardResult(Enum):
     NOT_PERFORMED_DEV_CHK_FAILED = 8
     NOT_PERFORMED_ONBOARD_CALL_FAILED = 9
 
-from modem_credentials_parser import write_file
 
 DEV_STAGE_DICT = {'dev':     '.dev.',
                   'beta':    '.beta.',
@@ -49,7 +49,7 @@ DEV_LIST_ID_IDX = 0
 DEV_LIST_RES_IDX = 1
 BULK_OP_REQ_ID = "bulkOpsRequestId"
 
-def parse_args():
+def parse_args(in_args):
     parser = argparse.ArgumentParser(description="nRF Cloud Device Onboarding",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--apikey", type=str, required=True,
@@ -75,7 +75,7 @@ def parse_args():
     parser.add_argument("--stage", type=str,
                         help="For internal (Nordic) use only", default="")
 
-    args = parser.parse_args()
+    args = parser.parse_args(in_args)
     return args
 
 def set_dev_stage(stage = ''):
@@ -528,12 +528,8 @@ def process_device_info_csv(api_key, csv_in, res_out, set_mfwv, set_name, name_p
     if set_name:
         set_friendly_name(api_key, devinfo_list, name_prefix)
 
-def main():
-
-    if not len(sys.argv) > 1:
-        raise RuntimeError("No input provided")
-
-    args = parse_args()
+def main(in_args):
+    args = parse_args(in_args)
 
     if not len(args.csv):
         raise RuntimeError("Invalid onboarding CSV file")
@@ -551,5 +547,8 @@ def main():
 
     return
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()

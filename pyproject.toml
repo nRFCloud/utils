@@ -10,7 +10,9 @@ authors = ["Nordic Semiconductor ASA"]
 license = "BSD-3-Clause"
 readme = "README.md"
 repository = "https://github.com/nRFCloud/utils"
-
+packages = [
+    { include = "nrfcloud_utils", from = "src" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.7"
@@ -21,6 +23,7 @@ cryptography = "^36.0.1"
 pynrfjprog = "^10.23.0"
 requests = "^2.27.1"
 semver = "^3.0.0"
+pyjwt = "^2.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"
@@ -28,17 +31,16 @@ pytest-cov = "^4.0.0"
 pytest-watch = "^4.2.0"
 
 [tool.poetry.scripts]
-nrfcredstore = "utis.claim_and_provision_device:run"
-nrfcredstore = "utis.claim_devices:run"
-nrfcredstore = "utis.create_ca_cert:run"
-nrfcredstore = "utis.create_device_credentials:run"
-nrfcredstore = "utis.create_proxy_jwt:run"
-nrfcredstore = "utis.device_credentials_installer:run"
-nrfcredstore = "utis.gather_attestation_tokens:run"
-nrfcredstore = "utis.modem_credentials_parser:run"
-nrfcredstore = "utis.nrf_cloud_device_mgmt:run"
-nrfcredstore = "utis.nrf_cloud_diap:run"
-nrfcredstore = "utis.nrf_cloud_onboard:run"
+claim_and_provision_device = "nrfcloud_utils.claim_and_provision_device:run"
+claim_devices = "nrfcloud_utils.claim_devices:run"
+create_ca_cert = "nrfcloud_utils.create_ca_cert:run"
+create_device_credentials = "nrfcloud_utils.create_device_credentials:run"
+create_proxy_jwt = "nrfcloud_utils.create_proxy_jwt:run"
+device_credentials_installer = "nrfcloud_utils.device_credentials_installer:run"
+gather_attestation_tokens = "nrfcloud_utils.gather_attestation_tokens:run"
+modem_credentials_parser = "nrfcloud_utils.modem_credentials_parser:run"
+nrf_cloud_device_mgmt = "nrfcloud_utils.nrf_cloud_device_mgmt:run"
+nrf_cloud_onboard = "nrfcloud_utils.nrf_cloud_onboard:run"
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]

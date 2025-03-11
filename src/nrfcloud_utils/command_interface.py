@@ -1,9 +1,9 @@
 from enum import Enum
 from abc import ABC, abstractmethod
-from cli_helpers import local_style, error_style
+from nrfcloud_utils.cli_helpers import local_style, error_style
 import math
 import time
-import modem_credentials_parser
+from nrfcloud_utils import modem_credentials_parser
 import base64
 import hashlib
 from cryptography import x509

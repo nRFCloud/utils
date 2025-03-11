@@ -6,6 +6,7 @@
 
 import argparse
 import datetime
+import sys
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
@@ -22,10 +23,10 @@ from cryptography.x509 import (
 )
 
 
-from modem_credentials_parser import write_file
+from nrfcloud_utils.modem_credentials_parser import write_file
 
 
-def parse_args():
+def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create CA Certificate")
     parser.add_argument("-c", type=str, help="2 character country code", default="NO")
     parser.add_argument("-st", type=str, help="State or Province", default="")
@@ -43,13 +44,13 @@ def parse_args():
     parser.add_argument(
         "-f", "--fileprefix", type=str, help="Prefix for output files", default=""
     )
-    args = parser.parse_args()
+    args = parser.parse_args(in_args)
     return args
 
 
-def main():
+def main(in_args):
 
-    args = parse_args()
+    args = parse_args(in_args)
 
     print("Creating self-signed CA certificate...")
 
@@ -136,6 +137,8 @@ def main():
 
     return
 
+def run():
+    main(sys.argv[1:])
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    run()

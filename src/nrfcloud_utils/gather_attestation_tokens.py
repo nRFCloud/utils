@@ -11,8 +11,7 @@ import json
 import serial
 import argparse
 import platform
-import rtt_interface
-import modem_credentials_parser
+from nrfcloud_utils import modem_credentials_parser, rtt_interface
 from serial.tools import list_ports
 from datetime import datetime, timezone
 from colorama import init, Fore, Back, Style
@@ -35,7 +34,7 @@ at_cmd_prefix = ''
 args = None
 IMEI_LEN = 15
 
-def parse_args():
+def parse_args(in_args):
     global verbose
 
     parser = argparse.ArgumentParser(description="Gather Attestation Tokens",
@@ -80,7 +79,7 @@ def parse_args():
     parser.add_argument("--shell",
                         help="Use provisioning shell",
                         action='store_true', default=False)
-    args = parser.parse_args()
+    args = parser.parse_args(in_args)
     verbose = args.verbose
     return args
 
@@ -376,7 +375,7 @@ def error_exit(err_msg):
     else:
         sys.exit('Error... exiting.')
 
-def main():
+def main(in_args):
     global args
     global plain
     global ser
@@ -385,7 +384,7 @@ def main():
     global at_cmd_prefix
 
     # initialize arguments
-    args = parse_args()
+    args = parse_args(in_args)
     plain = args.plain
 
     rtt = None
@@ -458,12 +457,15 @@ def main():
     print(send_style('Device UUID: ' + dev_uuid))
 
     if len(args.csv) > 0:
-        save_attestation_csv(args.csv, not args.overwrite, not args.keep, imei, 
+        save_attestation_csv(args.csv, not args.overwrite, not args.keep, imei,
                              dev_uuid, attest_tok)
 
     print(local_style('Done.'))
     cleanup()
     sys.exit(0)
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()

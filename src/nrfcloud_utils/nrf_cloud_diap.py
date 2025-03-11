@@ -4,7 +4,6 @@
 #
 # SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
 
-import argparse
 import requests
 
 DEV_STAGE_DICT = {'dev':     '.dev.',
@@ -139,9 +138,3 @@ def print_api_result(custom_text, api_result, print_response_txt):
     print(f'{custom_text}: {api_result.status_code} - {api_result.reason}')
     if print_response_txt:
         print(f'Response: {api_result.text}')
-
-def main():
-    return
-
-if __name__ == '__main__':
-    main()

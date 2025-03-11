@@ -182,7 +182,7 @@ class nRFCloudDevice:
 def url_encode(token):
     return urllib.parse.quote_plus(token)
 
-def parse_args():
+def parse_args(in_args):
     parser = argparse.ArgumentParser(description="nRF Cloud Manage FOTA Update Jobs",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--apikey",
@@ -219,7 +219,7 @@ def parse_args():
                         help="The description of the created updated.",
                         type=str, required=False, default="")
 
-    args = parser.parse_args()
+    args = parser.parse_args(in_args)
     return args
 
 def get_bundle_list(api_key, modem_only):
@@ -707,12 +707,8 @@ def print_device_list(device_list):
         print(dev)
     print('')
 
-def main():
-
-    if not len(sys.argv) > 1:
-        raise RuntimeError('No input provided')
-
-    args = parse_args()
+def main(in_args):
+    args = parse_args(in_args)
 
     # determine requested FOTA type
     fota_type = None
@@ -779,5 +775,8 @@ def main():
 
     return
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()

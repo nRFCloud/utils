@@ -10,15 +10,17 @@ import json
 import serial
 import argparse
 import platform
-import ca_certs
-import rtt_interface
-import nrf_cloud_onboard
-import modem_credentials_parser
-import nrf_cloud_diap
-import create_device_credentials
-from create_device_credentials import create_device_cert
+from nrfcloud_utils import (
+    ca_certs,
+    rtt_interface,
+    nrf_cloud_onboard,
+    modem_credentials_parser,
+    nrf_cloud_diap,
+    create_device_credentials
+)
+from nrfcloud_utils.create_device_credentials import create_device_cert
+from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
 from serial.tools import list_ports
-from cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
@@ -280,7 +282,7 @@ def get_attestation_token():
 
     return attest_tok
 
-def error_exit(ser, ser, err_msg):
+def error_exit(ser, err_msg):
     cleanup(ser)
     if err_msg:
         sys.stderr.write(error_style(err_msg))
@@ -607,5 +609,8 @@ def main(in_args):
     cleanup(ser)
     sys.exit(0)
 
+def run():
+    main(sys.argv[1:])
+
 if __name__ == '__main__':
-    main()
+    run()
