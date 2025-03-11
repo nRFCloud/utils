@@ -277,7 +277,7 @@ def get_attestation_token():
     print(local_style('Attestation token: {}'.format(attest_tok)))
 
     if verbose:
-        modem_credentials_parser.parse_attesttoken_output(attest_tok)
+        _, _ = modem_credentials_parser.parse_attesttoken_output(attest_tok)
 
     return attest_tok
 
@@ -526,10 +526,10 @@ def main(in_args):
         print(hivis_style('CSR:\n' + csr_txt + '\n'))
 
     # process the CSR
-    modem_credentials_parser.parse_keygen_output(csr_txt)
+    csr_bytes, pub_key_bytes, dev_uuid_hex_str, sec_tag_str = \
+        modem_credentials_parser.parse_keygen_output(csr_txt)
 
     # get the public key from the CSR
-    csr_bytes = modem_credentials_parser.csr_pem_bytes
     csr = x509.load_pem_x509_csr(csr_bytes)
 
     # create a device cert

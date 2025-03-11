@@ -38,12 +38,6 @@ header_key_type_dict = {
     -5: 'nordic_base_rd_key'
 }
 
-csr_pem_bytes=b''
-pub_key_bytes=b''
-dev_uuid_hex_str=""
-sec_tag_str=""
-payload_digest = ""
-
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Modem Credentials Parser")
     parser.add_argument("-k", "--keygen", type=str, help="base64url string: KEYGEN output", default="")
@@ -67,15 +61,15 @@ def format_uuid(hex_str):
                                         hex_str[12:16], hex_str[16:20],
                                         hex_str[20:]).lower()
 
-def parse_cose(cose_str):
+def parse_cose(cose_str, payload_digest=""):
     """
     parse COSE payload.
     """
     if len(cose_str) == 0:
-        return
+        return None, None
 
-    global dev_uuid_hex_str
-    global sec_tag_str
+    dev_uuid_hex_str = None
+    sec_tag_str = None
 
     # Decode to binary and parse cbor
     cose_bytes = base64_decode(cose_str)
@@ -132,16 +126,12 @@ def parse_cose(cose_str):
             print("\nCOSE digest does NOT match payload")
     print("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
 
-    return
+    return dev_uuid_hex_str, sec_tag_str
 
-def save_output(path, prefix):
+def save_output(dev_uuid_hex_str, sec_tag_str, csr_pem_bytes, pub_key_bytes, path, prefix):
     """
     save CSR/key data to PEM file(s)
     """
-    global dev_uuid_hex_str
-    global sec_tag_str
-    global csr_pem_bytes
-    global pub_key_bytes
 
     if (len(dev_uuid_hex_str) <= 0):
         raise RuntimeError("Device UUID not found. Full KEYGEN output must be provided.")
@@ -162,8 +152,8 @@ def parse_keygen_output(keygen_str):
     """
     print("\nParsing AT%KEYGEN output:\n")
 
-    global csr_pem_bytes
-    global pub_key_bytes
+    csr_pem_bytes = None
+    pub_key_bytes = None
 
     # Input format: <base64url_body>.<base64url_cose>
     #               cose portion is optional
@@ -196,7 +186,6 @@ def parse_keygen_output(keygen_str):
     print("Device public key:")
     print(pub_key_bytes.decode())
 
-    global payload_digest
     payload_digest = hashlib.sha256(body_bytes).hexdigest()
     print("SHA256 Digest:")
     print(payload_digest + "\n")
@@ -206,9 +195,9 @@ def parse_keygen_output(keygen_str):
     if len(body_cose) > 1:
         cose = body_cose[1]
 
-    parse_cose(cose)
+    dev_uuid_hex_str, sec_tag_str = parse_cose(cose, payload_digest)
 
-    return
+    return csr_pem_bytes, pub_key_bytes, dev_uuid_hex_str, sec_tag_str
 
 def parse_attesttoken_output(atokout_str):
     print("\nParsing AT%ATTESTTOKEN output:\n")
@@ -240,9 +229,7 @@ def parse_attesttoken_output(atokout_str):
     if len(body_cose) > 1:
         cose = body_cose[1]
 
-    parse_cose(cose)
-
-    return
+    return parse_cose(cose)
 
 def get_device_uuid(attest_tok):
 

@@ -7,3 +7,6 @@
 *.pem
 *.csv
 src/nrfcloud_utils/__pycache__/
+.coverage
+coverage.xml
+tests/__pycache__/
