@@ -18,7 +18,6 @@ from nrfcloud_utils import (
     nrf_cloud_diap,
     create_device_credentials
 )
-from nrfcloud_utils.create_device_credentials import create_device_cert
 from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
 from serial.tools import list_ports
 from cryptography import x509
@@ -535,7 +534,7 @@ def main(in_args):
 
     # create a device cert
     print(local_style('Creating device certificate...'))
-    device_cert = create_device_cert(args.dv, csr, ca_cert, ca_key)
+    device_cert = create_device_credentials.create_device_cert(args.dv, csr, ca_cert, ca_key)
     dev_cert_pem_bytes = device_cert.public_bytes(serialization.Encoding.PEM)
     dev_cert_pem_str = dev_cert_pem_bytes.decode()
     print(local_style('Dev cert: \n{}'.format(dev_cert_pem_str)))

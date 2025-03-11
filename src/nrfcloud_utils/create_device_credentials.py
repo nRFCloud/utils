@@ -22,7 +22,7 @@ from cryptography.x509 import (
     SubjectKeyIdentifier,
 )
 
-from nrfcloud_utils.modem_credentials_parser import write_file
+from nrfcloud_utils.cli_helpers import write_file
 import nrfcloud_utils.ca_certs
 
 def parse_args(in_args):

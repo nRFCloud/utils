@@ -17,7 +17,7 @@ from os import path
 from os import makedirs
 from ast import literal_eval
 from enum import Enum
-from nrfcloud_utils.modem_credentials_parser import write_file
+from nrfcloud_utils.cli_helpers import write_file
 
 class OnboardResult(Enum):
     PERFORMED_SUCCESSFULLY = 0
