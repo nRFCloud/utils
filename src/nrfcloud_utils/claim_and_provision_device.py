@@ -529,7 +529,7 @@ def main(in_args):
     csr_bytes, pub_key_bytes, dev_uuid_hex_str, sec_tag_str = \
         modem_credentials_parser.parse_keygen_output(csr_txt)
 
-    # get the public key from the CSR
+    # import the CSR
     csr = x509.load_pem_x509_csr(csr_bytes)
 
     # create a device cert

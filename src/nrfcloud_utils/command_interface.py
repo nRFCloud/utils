@@ -163,10 +163,9 @@ class ATCommandInterface(CredentialCommandInterface):
         if self.verbose:
             print(local_style('CSR blob: {}'.format(csr_blob)))
 
-        modem_credentials_parser.parse_keygen_output(csr_blob)
+        csr_bytes, _, _, _ = modem_credentials_parser.parse_keygen_output(csr_blob)
 
         # load and return the CSR
-        csr_bytes = modem_credentials_parser.csr_pem_bytes
         return x509.load_pem_x509_csr(csr_bytes)
 
     def go_offline(self):
