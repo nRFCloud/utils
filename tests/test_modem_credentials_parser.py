@@ -21,7 +21,7 @@ ATTESTTOKEN_DATA = {
     "UUID" : "50363154-3931-44f0-8022-121b6401627d",
 }
 
-class TestATClient:
+class TestModemCredentialsParser:
     def test_parse_keygen_output_csr(self):
         csr_pem_bytes, pub_key_bytes, dev_uuid_hex_str, sec_tag_str = \
             modem_credentials_parser.parse_keygen_output(KEYGEN_CSR)
