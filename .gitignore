@@ -6,7 +6,9 @@
 .DS_Store
 *.pem
 *.csv
-src/nrfcloud_utils/__pycache__/
 .coverage
+.pytest_cache
+src/nrfcloud_utils/__pycache__/
 coverage.xml
 tests/__pycache__/
+htmlcov/

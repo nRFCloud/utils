@@ -1,5 +1,5 @@
 """
-Test for modem_credentials_parser.py
+Test for create_ca_cert.py
 """
 
 import pytest
@@ -38,12 +38,12 @@ class TestCreateCACert:
         with TemporaryDirectory() as tmp_dir:
             create_ca_cert.main([
                 "-c", "NO",
-                "-st", "Trondheim",
+                "--st", "Trondheim",
                 "-l", "Trøndelag",
                 "-o", "Nordic Semiconductor",
-                "-ou", "nRF Cloud",
-                "-cn", "nrfcloud.com",
-                "-dv", "365",
+                "--ou", "nRF Cloud",
+                "--cn", "nrfcloud.com",
+                "--dv", "365",
                 "-e", "foo@nrfcloud.com",
                 "-p", tmp_dir,
                 "-f", "test"

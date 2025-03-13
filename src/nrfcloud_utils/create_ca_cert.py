@@ -28,13 +28,13 @@ from nrfcloud_utils.cli_helpers import write_file
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create CA Certificate")
     parser.add_argument("-c", type=str, help="2 character country code", default="NO")
-    parser.add_argument("-st", type=str, help="State or Province", default="")
+    parser.add_argument("--st", type=str, help="State or Province", default="")
     parser.add_argument("-l", type=str, help="Locality", default="")
     parser.add_argument("-o", type=str, help="Organization", default="")
-    parser.add_argument("-ou", type=str, help="Organizational Unit", default="")
-    parser.add_argument("-cn", type=str, help="Common Name", default="example.com")
+    parser.add_argument("--ou", type=str, help="Organizational Unit", default="")
+    parser.add_argument("--cn", type=str, help="Common Name", default="example.com")
     parser.add_argument(
-        "-dv", type=int, help="Number of days valid", default=(10 * 365)
+        "--dv", type=int, help="Number of days valid", default=(10 * 365)
     )
     parser.add_argument("-e", "--email", type=str, help="E-mail address", default="")
     parser.add_argument(

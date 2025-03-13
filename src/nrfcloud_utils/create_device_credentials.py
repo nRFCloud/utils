@@ -30,13 +30,13 @@ def parse_args(in_args):
     parser.add_argument("--ca", type=str, required=True, help="Filepath to your CA cert PEM", default="")
     parser.add_argument("--ca-key", type=str, required=True, help="Filepath to your CA's private key PEM", default="")
     parser.add_argument("-c", type=str, help="2 character country code; required if CSR is not provided", default="NO")
-    parser.add_argument("-st", type=str, help="State or Province; ignored if CSR is provided", default="")
+    parser.add_argument("--st", type=str, help="State or Province; ignored if CSR is provided", default="")
     parser.add_argument("-l", type=str, help="Locality; ignored if CSR is provided", default="")
     parser.add_argument("-o", type=str, help="Organization; ignored if CSR is provided", default="")
-    parser.add_argument("-ou", type=str, help="Organizational Unit; ignored if CSR is provided", default="")
-    parser.add_argument("-cn", type=str, required=True, help="Common Name; use nRF Cloud device ID/MQTT client ID; ignored if CSR is provided", default="")
+    parser.add_argument("--ou", type=str, help="Organizational Unit; ignored if CSR is provided", default="")
+    parser.add_argument("--cn", type=str, help="Common Name; use nRF Cloud device ID/MQTT client ID; ignored if CSR is provided", default="")
     parser.add_argument("-e", "--email", type=str, help="E-mail address; ignored if CSR is provided", default="")
-    parser.add_argument("-dv", type=int, help="Number of days cert is valid", default=(10 * 365))
+    parser.add_argument("--dv", type=int, help="Number of days cert is valid", default=(10 * 365))
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM files.", default="./")
     parser.add_argument("-f", "--fileprefix", type=str, help="Prefix for output files", default="")
     parser.add_argument("--csr", type=str, help="Filepath to CSR PEM from device", default="")
@@ -44,6 +44,8 @@ def parse_args(in_args):
                         help="Save PEM files (client-cert.pem, private-key.pem, and ca-cert.pem) \
                               formatted to be used with the Kconfig option CONFIG_NRF_CLOUD_PROVISION_CERTIFICATES")
     args = parser.parse_args(in_args)
+    if len(args.csr) == 0 and len(args.cn) == 0:
+            parser.error("Common Name is required if CSR is not provided")
     return args
 
 def load_csr(csr_pem_filepath):
