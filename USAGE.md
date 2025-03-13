@@ -4,22 +4,6 @@
 
 The goal of these scripts is to help users provision devices with the credentials needed to connect with nRF Cloud, create FOTA jobs, and onboard devices to a specific nRF Cloud account. For more information see: [Security](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/external_comp/nrf_cloud.html#security).
 
-## Prerequisites
-
-These scripts require Python3.
-
-**Note**: you must clone this full repository onto your computer in order to use any of the scripts within it.
-It is not sufficient to only download a specific script by itself, as they are all interconnected.
-```
-~$ git clone https://github.com/nRFCloud/utils.git
-```
-
-Then use Python pip to install required packages:
-```
-~$ cd utils/python/modem-firmware-1.3+
-~$ pip3 install -r requirements.txt
-```
-
 # Create CA Cert
 This script creates a self-signed CA certificate and an associated EC keypair.   The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials.  The specific values that you specify for the various options are not important, though it is recommended to use reasonable and accurate values for country code, state or province, locality, organization and its unit.  The number of days valid defaults to 10 years.  The common name could be your company domain name or something similar.
 
