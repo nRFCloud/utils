@@ -14,7 +14,7 @@ The output file name format is as follows:
 
 ### Example
 ```
-python3 create_ca_cert.py -c NO -p ./my_ca
+create_ca_cert -c NO -p ./my_ca
 Creating self-signed CA certificate...
 File created: /some/path/my_ca/0x48a2b0c9862ffe08d709864f576caa0a9ff9bfbf_ca.pem
 File created: /some/path/my_ca/0x48a2b0c9862ffe08d709864f576caa0a9ff9bfbf_prv.pem
