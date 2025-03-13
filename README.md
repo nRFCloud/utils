@@ -22,4 +22,24 @@ However, if you intend to use the Provisioning Service, you will need to enable 
 
 ## Usage
 
-See [Usage](USAGE.md)
+See [Usage](USAGE.md).
+
+## Development installation
+
+For development mode, you need [poetry](https://python-poetry.org/):
+
+    curl -sSL https://install.python-poetry.org | python3 -
+
+Install package dependencies, development dependencies, and the nrfcredstore itself into poetry's internal virtual environment:
+
+    poetry install
+
+## Test
+
+Running the tests depends on a [development installation](#development-installation).
+
+    poetry run pytest
+
+Check coverage
+
+    poetry run pytest --cov=. tests
