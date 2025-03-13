@@ -185,7 +185,7 @@ def url_encode(token):
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="nRF Cloud Manage FOTA Update Jobs",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--apikey",
+    parser.add_argument("--api-key",
                         help="nRF Cloud API key",
                         type=str, required=True, default="")
     parser.add_argument("--type",
@@ -206,7 +206,7 @@ def parse_args(in_args):
     parser.add_argument("--tag",
                         help="Create an update for the specified device tag (device group). Overrides --tag_list.",
                         type=str, default="")
-    parser.add_argument("--dev_id",
+    parser.add_argument("--dev-id",
                         help="Create an update for the specified device ID. Overrides --tag and --tag_list.",
                         type=str, required=False, default="")
     parser.add_argument("--bundle_id",
@@ -320,7 +320,7 @@ def create_fota_job(api_key, json_payload_obj):
     req = FOTA_JOBS_BASE
 
     api_res = requests.post(req, json=json_payload_obj, headers=hdr)
-    if api_res.status_code != 200:
+    if (api_res.status_code // 100) == 2:
             print_api_result('CreateFOTAJob API call failed', api_res, True)
     else:
         api_res_json = api_res.json()
@@ -724,7 +724,7 @@ def main(in_args):
 
     # get update bundles of the requested FOTA type
     print(f'Getting {fota_type.name} update bundles...')
-    bundles = get_requested_bundles(args.apikey, fota_type)
+    bundles = get_requested_bundles(args.api_key, fota_type)
 
     if len(bundles) == 0:
         print(f'No {fota_type.name} bundles found')
@@ -742,7 +742,7 @@ def main(in_args):
         if args.tag_list or args.tag or is_modem_type(fota_type) is False:
             update_by = updateBy.TAG
 
-    devices = get_device_list(args.apikey, None, args.dev_id)
+    devices = get_device_list(args.api_key, None, args.dev_id)
     if len(devices) == 0:
         print('No devices found')
         return
@@ -769,7 +769,7 @@ def main(in_args):
     if len(requested_devices) == 0:
         return
 
-    do_job_creation(args.apikey, bundles, requested_devices, update_by,
+    do_job_creation(args.api_key, bundles, requested_devices, update_by,
                     args.tag, args.bundle_id, args.name, args.desc, args.apply,
                     fota_type)
 

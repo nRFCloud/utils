@@ -38,7 +38,7 @@ def parse_args(in_args):
     parser.add_argument("--provisioning_tags", type=str,
                         help="Comma (,) delimited provisioning tags; enclose in double quotes. Example: use \"nrf-cloud-onboarding\" to onboard to nRF Cloud.",
                         default=None)
-    parser.add_argument("--api_key", type=str,
+    parser.add_argument("--api-key", type=str,
                         help="API key",
                         default=None, required=True)
     parser.add_argument("--stage", type=str, help="For internal (Nordic) use only", default="")

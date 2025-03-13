@@ -69,12 +69,12 @@ See: [Configuration options for device ID](https://docs.nordicsemi.com/bundle/nc
 
 #### UUID device ID with verification enabled
 ```
-python3 device_credentials_installer.py -d --ca ./ca.pem --ca_key ./ca_prv_key.pem --verify
+device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify
 ```
 
 #### nrf-\<IMEI\> device ID (for nRF91 DKs and Thingy91s) with verification enabled
 ```
-python3 device_credentials_installer.py -d --ca ./ca.pem --ca_key ./ca_prv_key.pem --verify --id_imei --id_str nrf-
+device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify --id-imei --id-str nrf-
 ```
 
 # nRF Cloud Device Onboarding
@@ -84,7 +84,7 @@ Also required is a CSV file compatible with the [onboarding endpoint](https://ap
 
 ### Example
 ```
-python3 ./nrf_cloud_onboard.py --apikey $API_KEY --csv onboard.csv
+nrf_cloud_onboard --apikey $API_KEY --csv onboard.csv
 ```
 
 If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
@@ -97,23 +97,23 @@ The parsed data is displayed in the output.  Providing the COSE string to this s
 
 Parse modem [KEYGEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/keygen_set.html) output; with or without COSE string:
 
-`python3 modem_credentials_parser.py -k <base64url AT%KEYGEN output>`
+`modem_credentials_parser -k <base64url AT%KEYGEN output>`
 
 Parse modem keygen output and save PEM file(s); COSE string is required:
 
-`python3 modem_credentials_parser.py -k <base64url AT%KEYGEN output> -s`
+`modem_credentials_parser -k <base64url AT%KEYGEN output> -s`
 
-`python3 modem_credentials_parser.py -k <base64url AT%KEYGEN output> -p <my_output_path> -f <my_file_prefix>`
+`modem_credentials_parser -k <base64url AT%KEYGEN output> -p <my_output_path> -f <my_file_prefix>`
 
 Parse modem [ATTESTTOKEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/attesttoken_set.html) output; with or without COSE string:
 
-`python3 modem_credentials_parser.py -a <base64url AT%ATTESTTOKEN output>`
+`modem_credentials_parser -a <base64url AT%ATTESTTOKEN output>`
 
 ### Examples
 
 #### KEYGEN - Certificate Signing Request (CSR): `AT%KEYGEN=17,2,0`
 ```
-python3 modem_credentials_parser.py -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud
+modem_credentials_parser -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud
 
 Parsing AT%KEYGEN output:
 
@@ -156,7 +156,7 @@ COSE digest matches payload
 
 #### KEYGEN - Public Key: `AT%KEYGEN=16,2,1`
 ```
-python3 modem_credentials_parser.py -k MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZKgDx0O0FKa7i1yFoxYngNdV5Csyi4rEPHcFTfeBVtkkJX-G0QZs-yesfzIaPs91b4x5xYN_g28k63gkeVMJwA.0oRDoQEmoQRBIVhL2dn3hQhQUDYxVDkxRPCAIhIbZAFifUEQWCDlovwqMVoJ1W-x93Tqypy2v_1ALv3-GCF1R9gYIy2WVlBQXvxKqA9JTveFh3nVwce-WEAMltwSSkVh8jSBPhP79ndSG0HJTOaTF9SExIq-FstjdLUW2inxdvVfqzLa05rgXqxshN5vfQIs22QT-swCt30h
+modem_credentials_parser -k MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZKgDx0O0FKa7i1yFoxYngNdV5Csyi4rEPHcFTfeBVtkkJX-G0QZs-yesfzIaPs91b4x5xYN_g28k63gkeVMJwA.0oRDoQEmoQRBIVhL2dn3hQhQUDYxVDkxRPCAIhIbZAFifUEQWCDlovwqMVoJ1W-x93Tqypy2v_1ALv3-GCF1R9gYIy2WVlBQXvxKqA9JTveFh3nVwce-WEAMltwSSkVh8jSBPhP79ndSG0HJTOaTF9SExIq-FstjdLUW2inxdvVfqzLa05rgXqxshN5vfQIs22QT-swCt30h
 
 Parsing AT%KEYGEN output:
 
@@ -190,7 +190,7 @@ COSE digest matches payload
 
 #### AT%ATTESTTOKEN
 ```
-python3 modem_credentials_parser.py -a 2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY
+modem_credentials_parser -a 2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY
 
 Parsing AT%ATTESTTOKEN output:
 
@@ -215,7 +215,7 @@ COSE:
 
 #### KEYGEN - Certificate Signing Request (CSR) + File Save: `AT%KEYGEN=17,2,0`
 ```
-python3 modem_credentials_parser.py -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud -p /my_devices/pem_files -f hw_rev2-
+modem_credentials_parser -k MIIBCjCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2MzE1NC0zOTMxLTQ0ZjAtODAyMi0xMjFiNjQwMTYyN2QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqD6pNfa29o_EXnw62bnQWr8-JqsNh_HZxS3k3bMD4KZ8-qxnvgeoiqQ5zAycEP_Wcmzqypvwyf3qWMrZ2VB5aoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANIADBFAiEAv7OLZ_dXbszfhhjcLMUT72wTmw-z6GlgWxVhyWgR27ACIAvY_lPu3yfYZY5AL6uYTkUFp4GQkbSOUC_lsHyCxOuG.0oRDoQEmoQRBIVhL2dn3hQlQUDYxVDkxRPCAIhIbZAFifUERWCBwKj1W8FsvclMdZQgl4gBB4unZMYw0toU6uQZuXHLoDFAbhyLuHetYFWbiyxNZsnzSWEDUiTl7wwFt0hEsCiEQsxj-hCtpBk8Za8UXfdAycpx2faCOPJIrkfmiSS8-Y6_2tTAoAMN1BiWiTOimY1wZE3Ud -p my_devices/pem_files -f hw_rev2-
 
 Parsing AT%KEYGEN output:
 
@@ -278,7 +278,7 @@ If no CN (common name) is provided/available, the serial number hex value will b
 
 #### No CSR provided:
 ```
-python3 create_device_credentials.py -ca /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem -ca_key /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem -c US -st WA -l Seattle -o "My Company" -ou "Devs" -cn my-unique-device-id -e email@example.com -dv 2000 -p /dev_credentials -f hw_rev2-
+create_device_credentials --ca /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem --ca-key my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem -c US --st WA -l Seattle -o "My Company" --ou "Devs" --cn my-unique-device-id -e email@example.com --dv 2000 -p dev_credentials -f hw_rev2-
 Creating device credentials...
 File created: /dev_credentials/hw_rev2-my-unique-device-id_crt.pem
 File created: /dev_credentials/hw_rev2-my-unique-device-id_pub.pem
@@ -287,7 +287,7 @@ File created: /dev_credentials/hw_rev2-my-unique-device-id_prv.pem
 
 #### CSR provided:
 ```
-python3 create_device_credentials.py -ca /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem -ca_key /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem -csr /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_csr.pem -dv 2000 -p /dev_credentials -f hw_rev2-
+create_device_credentials --ca /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem --ca-key my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem --csr my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_csr.pem --dv 2000 -p dev_credentials -f hw_rev2-
 Creating device credentials...
 File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_crt.pem
 File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_pub.pem
@@ -316,14 +316,14 @@ Use `--help` for additional parameter information.
 
 #### Device certificate created locally from CSR received over the air:
 ```
-python3 ./claim_and_provision_device.py --apikey $API_KEY --ca=./ca.pem --ca_key=ca_prv_key.pem
+claim_and_provision_device --api-key $API_KEY --ca=./ca.pem --ca-key=ca_prv_key.pem
 ```
 Query the device for its attestation token over USB, claim the device with the REST API, then provision over the air up to receiving the CSR.
 Create the device certificate locally, then send back to the device over the air.
 
 #### Claim device and use a provisioning tag to fully provision and onboard it:
 ```
-python3 ./claim_and_provision_device.py --apikey $API_KEY --provisioning_tags "nrf-cloud-onboarding"
+claim_and_provision_device --api-key $API_KEY --provisioning_tags "nrf-cloud-onboarding"
 ```
 Like before, but use a built-in provisioning tag so the device certificate is created by the cloud and then sent to the device over the air.
 
@@ -334,7 +334,7 @@ This file can later be passed to the `claim_devices.py` script on an internet-co
 
 ### Example
 ```
-python3 ./gather_attestation_tokens.py
+gather_attestation_tokens
 ```
 With the default options, the CSV file `attestation_tokens.csv` will be appended to if it exists, and if the UUID is already present there, the row containing it will be replaced with updated information.
 
@@ -344,7 +344,7 @@ At the end it reports the total number claimed and the total attempted.
 
 ### Example
 ```
-python3 ./claim_devices.py --provisioning_tags "nrf-cloud-onboarding"
+claim_devices --provisioning_tags "nrf-cloud-onboarding" --api-key $API_KEY
 ```
 
 # Device Management - Creating FOTA Updates:
@@ -359,14 +359,14 @@ If a FOTA update is successfully created, the script will print the `job id`, wh
 
 #### Modem FOTA via device tag:
 ```
-python3 nrf_cloud_device_mgmt.py --apikey enter_your_api_key_here --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle_id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --tag "device_group_1"
+nrf_cloud_device_mgmt --api-key $API_KEY --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle_id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --tag "device_group_1"
 ...
 Created job: 43129aa3-656e-444f-bfd4-2e87932c6199
 ```
 
 #### Modem FOTA via device ID:
 ```
-python3 nrf_cloud_device_mgmt.py --apikey enter_your_api_key_here --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle_id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --dev_id nrf-123456789012345
+nrf_cloud_device_mgmt --api-key $API_KEY --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle_id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --dev-id nrf-123456789012345
 ...
 Created job: 17058622-683e-48d5-a752-b2a77a13c9c9
 ```

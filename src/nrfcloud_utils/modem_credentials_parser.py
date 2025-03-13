@@ -253,9 +253,10 @@ def main(in_args):
     args = parse_args(in_args)
 
     if len(args.keygen) > 0:
-        parse_keygen_output(args.keygen)
+        csr_pem_bytes, pub_key_bytes, dev_uuid_hex_str, sec_tag_str = \
+            parse_keygen_output(args.keygen)
     elif len(args.attest) > 0:
-        parse_attesttoken_output(args.attest)
+        dev_uuid_hex_str, sec_tag_str = parse_attesttoken_output(args.attest)
     else:
         raise RuntimeError("No input data provided")
 
@@ -266,7 +267,8 @@ def main(in_args):
     if (args.save) and (len(args.keygen) > 0):
         if (len(args.path) == 0):
             args.path = "./"
-        save_output(args.path, args.fileprefix)
+        save_output(dev_uuid_hex_str, sec_tag_str, csr_pem_bytes, pub_key_bytes,
+            args.path, args.fileprefix)
 
     return
 

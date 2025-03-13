@@ -40,7 +40,7 @@ def parse_args(in_args):
                         default=(10 * 365))
     parser.add_argument("--ca", type=str, help="Filepath to your CA cert PEM. Not used with '--provisioning_tags'.",
                         default="./ca.pem")
-    parser.add_argument("--ca_key", type=str,
+    parser.add_argument("--ca-key", type=str,
                         help="Filepath to your CA's private key PEM. Not used with '--provisioning_tags'.",
                         default="./ca_prv_key.pem")
     parser.add_argument("--port", type=str,
@@ -69,16 +69,16 @@ def parse_args(in_args):
                         Pipe (|) delimited firmware types for FOTA of the set
                         {APP MODEM BOOT SOFTDEVICE BOOTLOADER}; enclose in double quotes
                         """, default="APP|MODEM")
-    parser.add_argument("--id_str", type=str,
-                        help="Device ID to use instead of UUID. Will be a prefix if used with --id_imei",
+    parser.add_argument("--id-str", type=str,
+                        help="Device ID to use instead of UUID. Will be a prefix if used with --id-imei",
                         default="")
-    parser.add_argument("--id_imei",
-                        help="Use IMEI for device ID instead of UUID. Add a prefix with --id_str",
+    parser.add_argument("--id-imei",
+                        help="Use IMEI for device ID instead of UUID. Add a prefix with --id-str",
                         action='store_true', default=False)
-    parser.add_argument("--csr_attr", type=str,
+    parser.add_argument("--csr-attr", type=str,
                         help="CSR attributes. Do not include CN (common name), the device ID will be used",
                         default="")
-    parser.add_argument("--install_ca",
+    parser.add_argument("--install-ca",
                         help="Install the AWS root CA cert",
                         action='store_true', default=False)
     parser.add_argument("--coap",
@@ -87,18 +87,18 @@ def parse_args(in_args):
     parser.add_argument("--xonxoff",
                         help="Enable software flow control for serial connection",
                         action='store_true', default=False)
-    parser.add_argument("--rtscts_off",
+    parser.add_argument("--rtscts-off",
                         help="Disable hardware (RTS/CTS) flow control for serial connection",
                         action='store_true', default=False)
     parser.add_argument("--dsrdtr",
                         help="Enable hardware (DSR/DTR) flow control for serial connection",
                         action='store_true', default=False)
-    parser.add_argument("--jlink_sn", type=int,
+    parser.add_argument("--jlink-sn", type=int,
                         help="Serial number of J-Link device to use for RTT; optional",
                         default=None)
-    parser.add_argument("--prov_hex", type=str, help="Filepath to nRF Provisioning sample hex file",
+    parser.add_argument("--prov-hex", type=str, help="Filepath to nRF Provisioning sample hex file",
                         default="")
-    parser.add_argument("--api_key", type=str,
+    parser.add_argument("--api-key", type=str,
                         help="API key",
                         default=None)
     parser.add_argument("--stage", type=str, help="For internal (Nordic) use only", default="")
@@ -114,7 +114,7 @@ def parse_args(in_args):
     args = parser.parse_args(in_args)
     return args
 
-def ask_for_port(selected_port, list_all):
+def ask_for_port(selected_port, list_all, verbose):
     """
     Show a list of ports and ask the user for a choice, unless user specified
     a specific port on the command line. To make selection easier on systems
@@ -263,7 +263,7 @@ def cleanup(ser):
     if ser:
         ser.close()
 
-def get_attestation_token():
+def get_attestation_token(verbose):
     write_at_cmd(at_cmd_prefix, 'AT%ATTESTTOKEN')
     # include the CRLF in OK because 'OK' could be found in the CSR string
     retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%ATTESTTOKEN: ')
@@ -346,6 +346,8 @@ def install_ca_certs(sectag, stage, install_coap, no_shell):
     return retval
 
 def main(in_args):
+    global ser
+    global at_cmd_prefix
     # initialize arguments
     args = parse_args(in_args)
 
@@ -381,7 +383,7 @@ def main(in_args):
         ca_cert = create_device_credentials.load_ca(args.ca)
         ca_key = create_device_credentials.load_ca_key(args.ca_key)
     elif args.ca or args.ca_key:
-        print(local_style('Ignoring "ca" and "ca_key".'))
+        print(local_style('Ignoring "ca" and "ca-key".'))
 
      # flash prov client
     if args.prov_hex:
@@ -395,7 +397,7 @@ def main(in_args):
 
     # get a serial port to use
     print(local_style('Opening serial port...'))
-    port = ask_for_port(args.port, args.all)
+    port = ask_for_port(args.port, args.all, args.verbose)
     if port == None:
         sys.exit(1)
 
@@ -424,7 +426,7 @@ def main(in_args):
     attest_tok = args.attest
     if not attest_tok:
         # get attestation token
-        attest_tok = get_attestation_token()
+        attest_tok = get_attestation_token(args.verbose)
         if not attest_tok:
             error_exit(ser, 'Failed to obtain attestation token')
 

@@ -54,7 +54,7 @@ def parse_args(in_args):
                         default=(10 * 365))
     parser.add_argument("--ca", type=str, help="Filepath to your CA cert PEM",
                         default="")
-    parser.add_argument("--ca_key", type=str,
+    parser.add_argument("--ca-key", type=str,
                         help="Filepath to your CA's private key PEM",
                         default="")
     parser.add_argument("--csv", type=str,
@@ -63,11 +63,11 @@ def parse_args(in_args):
     parser.add_argument("--port", type=str,
                         help="Specify which serial port to open, otherwise pick from list",
                         default=None)
-    parser.add_argument("--id_str", type=str,
-                        help="Device ID to use instead of UUID. Will be a prefix if used with --id_imei",
+    parser.add_argument("--id-str", type=str,
+                        help="Device ID to use instead of UUID. Will be a prefix if used with --id-imei",
                         default="")
-    parser.add_argument("--id_imei",
-                        help="Use IMEI for device ID instead of UUID. Add a prefix with --id_str",
+    parser.add_argument("--id-imei",
+                        help="Use IMEI for device ID instead of UUID. Add a prefix with --id-str",
                         action='store_true', default=False)
     parser.add_argument("-a", "--append",
                         help="When saving onboarding CSV, append to it",
