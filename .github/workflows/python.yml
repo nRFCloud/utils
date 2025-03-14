@@ -1,0 +1,73 @@
+name: Python package
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  release:
+    types: [created]
+
+env:
+  REGISTRY_NAME: ${{ vars.REGISTRY_NAME }}
+  REGISTRY_URI: ${{ vars.REGISTRY_URI }}
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.4.2 python3 -
+      - name: Install dependencies
+        run: |
+          poetry install
+      - name: Test with pytest
+        run: |
+          poetry run pytest --cov=. --cov-report xml --cov-report html tests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: htmlcov/
+
+  publish:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+      - name: Install poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.4.2 python3 -
+      - name: Update version in pyproject.toml
+        run: |
+          echo $GITHUB_REF_NAME | sed 's/^v//' | xargs poetry version
+      - name: Install dependencies
+        run: |
+          poetry install
+      - name: Registry config
+        run: |
+          poetry config repositories.$REGISTRY_NAME $REGISTRY_URI
+          poetry config pypi-token.$REGISTRY_NAME $PYPI_TOKEN
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      - name: Publish package to pypi
+        run: |
+          poetry publish --build --repository $REGISTRY_NAME
