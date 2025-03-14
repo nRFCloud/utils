@@ -35,7 +35,7 @@ def parse_args(in_args):
     parser.add_argument("-P", "--plain",
                         help="bool: Plain output (no colors)",
                         action='store_true', default=False)
-    parser.add_argument("--provisioning_tags", type=str,
+    parser.add_argument("--provisioning-tags", type=str,
                         help="Comma (,) delimited provisioning tags; enclose in double quotes. Example: use \"nrf-cloud-onboarding\" to onboard to nRF Cloud.",
                         default=None)
     parser.add_argument("--api-key", type=str,

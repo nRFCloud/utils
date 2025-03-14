@@ -38,10 +38,10 @@ def parse_args(in_args):
 
     parser.add_argument("--dv", type=int, help="Number of days cert is valid",
                         default=(10 * 365))
-    parser.add_argument("--ca", type=str, help="Filepath to your CA cert PEM. Not used with '--provisioning_tags'.",
+    parser.add_argument("--ca", type=str, help="Filepath to your CA cert PEM. Not used with '--provisioning-tags'.",
                         default="./ca.pem")
     parser.add_argument("--ca-key", type=str,
-                        help="Filepath to your CA's private key PEM. Not used with '--provisioning_tags'.",
+                        help="Filepath to your CA's private key PEM. Not used with '--provisioning-tags'.",
                         default="./ca_prv_key.pem")
     parser.add_argument("--port", type=str,
                         help="Specify which serial port to open, otherwise pick from list",
@@ -59,7 +59,7 @@ def parse_args(in_args):
                         action='store_true', default=False)
     parser.add_argument("-t", "--tags", type=str,
                         help="Pipe (|) delimited device tags; enclose in double quotes", default="")
-    parser.add_argument("--provisioning_tags", type=str,
+    parser.add_argument("--provisioning-tags", type=str,
                         help="Comma (,) delimited provisioning tags; enclose in double quotes. Example: use \"nrf-cloud-onboarding\" to onboard to nRF Cloud.",
                         default=None)
     parser.add_argument("-T", "--subtype", type=str,
