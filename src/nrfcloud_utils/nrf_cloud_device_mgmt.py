@@ -198,7 +198,7 @@ def parse_args(in_args):
                         help="Display only devices that support the requested FOTA type",
                         action='store_true', default=False)
     parser.add_argument("--ad",
-                        help="Display all devices. Only specified device is displayed if used with --dev_id. Overrides --rd.",
+                        help="Display all devices. Only specified device is displayed if used with --dev-id. Overrides --rd.",
                         action='store_true', default=False)
     parser.add_argument("--tag_list",
                         help="Display all tags (device groups) and prompt to select tag to use. Enabled for non-MODEM updates.",
@@ -209,7 +209,7 @@ def parse_args(in_args):
     parser.add_argument("--dev-id",
                         help="Create an update for the specified device ID. Overrides --tag and --tag_list.",
                         type=str, required=False, default="")
-    parser.add_argument("--bundle_id",
+    parser.add_argument("--bundle-id",
                         help="Create an update using the specified bundle ID.",
                         type=str, required=False, default="")
     parser.add_argument("--name",

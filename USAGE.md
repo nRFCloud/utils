@@ -335,7 +335,7 @@ claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
 Use the `nrf_cloud_device_mgmt.py` script to create FOTA update jobs.
 
 An nRF Cloud API key `--api-key` is required to create FOTA updates. It can be found on the nrfcloud.com User Account page.
-By providing `--name`, `--desc`, `--bundle_id` and either `--tag` or `--dev_id`, the script will execute without user interaction. Otherwise, the script will prompt the user for information required to create the FOTA update.
+By providing `--name`, `--desc`, `--bundle-id` and either `--tag` or `--dev-id`, the script will execute without user interaction. Otherwise, the script will prompt the user for information required to create the FOTA update.
 
 If a FOTA update is successfully created, the script will print the `job id`, which can be used with the FOTA REST API endpoints, e.g. [FetchFOTAJob](https://api.nrfcloud.com/v1#operation/FetchFOTAJob).
 
@@ -343,14 +343,14 @@ If a FOTA update is successfully created, the script will print the `job id`, wh
 
 #### Modem FOTA via device tag:
 ```
-nrf_cloud_device_mgmt --api-key $API_KEY --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle_id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --tag "device_group_1"
+nrf_cloud_device_mgmt --api-key $API_KEY --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle-id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --tag "device_group_1"
 ...
 Created job: 43129aa3-656e-444f-bfd4-2e87932c6199
 ```
 
 #### Modem FOTA via device ID:
 ```
-nrf_cloud_device_mgmt --api-key $API_KEY --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle_id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --dev-id nrf-123456789012345
+nrf_cloud_device_mgmt --api-key $API_KEY --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle-id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --dev-id nrf-123456789012345
 ...
 Created job: 17058622-683e-48d5-a752-b2a77a13c9c9
 ```

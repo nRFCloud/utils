@@ -27,7 +27,7 @@ def parse_args(in_args):
                               Your Team ID can be found at https://nrfcloud.com/#/teams",
                         default=None)
 
-    parser.add_argument("--dev_id", type=str, required=False,
+    parser.add_argument("--dev-id", type=str, required=False,
                         help="Optional Device ID; added to the sub claim. \
                               This can be added if the associated request is servicing a single device",
                         default=None)
