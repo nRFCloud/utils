@@ -68,7 +68,7 @@ Also required is a CSV file compatible with the [onboarding endpoint](https://ap
 
 ### Example
 ```
-nrf_cloud_onboard --apikey $API_KEY --csv onboard.csv
+nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
 ```
 
 If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
@@ -334,7 +334,7 @@ claim_devices --provisioning_tags "nrf-cloud-onboarding" --api-key $API_KEY
 # Device Management - Creating FOTA Updates:
 Use the `nrf_cloud_device_mgmt.py` script to create FOTA update jobs.
 
-An nRF Cloud API key `--apikey` is required to create FOTA updates. It can be found on the nrfcloud.com User Account page.
+An nRF Cloud API key `--api-key` is required to create FOTA updates. It can be found on the nrfcloud.com User Account page.
 By providing `--name`, `--desc`, `--bundle_id` and either `--tag` or `--dev_id`, the script will execute without user interaction. Otherwise, the script will prompt the user for information required to create the FOTA update.
 
 If a FOTA update is successfully created, the script will print the `job id`, which can be used with the FOTA REST API endpoints, e.g. [FetchFOTAJob](https://api.nrfcloud.com/v1#operation/FetchFOTAJob).

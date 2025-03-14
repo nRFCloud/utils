@@ -52,7 +52,7 @@ BULK_OP_REQ_ID = "bulkOpsRequestId"
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="nRF Cloud Device Onboarding",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--apikey", type=str, required=True,
+    parser.add_argument("--api-key", type=str, required=True,
                         help="nRF Cloud API key", default="")
     parser.add_argument("--chk", action='store_true', default=False,
                         help="For single device onboarding, check if device exists before onboarding")
@@ -537,12 +537,12 @@ def main(in_args):
     if args.stage:
         set_dev_stage(args.stage)
 
-    res = do_onboarding(args.apikey, args.csv, args.res, args.chk)
+    res = do_onboarding(args.api_key, args.csv, args.res, args.chk)
 
     if res is OnboardResult.PERFORMED_SUCCESSFULLY or \
        res is OnboardResult.PERFORMED_RESULTS_NOT_CONFIRMED or \
        res is OnboardResult.PERFORMED_WITH_ERRORS:
-        process_device_info_csv(args.apikey, args.devinfo, args.res,
+        process_device_info_csv(args.api_key, args.devinfo, args.res,
                               args.set_mfwv, args.name_imei, args.name_prefix)
 
     return
