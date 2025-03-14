@@ -246,10 +246,6 @@ def get_device_uuid(attest_tok):
     return format_uuid(body_obj[1].hex())
 
 def main(in_args):
-
-    if not len(sys.argv) > 1:
-        raise RuntimeError("No input provided")
-
     args = parse_args(in_args)
 
     if len(args.keygen) > 0:
