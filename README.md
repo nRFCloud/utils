@@ -26,11 +26,21 @@ See [Usage](USAGE.md).
 
 ## Development installation
 
+Clone the repository:
+
+    git clone https://github.com/nRFCloud/utils.git nrfcloud-utils
+    cd nrfcloud-utils
+
 For development mode, you need [poetry](https://python-poetry.org/):
 
     curl -sSL https://install.python-poetry.org | python3 -
 
-Install package dependencies, development dependencies, and the nrfcredstore itself into poetry's internal virtual environment:
+Make sure `poetry` is in your PATH. If you're using `bash`:
+
+    echo 'export PATH=/home/$USER/.local/bin:$PATH' | tee -a ~/.bashrc
+    source ~/.bashrc
+
+Install package dependencies, development dependencies, and the nrfcloud-utils into poetry's internal virtual environment:
 
     poetry install
 
