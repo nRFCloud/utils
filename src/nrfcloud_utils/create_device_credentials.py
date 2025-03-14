@@ -40,7 +40,7 @@ def parse_args(in_args):
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM files.", default="./")
     parser.add_argument("-f", "--fileprefix", type=str, help="Prefix for output files", default="")
     parser.add_argument("--csr", type=str, help="Filepath to CSR PEM from device", default="")
-    parser.add_argument("--embed_save", action='store_true',
+    parser.add_argument("--embed-save", action='store_true',
                         help="Save PEM files (client-cert.pem, private-key.pem, and ca-cert.pem) \
                               formatted to be used with the Kconfig option CONFIG_NRF_CLOUD_PROVISION_CERTIFICATES")
     args = parser.parse_args(in_args)

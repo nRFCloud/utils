@@ -114,20 +114,20 @@ def parse_args(in_args):
     parser.add_argument("--devinfo", type=str,
                         help="Filepath for device info CSV file which will contain the device ID, installed modem FW version, and IMEI",
                         default=None)
-    parser.add_argument("--devinfo_append",
+    parser.add_argument("--devinfo-append",
                         help="When saving device info CSV, append to it",
                         action='store_true', default=False)
     parser.add_argument("--replace",
                         help="When appending to onboarding or device info CSV files: if device ID exists in file, replace old data with current",
                         action='store_true', default=False)
-    parser.add_argument("--local_cert",
+    parser.add_argument("--local-cert",
                         help="Generate device cert and private key on the host machine, rather than on the device.",
                         action='store_true', default=False)
     parser.add_argument("--xonxoff",
                         help="Enable software flow control for serial connection",
 
                         action='store_true', default=False)
-    parser.add_argument("--rtscts_off",
+    parser.add_argument("--rtscts-off",
                         help="Disable hardware (RTS/CTS) flow control for serial connection",
                         action='store_true', default=False)
     parser.add_argument("--dsrdtr",
@@ -139,12 +139,12 @@ def parse_args(in_args):
     parser.add_argument("--rtt",
                         help="Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay",
                         action='store_true', default=False)
-    parser.add_argument("--cmd_type", default=CMD_TYPE_AT, choices=[CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL], type=str.lower,
+    parser.add_argument("--cmd-type", default=CMD_TYPE_AT, choices=[CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL], type=str.lower,
                     help=f"Specify the device command line type. '{CMD_TYPE_AT}' will use AT commands, '{CMD_TYPE_AT_SHELL}' will prefix AT commands with 'at ', and '{CMD_TYPE_TLS_SHELL}' will use TLS Credentials Shell commands.")
-    parser.add_argument("--jlink_sn", type=int,
+    parser.add_argument("--jlink-sn", type=int,
                         help="Serial number of J-Link device to use for RTT; optional",
                         default=None)
-    parser.add_argument("--mosh_rtt_hex", type=str, help="Optional filepath to RTT enabled Modem Shell hex file. If provided, device will be erased and programmed",
+    parser.add_argument("--mosh-rtt-hex", type=str, help="Optional filepath to RTT enabled Modem Shell hex file. If provided, device will be erased and programmed",
                         default="")
     parser.add_argument("--verify",
                         help="Confirm credentials have been installed",

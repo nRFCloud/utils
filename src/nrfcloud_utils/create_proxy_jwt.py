@@ -22,7 +22,7 @@ def parse_args(in_args):
                               Obtained from https://nrfcloud.com/#/manage-services",
                         default=None)
 
-    parser.add_argument("--team_id", type=str, required=True,
+    parser.add_argument("--team-id", type=str, required=True,
                         help="Required nRF Cloud Team ID; added to the aud claim. \
                               Your Team ID can be found at https://nrfcloud.com/#/teams",
                         default=None)
@@ -32,7 +32,7 @@ def parse_args(in_args):
                               This can be added if the associated request is servicing a single device",
                         default=None)
 
-    parser.add_argument("--days_valid", type=int, required=False,
+    parser.add_argument("--days-valid", type=int, required=False,
                         help="The number of days for which the JWT will be valid. \
                               Zero indicates no expiration.",
                         default=30)

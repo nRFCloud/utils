@@ -200,7 +200,7 @@ def parse_args(in_args):
     parser.add_argument("--ad",
                         help="Display all devices. Only specified device is displayed if used with --dev-id. Overrides --rd.",
                         action='store_true', default=False)
-    parser.add_argument("--tag_list",
+    parser.add_argument("--tag-list",
                         help="Display all tags (device groups) and prompt to select tag to use. Enabled for non-MODEM updates.",
                         action='store_true', default=False)
     parser.add_argument("--tag",

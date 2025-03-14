@@ -64,7 +64,7 @@ def parse_args(in_args):
     parser.add_argument("--xonxoff",
                         help="Enable software flow control for serial connection",
                         action='store_true', default=False)
-    parser.add_argument("--rtscts_off",
+    parser.add_argument("--rtscts-off",
                         help="Disable hardware (RTS/CTS) flow control for serial connection",
                         action='store_true', default=False)
     parser.add_argument("--dsrdtr",
@@ -73,7 +73,7 @@ def parse_args(in_args):
     parser.add_argument("--rtt",
                         help="Use RTT instead of serial. Requires application configured for RTT console",
                         action='store_true', default=False)
-    parser.add_argument("--jlink_sn", type=int,
+    parser.add_argument("--jlink-sn", type=int,
                         help="Serial number of J-Link device to use for RTT; optional",
                         default=None)
     parser.add_argument("--shell",

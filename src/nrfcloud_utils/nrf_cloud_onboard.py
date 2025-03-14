@@ -63,13 +63,13 @@ def parse_args(in_args):
     parser.add_argument("--devinfo", type=str,
                         help="Optional filepath to device info CSV file containing device ID, installed modem FW version, and IMEI",
                         default=None)
-    parser.add_argument("--set_mfwv",
+    parser.add_argument("--set-mfwv",
                         help="Set the modem FW version in the device's shadow. Requires --devinfo.",
                         action='store_true', default=False)
-    parser.add_argument("--name_imei",
+    parser.add_argument("--name-imei",
                         help="Use the device's IMEI as the friendly name. Requires --devinfo.",
                         action='store_true', default=False)
-    parser.add_argument("--name_prefix", type=str,
+    parser.add_argument("--name-prefix", type=str,
                         help="Prefix string for IMEI friendly name",
                         default=None)
     parser.add_argument("--stage", type=str,
