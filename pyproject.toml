@@ -15,13 +15,14 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.10"
 pyserial = "^3.5"
 cbor2 = "^5.4.2.post1"
 colorama = "^0.4.4"
-cryptography = "^42.0.2"
+cryptography = "^44.0.1"
 pynrfjprog = "^10.23.0"
-requests = "^2.27.1"
+requests = "^2.32.0"
+urllib3 = "^2.2.2"
 semver = "^3.0.0"
 pyjwt = "^2.3.0"
 
