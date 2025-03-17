@@ -320,7 +320,7 @@ def create_fota_job(api_key, json_payload_obj):
     req = FOTA_JOBS_BASE
 
     api_res = requests.post(req, json=json_payload_obj, headers=hdr)
-    if (api_res.status_code // 100) == 2:
+    if (api_res.status_code // 100) != 2:
             print_api_result('CreateFOTAJob API call failed', api_res, True)
     else:
         api_res_json = api_res.json()
