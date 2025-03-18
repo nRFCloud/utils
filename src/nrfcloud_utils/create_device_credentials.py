@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from cryptography import x509
+import uuid
 from cryptography.x509 import (
     Name,
     NameAttribute,
@@ -23,7 +24,8 @@ from cryptography.x509 import (
 )
 
 from nrfcloud_utils.cli_helpers import write_file
-import nrfcloud_utils.ca_certs
+from nrfcloud_utils import ca_certs
+from nrfcloud_utils.device_credentials_installer import save_onboarding_csv
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create Device Credentials")
@@ -43,9 +45,12 @@ def parse_args(in_args):
     parser.add_argument("--embed-save", action='store_true',
                         help="Save PEM files (client-cert.pem, private-key.pem, and ca-cert.pem) \
                               formatted to be used with the Kconfig option CONFIG_NRF_CLOUD_PROVISION_CERTIFICATES")
+    parser.add_argument("--csv", type=str,
+                        help="File path to store onboarding CSV file",
+                        default="onboard.csv")
     args = parser.parse_args(in_args)
     if len(args.csr) == 0 and len(args.cn) == 0:
-            parser.error("Common Name is required if CSR is not provided")
+        args.cn = str(uuid.uuid4())
     return args
 
 def load_csr(csr_pem_filepath):
@@ -188,6 +193,13 @@ def main(in_args):
         # save the AWS CA cert
         write_file(args.path, "ca-cert.pem",
                    embed_save_convert(ca_certs.aws_ca.encode('utf-8')))
+
+    if len(args.csv) > 0:
+        save_onboarding_csv(args.csv,
+        append=True, replace=False,
+        dev_id=common_name,
+        sub_type='', tags='', fw_types='',
+        dev=dev)
 
     return
 
