@@ -48,6 +48,11 @@ def parse_args(in_args):
     parser.add_argument("--csv", type=str,
                         help="File path to store onboarding CSV file",
                         default="onboard.csv")
+    parser.add_argument("--coap",
+                        help="Install the CoAP server root CA cert in addition to the AWS root CA cert",
+                        action='store_true', default=False)
+    parser.add_argument("--stage", type=str,
+                        help="For internal (Nordic) use only", default="")
     args = parser.parse_args(in_args)
     if len(args.csr) == 0 and len(args.cn) == 0:
         args.cn = str(uuid.uuid4())
@@ -192,7 +197,7 @@ def main(in_args):
     if args.embed_save:
         # save the AWS CA cert
         write_file(args.path, "ca-cert.pem",
-                   embed_save_convert(ca_certs.aws_ca.encode('utf-8')))
+                   embed_save_convert(ca_certs.get_ca_certs(args.coap, stage=args.stage).encode('utf-8')))
 
     if len(args.csv) > 0:
         save_onboarding_csv(args.csv,
