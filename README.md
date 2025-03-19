@@ -5,8 +5,6 @@ A common use-case is to register devices with your account or to run a fota job.
 
 The scripts in this repository mainly use endpoints in [the REST API](https://api.nrfcloud.com/v1).
 
-The scripts are gathered from various teams and organized according to their programmatic language: [Python](https://github.com/nRFCloud/utils/tree/master/python/modem-firmware-1.3%2B).
-
 See also the official [nRF Cloud documentation](https://docs.nordicsemi.com/bundle/nrf-cloud/page/index.html).
 
 ## Install
@@ -48,7 +46,7 @@ Congratulations! You have successfully registered your device. When compiling wi
     CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
     CONFIG_NRF_CLOUD_SEC_TAG=16842753
 
-For a more detailed overview of the scripts, see [Advanced Usage](ADVANCED.md). There, you can also find details on how to use the Provisioning Service instead of provisioning your devices locally.
+For a more detailed overview of the scripts, see [Advanced Usage](https://github.com/nRFCloud/utils/blob/main/ADVANCED.md). There, you can also find details on how to use the Provisioning Service instead of provisioning your devices locally.
 
 ## Development installation
 

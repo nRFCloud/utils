@@ -1,11 +1,12 @@
 # Python Utilities for Working with Modem Firmware v1.3+
 
-[Modem firmware v1.3 and later](https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK/Download#infotabs) provide new [AT security commands](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fref_at_commands%2FREF%2Fat_commands%2Fintro.html), including `KEYGEN` and `ATTESTTOKEN`, which are the focus of these Python scripts.
+[Modem firmware v1.3 and later](https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK/Download#infotabs) is required on the device for these scripts to work correctly.
+This requirement is fulfilled implicitly when using nRF9151 and nRF9161 devices.
 
-The goal of these scripts is to help users provision devices with the credentials needed to connect with nRF Cloud, create FOTA jobs, and onboard devices to a specific nRF Cloud account. For more information see: [Security](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/external_comp/nrf_cloud.html#security).
+The goal of these scripts is to help users provision devices with the credentials needed to connect with nRF Cloud, create FOTA jobs, and onboard devices to your nRF Cloud account. For more information see: [Security](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/external_comp/nrf_cloud.html#security).
 
 # Create CA Cert
-This script creates a self-signed CA certificate and an associated EC keypair.   The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials.  The specific values that you specify for the various options are not important, though it is recommended to use reasonable and accurate values for country code, state or province, locality, organization and its unit.  The number of days valid defaults to 10 years.  The common name could be your company domain name or something similar.
+This script creates a self-signed CA certificate and an associated EC keypair. The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials. The specific values that you specify for the various options are not important, though it is recommended to use reasonable and accurate values for country code, state or province, locality, organization and its unit. The number of days valid defaults to 10 years.  The common name could be your company domain name or something similar.
 
 The output file name format is as follows:
 `<your_prefix><CA_serial_number_hex>_ca.pem`
@@ -23,10 +24,8 @@ File created: /some/path/my_ca/0x48a2b0c9862ffe08d709864f576caa0a9ff9bfbf_pub.pe
 
 # Device Credentials Installer
 
-This script automates the process of generating and programming device credentials to a device such as a Thingy:91 or 9160DK running an nRF Connect SDK application containing the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html).
+This script automates the process of generating and programming device credentials to a device such as a Thingy:91 X or nRF9151-DK running an nRF Connect SDK application containing the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html).
 The [AT Client sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/at_client) is the simplest implementation of the AT Host library.
-
-It can also be used on an [LTE gateway](https://github.com/nRFCloud/lte-gateway), by interacting with the built-in shell.
 
 Use the `create_ca_cert.py` script to generate the required CA certificate and CA key before running this script.
 
@@ -36,11 +35,11 @@ You do not need to use them directly unless `device_credentials_installer.py` do
 By default, this script will attempt to connect to the device using a serial connection.
 Depending on your device hardware and firmware application, you may need to use one or more of the following parameters:
 `xonxoff`, `rtscts_off`, `dsrdtr`, `term`.
-**Note**: if only a single supported device is detected on a serial port, it will be automatically selected and used. Otherwise, the script displays a list of detected devices and gives the user a choice of which to use.
+**Note**: if only a single supported device is detected on a serial port, it will be automatically selected and used. Otherwise, the script displays a list of detected devices and gives the user a choice of which to use. By default, the scripts filter for Nordic devices. You can use the `--all` option to disable that.
 
 If the `rtt` option is specified, communication will be performed using [SEGGER's RTT](https://www.segger.com/products/debug-probes/j-link/technology/about-real-time-transfer/) interface.
 To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/modem_shell) sample application [built with the RTT overlay](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/samples/cellular/modem_shell/README.html#segger-rtt-support).
-This script will optionally flash the modem shell application on startup if a hex file path is provided with the `mosh_rtt_hex` option.
+This script will optionally flash the modem shell application on startup if a hex file path is provided with the `mosh-rtt-hex` option.
 
 In addition to the device specific credentials, this script will install the CA certificate(s) necessary for connecting to nRF Cloud.
 By default, the script will install the AWS root CA.
@@ -74,12 +73,12 @@ nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
 If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
 
 # Modem Credentials Parser
-The script above, `device_credentials_installer.py` makes use of this script, `modem_credentials_parser.py`, so if you use the former, you do not need to also follow the directions below.  If `device_credentials_installer.py` does not meet your needs, you can use `modem_credentials_parser.py` directly to take advantage of additional options.
+The script above, `device_credentials_installer.py` makes use of this script, `modem_credentials_parser.py`, so if you use the former, you do not need to also follow the directions below. If `device_credentials_installer.py` does not meet your needs, you can use `modem_credentials_parser.py` directly to take advantage of additional options.
 
-This script parses the output of `AT%KEYGEN` and `AT%ATTESTTOKEN`.   Each command outputs two base64 strings joined by a `.` character.  The first string is the command specific data.  The second string is the [COSE](https://datatracker.ietf.org/doc/html/rfc8152) signature of the first string.
-The parsed data is displayed in the output.  Providing the COSE string to this script is optional, as it is only used to display extra information.  When providing `AT%KEYGEN` output, PEM files can be optionally saved.
+This script parses the output of `AT%KEYGEN` and `AT%ATTESTTOKEN`. Each command outputs two base64 strings joined by a `.` character. The first string is the command specific data. The second string is the [COSE](https://datatracker.ietf.org/doc/html/rfc8152) signature of the first string.
+The parsed data is displayed in the output. Providing the COSE string to this script is optional, as it is only used to display extra information.  When providing `AT%KEYGEN` output, PEM files can be optionally saved.
 
-Parse modem [KEYGEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/keygen_set.html) output; with or without COSE string:
+Parse modem [KEYGEN](https://docs.nordicsemi.com/bundle/ref_at_commands_nrf91x1/page/REF/at_commands/security/keygen_set.html) output; with or without COSE string:
 
 `modem_credentials_parser -k <base64url AT%KEYGEN output>`
 
@@ -89,7 +88,7 @@ Parse modem keygen output and save PEM file(s); COSE string is required:
 
 `modem_credentials_parser -k <base64url AT%KEYGEN output> -p <my_output_path> -f <my_file_prefix>`
 
-Parse modem [ATTESTTOKEN](https://infocenter.nordicsemi.com/topic/ref_at_commands/REF/at_commands/security/attesttoken_set.html) output; with or without COSE string:
+Parse modem [ATTESTTOKEN](https://docs.nordicsemi.com/bundle/ref_at_commands_nrf91x1/page/REF/at_commands/security/attesttoken_set.html) output; with or without COSE string:
 
 `modem_credentials_parser -a <base64url AT%ATTESTTOKEN output>`
 
