@@ -146,6 +146,9 @@ def parse_args(in_args):
                         action='store_true', default=False)
     parser.add_argument("--stage", type=str,
                         help="For internal (Nordic) use only", default="")
+    parser.add_argument("--local-cert-file", type=str,
+                        help="Filepath to a local certificate (PEM) to use for the device",
+                        default="")
     args = parser.parse_args(in_args)
     return args
 
@@ -445,9 +448,9 @@ def main(in_args):
         print(local_style('OS detect: Linux={}, MacOS={}, Windows={}'.
                           format(is_linux, is_macos, is_windows)))
 
-    if args.cmd_type == CMD_TYPE_TLS_SHELL and not args.local_cert:
+    if args.cmd_type == CMD_TYPE_TLS_SHELL and not (args.local_cert or args.local_cert_file):
         # This check can be removed once the TLS Credential Shell supports CSR generation.
-        print(error_style(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert"))
+        print(error_style(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file"))
         cleanup()
         sys.exit(0)
 
@@ -558,7 +561,7 @@ def main(in_args):
     dev_id = custom_dev_id
     prv_bytes, dev_bytes = get_existing_credentials(args, dev_id)
 
-    if prv_bytes is None:
+    if prv_bytes is None and args.local_cert_file is None:
         # now get a new certificate signing request (CSR)
         print(local_style('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag)))
 
@@ -627,6 +630,23 @@ def main(in_args):
         if args.save:
             print(local_style('Saving pub key...'))
             write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub_bytes)
+    elif args.local_cert_file:
+        if not os.path.isfile(args.local_cert_file):
+            print(error_style(f'Local certificate file {args.local_cert_file} does not exist'))
+            cleanup()
+            sys.exit(11)
+
+        with open(args.local_cert_file, 'r') as f:
+            dev_bytes = f.read()
+
+        if args.delete:
+            print(local_style('Deleting sectag {}...'.format(args.sectag)))
+            cred_if.delete_credential(args.sectag, 1)
+        cred_if.write_credential(args.sectag, 1, dev_bytes)
+        if rtt:
+            rtt.close()
+        cleanup()
+        sys.exit(0)
     else:
         print(local_style('Using existing private key and device certificate...'))
 
