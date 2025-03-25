@@ -23,9 +23,8 @@ from cryptography.x509 import (
     SubjectKeyIdentifier,
 )
 
-from nrfcloud_utils.cli_helpers import write_file
+from nrfcloud_utils.cli_helpers import write_file, save_onboarding_csv
 from nrfcloud_utils import ca_certs
-from nrfcloud_utils.device_credentials_installer import save_onboarding_csv
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create Device Credentials")
