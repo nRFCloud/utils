@@ -15,6 +15,7 @@ import semver
 from nrfcloud_utils import create_device_credentials, ca_certs, rtt_interface
 from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles, write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding
 from nrfcloud_utils.command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
+from nrfcloud_utils.nordic_boards import usb_patterns
 
 from serial.tools import list_ports
 from cryptography import x509
@@ -158,16 +159,7 @@ def ask_for_port(selected_port, list_all):
     global is_gateway
     ports = []
     dev_types = []
-    usb_patterns = [(r'THINGY91', 'Thingy:91', False),
-                    (r'PCA20035', 'Thingy:91', False),
-                    (r'0010550',  'Thingy:91 X', False),
-                    (r'0010551',  'Thingy:91 X', False),
-                    (r'0010513',  'Thingy:91 X', False),
-                    (r'0009600',  'nRF9160-DK', False),
-                    (r'0010509',  'nRF9161-DK', False),
-                    (r'0010512',  'nRF9151-DK', False),
-                    (r'0009601',  'nRF5340-DK', False),
-                    (r'NRFBLEGW', 'nRF Cloud Gateway', True)]
+
     if selected_port == None and not list_all:
         pattern = r'SER=(' + r'|'.join(name[0] for name in usb_patterns) + r')'
         print(local_style('Available ports:'))

@@ -13,6 +13,7 @@ import argparse
 import platform
 from nrfcloud_utils import modem_credentials_parser, rtt_interface
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
+from nrfcloud_utils.nordic_boards import usb_patterns
 from serial.tools import list_ports
 from datetime import datetime, timezone
 from colorama import init, Fore, Back, Style
@@ -110,15 +111,7 @@ def ask_for_port(selected_port, list_all):
     """
     ports = []
     dev_types = []
-    usb_patterns = [(r'THINGY91', 'Thingy:91', False),
-                    (r'PCA20035', 'Thingy:91', False),
-                    (r'0010550',  'Thingy:91 X', False),
-                    (r'0010551',  'Thingy:91 X', False),
-                    (r'0010513',  'Thingy:91 X', False),
-                    (r'0009600',  'nRF9160-DK', False),
-                    (r'0010509',  'nRF9161-DK', False),
-                    (r'0010512',  'nRF9151-DK', False),
-                    (r'NRFBLEGW', 'nRF Cloud Gateway', True)]
+
     if selected_port == None and not list_all:
         pattern = r'SER=(' + r'|'.join(name[0] for name in usb_patterns) + r')'
         print(send_style('Available ports:'))
