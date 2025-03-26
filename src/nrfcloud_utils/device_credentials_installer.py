@@ -149,6 +149,9 @@ def parse_args(in_args):
     parser.add_argument("--local-cert-file", type=str,
                         help="Filepath to a local certificate (PEM) to use for the device",
                         default="")
+    parser.add_argument("--cert-type", type=int,
+                        help="Certificate type to use for the device",
+                        default=1)
     args = parser.parse_args(in_args)
     return args
 
@@ -641,8 +644,8 @@ def main(in_args):
 
         if args.delete:
             print(local_style('Deleting sectag {}...'.format(args.sectag)))
-            cred_if.delete_credential(args.sectag, 1)
-        cred_if.write_credential(args.sectag, 1, dev_bytes)
+            cred_if.delete_credential(args.sectag, args.cert_type)
+        cred_if.write_credential(args.sectag, args.cert_type, dev_bytes)
         if rtt:
             rtt.close()
         cleanup()
