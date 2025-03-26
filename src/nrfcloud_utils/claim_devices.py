@@ -12,11 +12,8 @@ import json
 import argparse
 import platform
 from nrfcloud_utils import nrf_cloud_diap
-from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles
+from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles, is_linux, is_windows, is_macos
 
-is_macos = platform.system() == 'Darwin'
-is_windows = platform.system() == 'Windows'
-is_linux = platform.system() == 'Linux'
 verbose = False
 args = None
 IMEI_LEN = 15

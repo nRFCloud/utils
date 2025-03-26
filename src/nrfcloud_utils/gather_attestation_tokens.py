@@ -12,6 +12,7 @@ import serial
 import argparse
 import platform
 from nrfcloud_utils import modem_credentials_parser, rtt_interface
+from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
 from serial.tools import list_ports
 from datetime import datetime, timezone
 from colorama import init, Fore, Back, Style
@@ -22,9 +23,6 @@ CMD_TERM_DICT = {'NULL': '\0',
                  'CRLF': '\r\n'}
 # 'CR' is the default termination value for the at_host library in the nRF Connect SDK
 cmd_term_key = 'CR'
-is_macos = platform.system() == 'Darwin'
-is_windows = platform.system() == 'Windows'
-is_linux = platform.system() == 'Linux'
 full_encoding = 'mbcs' if is_windows else 'ascii'
 lf_done = False
 plain = False
