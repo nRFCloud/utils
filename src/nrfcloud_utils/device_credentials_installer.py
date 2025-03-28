@@ -148,7 +148,7 @@ def parse_args(in_args):
                         help="For internal (Nordic) use only", default="")
     parser.add_argument("--local-cert-file", type=str,
                         help="Filepath to a local certificate (PEM) to use for the device",
-                        default="")
+                        default=None)
     parser.add_argument("--cert-type", type=int,
                         help="Certificate type to use for the device",
                         default=1)
