@@ -51,6 +51,9 @@ def parse_args(in_args):
     parser.add_argument("--port", type=str,
                         help="Specify which serial port to open, otherwise pick from list",
                         default=None)
+    parser.add_argument("--baud", type=int,
+                        help="Baud rate for serial port",
+                        default=115200)
     parser.add_argument("-A", "--all",
                         help="List ports of all types, not just Nordic devices",
                         action='store_true', default=False)
@@ -417,7 +420,7 @@ def main(in_args):
 
         # try to open the serial port
         try:
-                ser = serial.Serial(port, 115200, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
+                ser = serial.Serial(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
                                 dsrdtr=args.dsrdtr, timeout=serial_timeout)
                 ser.reset_output_buffer()
                 write_line('')
