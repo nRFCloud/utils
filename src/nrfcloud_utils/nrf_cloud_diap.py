@@ -70,9 +70,8 @@ def get_create_prov_cmd_req(dev_uuid):
     global api_url
     return f'{api_url}{CLAIMED_DEV}/{dev_uuid}/{PROV}'
 
-def create_provisioning_cmd_client_cert(api_key, dev_uuid, cert_pem,
-                                        description='Update client cert',
-                                        sec_tag=16842753):
+def create_provisioning_cmd_cert(api_key, dev_uuid, cert_pem, description, cert_type,
+                                 sec_tag=16842753):
     global api_url
 
     payload = {}
@@ -84,12 +83,26 @@ def create_provisioning_cmd_client_cert(api_key, dev_uuid, cert_pem,
     cert_obj['content'] = cert_pem
     cert_obj['secTag'] = sec_tag
 
-    request['clientCertificate'] = cert_obj
+    request[cert_type] = cert_obj
 
     payload['description'] = description
     payload['request'] = request
 
     return requests.post(req, json=payload, headers=get_auth_header(api_key))
+
+def create_provisioning_cmd_client_cert(api_key, dev_uuid, cert_pem,
+                                        description='Update client cert',
+                                        sec_tag=16842753):
+    return create_provisioning_cmd_cert(api_key, dev_uuid, cert_pem,
+                                        description, 'clientCertificate',
+                                        sec_tag)
+
+def create_provisioning_cmd_server_cert(api_key, dev_uuid, cert_pem,
+                                        description='Update server cert',
+                                        sec_tag=16842753):
+    return create_provisioning_cmd_cert(api_key, dev_uuid, cert_pem,
+                                        description, 'serverCertificate',
+                                        sec_tag)
 
 def create_provisioning_cmd_finished(api_key, dev_uuid, description='Provisioning complete'):
     global api_url

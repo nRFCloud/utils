@@ -77,9 +77,6 @@ def parse_args(in_args):
     parser.add_argument("--csr-attr", type=str,
                         help="CSR attributes. Do not include CN (common name), the device ID will be used",
                         default="")
-    parser.add_argument("--install-ca",
-                        help="Install the AWS root CA cert",
-                        action='store_true', default=False)
     parser.add_argument("--coap",
                         help="Install the CoAP server root CA cert in addition to the AWS root CA cert",
                         action='store_true', default=False)
@@ -333,10 +330,6 @@ def main(in_args):
     if not retval:
         error_exit(ser, 'Unable to communicate')
 
-    # write CA cert(s) to modem
-    if args.install_ca or args.coap:
-            install_ca_certs(args.sectag, args.stage, args.coap, args.noshell)
-
     attest_tok = args.attest
     if not attest_tok:
         # get attestation token
@@ -474,9 +467,15 @@ def main(in_args):
     if not prov_id:
         error_exit(ser, 'Failed to obtain provisioning cmd ID')
 
-    # TODO: create provisioning command to install AWS root CA?
-    #       currently, provisioning client does not support large CAs,
-    #       such as the AWS root CA.
+    # create provisioning command to install server cert
+    print(local_style('\nCreating provisioning command (server cert)...'))
+    server_cert = ca_certs.get_ca_certs(args.coap, args.stage)
+    api_res = nrf_cloud_diap.create_provisioning_cmd_server_cert(args.api_key, dev_uuid,
+                                                                 server_cert,
+                                                                 sec_tag=args.sectag)
+    nrf_cloud_diap.print_api_result("Prov cmd client cert response", api_res, args.verbose)
+    if api_res.status_code != 201:
+        error_exit(ser, 'CreateDeviceProvisioningCommand API call failed')
 
     # create provisioning finished command
     print(local_style('\nCreating provisioning command (finished)...'))
