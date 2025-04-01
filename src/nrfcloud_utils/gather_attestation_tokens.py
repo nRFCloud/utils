@@ -8,13 +8,11 @@ import sys
 import csv
 import time
 import json
-import serial
 import argparse
 import platform
 from nrfcloud_utils import modem_credentials_parser, rtt_interface
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
-from nrfcloud_utils.nordic_boards import ask_for_port
-from serial.tools import list_ports
+from nrfcloud_utils.nordic_boards import ask_for_port, get_serial_port
 from datetime import datetime, timezone
 from colorama import init, Fore, Back, Style
 
@@ -349,15 +347,8 @@ def main(in_args):
         print(local_style('Selected serial port: {}'.format(port)))
 
         # try to open the serial port
-        try:
-            ser = serial.Serial(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
-                            dsrdtr=args.dsrdtr, timeout=serial_timeout)
-            ser.reset_output_buffer()
-            write_line('')
-            time.sleep(0.2)
-            ser.reset_input_buffer()
-        except serial.serialutil.SerialException:
-            error_exit('Port could not be opened; not a device, or open already')
+        ser = get_serial_port(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
+                            dsrdtr=args.dsrdtr)
 
     # get attestation token
     attest_tok = get_attestation_token()

@@ -9,15 +9,13 @@ import re
 import os
 import sys
 import csv
-import serial
 import getpass
 import semver
 from nrfcloud_utils import create_device_credentials, ca_certs, rtt_interface
 from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles, write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding
 from nrfcloud_utils.command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
-from nrfcloud_utils.nordic_boards import ask_for_port
+from nrfcloud_utils.nordic_boards import ask_for_port, get_serial_port
 
-from serial.tools import list_ports
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
@@ -420,15 +418,8 @@ def main(in_args):
                                                     else 'generic device')))
 
         # try to open the serial port
-        try:
-            ser = serial.Serial(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
-                                dsrdtr=args.dsrdtr, timeout=serial_timeout)
-            ser.reset_input_buffer()
-            ser.reset_output_buffer()
-        except serial.serialutil.SerialException:
-            sys.stderr.write(error_style('Port could not be opened; not a device, or open already\n'))
-            sys.exit(5)
-
+        ser = get_serial_port(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
+                            dsrdtr=args.dsrdtr)
         # for gateways, get to the AT command prompt first
         if is_gateway:
             print(local_style('Getting to prompt...'))

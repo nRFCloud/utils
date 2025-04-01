@@ -7,7 +7,6 @@ import os
 import sys
 import time
 import json
-import serial
 import argparse
 import platform
 from nrfcloud_utils import (
@@ -19,10 +18,9 @@ from nrfcloud_utils import (
     create_device_credentials
 )
 from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles, is_linux, is_windows, is_macos
-from serial.tools import list_ports
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
-from nrfcloud_utils.nordic_boards import ask_for_port
+from nrfcloud_utils.nordic_boards import ask_for_port, get_serial_port
 
 full_encoding = 'mbcs' if is_windows else 'ascii'
 serial_timeout = 1
@@ -100,8 +98,7 @@ def parse_args(in_args):
     parser.add_argument("--prov-hex", type=str, help="Filepath to nRF Provisioning sample hex file",
                         default="")
     parser.add_argument("--api-key", type=str,
-                        help="API key",
-                        default=None)
+                        help="API key", required=True)
     parser.add_argument("--stage", type=str, help="For internal (Nordic) use only", default="")
     parser.add_argument("--attest", type=str,
                         help="Attestation token base64 string (AT%%ATTESTTOKEN result)",
@@ -326,13 +323,8 @@ def main(in_args):
     print(local_style('Selected serial port: {}'.format(port)))
 
     # try to open the serial port
-    try:
-        ser = serial.Serial(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
-                            dsrdtr=args.dsrdtr, timeout=serial_timeout)
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
-    except serial.serialutil.SerialException:
-        error_exit(ser, 'Port could not be opened; not a device, or open already')
+    ser = get_serial_port(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
+                          dsrdtr=args.dsrdtr)
 
     # disable modem, just so the provisioning client doesn't try to do anything...
     print(local_style('\nDisabling modem...'))

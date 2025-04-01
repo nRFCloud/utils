@@ -1,6 +1,10 @@
 from serial.tools import list_ports
+import serial
 from collections import defaultdict
 import sys
+import time
+
+serial_timeout = 1
 
 # Some Nordic boards have their main serial port on the second interface.
 # Serial number prefix, display name, main_port
@@ -87,3 +91,16 @@ def ask_for_port(list_all):
             continue
         name, serial, port = ports[index]
         return port.device
+
+def get_serial_port(port, baud, xonxoff, rtscts, dsrdtr):
+    try:
+        ser = serial.Serial(port, baud, xonxoff= xonxoff, rtscts=rtscts,
+                        dsrdtr=dsrdtr, timeout=serial_timeout)
+        ser.reset_output_buffer()
+        ser.write(b'\r\n')
+        time.sleep(0.2)
+        ser.reset_input_buffer()
+    except serial.serialutil.SerialException:
+        sys.stderr.write('Port could not be opened; not a device, or open already.\n')
+        sys.exit(1)
+    return ser
