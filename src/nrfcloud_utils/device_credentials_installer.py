@@ -15,7 +15,7 @@ import semver
 from nrfcloud_utils import create_device_credentials, ca_certs, rtt_interface
 from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles, write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding
 from nrfcloud_utils.command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
-from nrfcloud_utils.nordic_boards import usb_patterns
+from nrfcloud_utils.nordic_boards import ask_for_port
 
 from serial.tools import list_ports
 from cryptography import x509
@@ -157,83 +157,6 @@ def parse_args(in_args):
                         default=1)
     args = parser.parse_args(in_args)
     return args
-
-
-def ask_for_port(selected_port, list_all):
-    """
-    Show a list of ports and ask the user for a choice, unless user specified
-    a specific port on the command line. To make selection easier on systems
-    with long device names, also allow the input of an index.
-    """
-    global is_gateway
-    ports = []
-    dev_types = []
-
-    if selected_port == None and not list_all:
-        pattern = r'SER=(' + r'|'.join(name[0] for name in usb_patterns) + r')'
-        print(local_style('Available ports:'))
-    else:
-        pattern = r''
-
-    port_num = 1
-    for n, (port, desc, hwid) in enumerate(sorted(list_ports.grep(pattern)), 1):
-
-        if not is_macos:
-            # if a specific port is not requested, filter out ports with
-            # LOCATION in hwid that do not end in '.0' because these are
-            # usually not the logging or shell ports
-            if selected_port == None and not list_all and 'LOCATION' in hwid:
-                if hwid[-2] != '.' or hwid[-1] != '0':
-                    if verbose:
-                        print(local_style('Skipping: {:2}: {:20} {!r} {!r}'.
-                                          format(port_num, port, desc, hwid)))
-                    continue
-        else:
-            # if a specific port not requested, filter out ports whose /dev
-            # does not end in a 1
-            if selected_port == None and not list_all and port[-1] != '1':
-                if verbose:
-                    print(local_style('Skipping: {:2}: {:20} {!r} {!r}'.
-                                      format(port_num, port, desc, hwid)))
-                continue
-
-        name = ''
-        is_gateway = False
-        for nm in usb_patterns:
-            if nm[0] in hwid:
-                name = nm[1]
-                is_gateway = nm[2]
-                break
-
-        if selected_port != None:
-            if selected_port == port:
-                return port
-        else:
-            print(local_style('{:2}: {:20} {:17}'.format(port_num, port, name)))
-            if verbose:
-                print(local_style('  {!r} {!r}'.format(desc, hwid)))
-
-            ports.append(port)
-            dev_types.append(is_gateway)
-            port_num += 1
-
-    if len(ports) == 0:
-        sys.stderr.write(error_style('No device found\n'))
-        return None
-    if len(ports) == 1:
-        return ports[0]
-    while True:
-        port = input('--- Enter port index: ')
-        try:
-            index = int(port) - 1
-            if not 0 <= index < len(ports):
-                sys.stderr.write(error_style('--- Invalid index!\n'))
-                continue
-        except ValueError:
-            pass
-        else:
-            port = ports[index]
-        return port
 
 def write_line(line, hidden = False):
     global cmd_term_key
@@ -482,7 +405,10 @@ def main(in_args):
         ser = None
     else:
         # get a serial port to use
-        port = ask_for_port(args.port, args.all)
+        if args.port:
+            port = args.port
+        else:
+            port = ask_for_port(args.all)
         if port == None:
             sys.exit(4)
 
