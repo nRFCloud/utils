@@ -43,6 +43,7 @@ You can also install credentials on many devices in a row using the `--append` o
 
 Congratulations! You have successfully registered your device. When compiling with the nRF Cloud Libraries, make sure to use the correct KConfig options:
 
+    CONFIG_MODEM_JWT=y
     CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
     CONFIG_NRF_CLOUD_SEC_TAG=16842753
 
