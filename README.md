@@ -1,4 +1,4 @@
-# nRF Cloud Utilities
+# nRF Cloud Utils
 
 nRF Cloud Utils is a script collection to make it easier to interface with nRF Cloud.
 A common use-case is to register devices with your account or to run a fota job.
