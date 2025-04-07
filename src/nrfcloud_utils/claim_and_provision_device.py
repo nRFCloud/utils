@@ -230,34 +230,6 @@ def wait_for_cmd_status(api_key, dev_uuid, cmd_id, verbose=False):
 
         return api_result_json.get('response')
 
-def install_ca_certs(sectag, stage, install_coap, no_shell):
-    print(local_style('Installing CA cert(s)...'))
-    modem_ca = ca_certs.get_ca_certs(install_coap, stage=stage)
-
-    if not no_shell:
-        # provisioning client shell requires specific formatting
-        modem_ca = modem_ca.replace('-----BEGIN CERTIFICATE-----\n',
-                                    '-----BEGIN CERTIFICATE-----\\015\\012')
-        modem_ca = modem_ca.replace('\n-----END CERTIFICATE-----\n',
-                                    '\\015\\012-----END CERTIFICATE-----\\015\\012')
-        modem_ca = modem_ca.replace('\n', '')
-
-    # delete first, then write CA
-    write_at_cmd(at_cmd_prefix, 'AT%CMNG=3,{},0'.format(sectag))
-    wait_for_prompt(b'OK', b'ERROR')
-
-    write_at_cmd(at_cmd_prefix, 'AT%CMNG=0,{},0,"{}"'.format(sectag, modem_ca))
-    retval, output = wait_for_prompt(b'OK')
-
-    if not retval:
-        print(error_style('CA cert installation failed'))
-        print(local_style('Ensure provisioning firmware is built with large RX buffers:\n'
-                          '\tCONFIG_NRF_PROVISIONING_RX_BUF_SZ=2048\n'
-                          '\tCONFIG_SHELL_BACKEND_SERIAL_RX_RING_BUFFER_SIZE=2048\n'
-                          '\tCONFIG_SHELL_CMD_BUFF_SIZE=2048'))
-
-    return retval
-
 def main(in_args):
     global ser
     global at_cmd_prefix
