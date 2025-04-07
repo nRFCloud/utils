@@ -377,7 +377,6 @@ def main(in_args):
 
     print(local_style('Done.'))
     cleanup()
-    sys.exit(0)
 
 def run():
     main(sys.argv[1:])
