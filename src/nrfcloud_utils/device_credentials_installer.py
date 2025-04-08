@@ -289,7 +289,7 @@ def check_mfw_version():
 
     if parsed_ver is None:
         print(error_style('Unexpected modem FW version format... continuing'))
-    elif semver.compare(parsed_ver, MIN_REQD_MFW_VER) < 0:
+    elif semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER) < 0:
         print(error_style(f'Modem FW version must be >= {MIN_REQD_MFW_VER}'))
         cleanup()
         sys.exit(8)
@@ -599,7 +599,7 @@ def main(in_args):
         # AT-command-based SHA check has a modem firmware version requirement
         if (cmd_type_has_at):
             parsed_ver = parse_mfw_ver(mfw_ver)
-            if parsed_ver and semver.compare(parsed_ver, MIN_REQD_MFW_VER_FOR_VERIFY) < 0:
+            if parsed_ver and semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER_FOR_VERIFY) < 0:
                 print(error_style('Skipping SHA verification, ' +
                                 f'modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}'))
                 check_sha = False
