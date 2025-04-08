@@ -349,7 +349,7 @@ def main(in_args):
     elif args.provisioning_tags is not None:
         print(local_style('Done. It is assumed the provisioning tags complete the process over the air.'))
         cleanup(ser)
-        sys.exit(0)
+        return
 
     # get the device ID
     device_id = ''
@@ -493,7 +493,6 @@ def main(in_args):
 
     print(local_style('Done.'))
     cleanup(ser)
-    sys.exit(0)
 
 def run():
     main(sys.argv[1:])
