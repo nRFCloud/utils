@@ -66,19 +66,10 @@ class TestCreateCACert:
             assert cert.subject.get_attributes_for_oid(x509.NameOID.EMAIL_ADDRESS)[0].value == "foo@nrfcloud.com"
 
             # check the times
-            assert cert.not_valid_after - cert.not_valid_before == datetime.timedelta(days=365)
+            assert cert.not_valid_after_utc - cert.not_valid_before_utc == datetime.timedelta(days=365)
             # not_valid_before should be in the past and not longer than an hour ago
-            not_valid_before_utc = datetime.datetime(
-                cert.not_valid_before.year,
-                cert.not_valid_before.month,
-                cert.not_valid_before.day,
-                cert.not_valid_before.hour,
-                cert.not_valid_before.minute,
-                cert.not_valid_before.second,
-                tzinfo=datetime.timezone.utc
-            )
-            assert not_valid_before_utc < datetime.datetime.now(datetime.timezone.utc)
-            assert not_valid_before_utc > (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1))
+            assert cert.not_valid_before_utc < datetime.datetime.now(datetime.timezone.utc)
+            assert cert.not_valid_before_utc > (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1))
 
             # check the keys
             assert cert.issuer == cert.subject
