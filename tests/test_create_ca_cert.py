@@ -75,6 +75,3 @@ class TestCreateCACert:
             assert cert.issuer == cert.subject
             assert cert.public_key().public_numbers() == public_key.public_numbers()
             assert private_key.public_key().public_numbers() == public_key.public_numbers()
-
-
-
