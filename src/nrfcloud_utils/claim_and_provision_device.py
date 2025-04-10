@@ -392,7 +392,13 @@ def main(in_args):
 
     # reset the device since we disabled the modem
     print(send_style('Resetting device'))
-    rtt_interface.reset_device(args.jlink_sn)
+    if args.noshell:
+        try:
+            rtt_interface.reset_device(args.jlink_sn)
+        except:
+            print(error_style('Failed to reset device using RTT interface'))
+    else:
+        write_line('kernel reboot warm')
     # wait for device to boot and process the command
     print(local_style('Waiting for device to process command...'))
     cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, prov_id, args.verbose)
