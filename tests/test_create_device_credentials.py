@@ -40,11 +40,13 @@ def import_result_files(tmp_dir, expect_private_key):
 class TestCreateCACert:
     def test_minimal_args(self):
         with TemporaryDirectory() as tmp_dir:
+            csv_file = os.path.join(tmp_dir, 'onboard.csv')
             create_device_credentials.main([
             "--ca", CA_FILE,
             "--ca-key", CA_KEY_FILE,
             "--cn", "test",
-            "--path", tmp_dir
+            "--path", tmp_dir,
+            "--csv", csv_file
             ])
             files = os.listdir(tmp_dir)
             files = [x for x in files if x.startswith("test")]
@@ -59,6 +61,7 @@ class TestCreateCACert:
 
     def test_full_args(self):
         with TemporaryDirectory() as tmp_dir:
+            csv_file = os.path.join(tmp_dir, 'onboard.csv')
             create_device_credentials.main([
                 "--ca", CA_FILE,
                 "--ca-key", CA_KEY_FILE,
@@ -71,6 +74,7 @@ class TestCreateCACert:
                 "-e", "bar@nrfcloud.com",
                 "--dv", "365",
                 "-f", "prefix-",
+                "--csv", csv_file,
                 "--path", tmp_dir
             ])
             files = os.listdir(tmp_dir)
@@ -102,10 +106,12 @@ class TestCreateCACert:
 
     def test_with_csr(self):
         with TemporaryDirectory() as tmp_dir:
+            csv_file = os.path.join(tmp_dir, 'onboard.csv')
             create_device_credentials.main([
                 "--ca", CA_FILE,
                 "--ca-key", CA_KEY_FILE,
                 "--csr", CSR_FILE,
+                "--csv", csv_file,
                 "--path", tmp_dir
             ])
             files = os.listdir(tmp_dir)
