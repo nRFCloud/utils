@@ -17,7 +17,6 @@ from cryptography import x509
 from nrfcloud_utils.cli_helpers import write_file
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 msg_type_dict = {
     1: 'Device identity message v1',
@@ -49,7 +48,15 @@ def parse_args(in_args):
     parser.add_argument("-s", "--save", action='store_true', help="Save PEM file(s): <UUID>_<sec_tag>_<type>.pem")
     parser.add_argument("-p", "--path", type=str, help="Path to save PEM file.  Selects -s", default="")
     parser.add_argument("-f", "--fileprefix", type=str, help="Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s", default="")
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     return args
 
 def base64_decode(string):
@@ -125,9 +132,9 @@ def parse_cose(cose_str, payload_digest=""):
 
     if len(payload_digest) > 0:
         if attest_obj[3].hex() == payload_digest:
-            logger.info("\nCOSE digest matches payload")
+            logger.info("COSE digest matches payload")
         else:
-            logger.info("\nCOSE digest does NOT match payload")
+            logger.info("COSE digest does NOT match payload")
     logger.info("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
 
     return dev_uuid_hex_str, sec_tag_str
@@ -181,18 +188,15 @@ def parse_keygen_output(keygen_str):
         # CSR loaded, logger.info it
         csr_pem_bytes = csr.public_bytes(serialization.Encoding.PEM)
         csr_pem_list = str(csr_pem_bytes.decode()).split('\n')
-        for line in csr_pem_list:
-            logger.info(line)
+        logger.info(csr_pem_bytes.decode().replace('\n', '\\n'))
 
         # Extract public key
         pub_key_bytes = csr.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
-    logger.info("Device public key:")
-    logger.info(pub_key_bytes.decode())
+    logger.info("Device public key: {}".format(pub_key_bytes.decode().replace('\n', '\\n')))
 
     payload_digest = hashlib.sha256(body_bytes).hexdigest()
-    logger.info("SHA256 Digest:")
-    logger.info(payload_digest)
+    logger.info(f"SHA256 Digest: {payload_digest}")
 
     # Get optional cose
     cose = ""

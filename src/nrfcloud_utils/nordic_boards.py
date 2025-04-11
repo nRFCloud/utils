@@ -6,7 +6,6 @@ import time
 import coloredlogs, logging
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 serial_timeout = 1
 

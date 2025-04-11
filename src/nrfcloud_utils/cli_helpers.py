@@ -20,7 +20,6 @@ is_linux = platform.system() == 'Linux'
 full_encoding = 'mbcs' if is_windows else 'ascii'
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 def write_file(pathname, filename, bytes):
     """

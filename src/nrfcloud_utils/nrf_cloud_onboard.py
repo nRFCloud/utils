@@ -21,7 +21,6 @@ from enum import Enum
 from nrfcloud_utils.cli_helpers import write_file
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 class OnboardResult(Enum):
     PERFORMED_SUCCESSFULLY = 0
@@ -78,8 +77,15 @@ def parse_args(in_args):
                         default=None)
     parser.add_argument("--stage", type=str,
                         help="For internal (Nordic) use only", default="")
-
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     return args
 
 def set_dev_stage(stage = ''):

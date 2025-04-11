@@ -15,7 +15,6 @@ from datetime import datetime
 from enum import Enum
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 API_URL = "https://api.nrfcloud.com/v1/"
 
@@ -222,8 +221,15 @@ def parse_args(in_args):
     parser.add_argument("--desc",
                         help="The description of the created updated.",
                         type=str, required=False, default="")
-
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     return args
 
 def get_bundle_list(api_key, modem_only):

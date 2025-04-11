@@ -24,8 +24,6 @@ from cryptography.hazmat.primitives import serialization
 from nrfcloud_utils.nordic_boards import ask_for_port, get_serial_port
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
-
 full_encoding = 'mbcs' if is_windows else 'ascii'
 serial_timeout = 1
 IMEI_LEN = 15
@@ -49,9 +47,6 @@ def parse_args(in_args):
                         default=115200)
     parser.add_argument("-A", "--all",
                         help="List ports of all types, not just Nordic devices",
-                        action='store_true', default=False)
-    parser.add_argument("-v", "--verbose",
-                        help="bool: Make output verbose",
                         action='store_true', default=False)
     parser.add_argument("-S", "--sectag", type=int,
                         help="integer: Security tag to use", default=16842753)
@@ -108,7 +103,15 @@ def parse_args(in_args):
     parser.add_argument("--noshell",
                         help="Assume raw AT commands OK -- not using provisioning shell",
                         action='store_true', default=False)
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     return args
 
 def write_line(line, hidden = False):
@@ -248,11 +251,10 @@ def main(in_args):
     if CSR_ATTR_CN in args.csr_attr:
         error_exit(ser, f'Do not include CN in --csr_attr. The device ID will be used as the CN')
 
-
-    logger.debug('OS detect: Linux={}, MacOS={}, Windows={}'.format(is_linux, is_macos, is_windows))
-
     # load local CA cert and key if needed; assume not needed if using provisioning tags
     if args.provisioning_tags is None:
+        if args.ca is None or args.ca_key is None:
+            error_exit(ser, 'CA cert and key are required for device provisioning without provisioning tags')
          # check for valid CA files...
         logger.info('Loading CA and key...')
         ca_cert = create_device_credentials.load_ca(args.ca)
@@ -295,7 +297,7 @@ def main(in_args):
     attest_tok = args.attest
     if not attest_tok:
         # get attestation token
-        attest_tok = get_attestation_token(args.verbose)
+        attest_tok = get_attestation_token(args.log_level == 'DEBUG')
         if not attest_tok:
             error_exit(ser, 'Failed to obtain attestation token')
 
@@ -323,7 +325,7 @@ def main(in_args):
         logger.info(f'Unclaiming device {dev_uuid}...')
         api_res = nrf_cloud_diap.unclaim_device(args.api_key, dev_uuid)
         if api_res.status_code == 204:
-            logger.info(f'...success\n')
+            logger.info(f'...success')
         else:
             nrf_cloud_diap.print_api_result("Unclaim device response", api_res)
             error_exit(ser, 'Failed to unclaim device')
@@ -392,7 +394,7 @@ def main(in_args):
 
     # wait for device to boot and process the command
     logger.info('Waiting for device to process command...')
-    cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, prov_id, args.verbose)
+    cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, prov_id, args.log_level == 'DEBUG')
 
     # get the CSR from the response
     csr_txt = cmd_response.get('certificateSigningRequest').get('csr')
@@ -401,7 +403,7 @@ def main(in_args):
         if csr_txt == None:
             error_exit(ser, 'CSR response not found')
     if csr_txt:
-        logger.warning('CSR:\n' + csr_txt)
+        logger.warning('CSR:' + csr_txt.replace('\\n', '\n'))
 
     # process the CSR
     csr_bytes, pub_key_bytes, dev_uuid_hex_str, sec_tag_str = \
@@ -415,7 +417,7 @@ def main(in_args):
     device_cert = create_device_credentials.create_device_cert(args.dv, csr, ca_cert, ca_key)
     dev_cert_pem_bytes = device_cert.public_bytes(serialization.Encoding.PEM)
     dev_cert_pem_str = dev_cert_pem_bytes.decode()
-    logger.info('Dev cert: \n{}'.format(dev_cert_pem_str))
+    logger.info('Dev cert: {}'.format(dev_cert_pem_str.replace('\\n', '\n')))
 
     # create provisioning command to install device cert
     logger.info('Creating provisioning command (client cert)...')
@@ -474,13 +476,13 @@ def main(in_args):
 
     # wait for device to process the commands
     logger.warning('Provisioning command (client cert) ID: ' + prov_id)
-    cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, prov_id, args.verbose)
+    cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, prov_id, args.log_level == 'DEBUG')
 
     logger.warning('Provisioning command (finished) ID: ' + finished_id)
-    cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, finished_id, args.verbose)
+    cmd_response = wait_for_cmd_status(args.api_key, dev_uuid, finished_id, args.log_level == 'DEBUG')
 
     # add the device to nrf cloud account
-    logger.warning(f'\nnRF Cloud API URL: {nrf_cloud_onboard.set_dev_stage(args.stage)}')
+    logger.warning(f'nRF Cloud API URL: {nrf_cloud_onboard.set_dev_stage(args.stage)}')
     logger.warning(f'Onboarding device \'{device_id}\' to cloud account...')
 
     api_res = nrf_cloud_onboard.onboard_device(args.api_key, device_id, '',

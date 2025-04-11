@@ -16,7 +16,6 @@ from nrfcloud_utils import nrf_cloud_diap
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 args = None
 IMEI_LEN = 15
@@ -29,9 +28,6 @@ def parse_args(in_args):
     parser.add_argument("--csv", type=str,
                         help="Filepath to attestation token CSV file",
                         default="attestation_tokens.csv")
-    parser.add_argument("-v", "--verbose",
-                        help="bool: Make output verbose",
-                        action='store_true', default=False)
     parser.add_argument("-P", "--plain",
                         help="bool: Plain output (no colors)",
                         action='store_true', default=False)
@@ -42,7 +38,15 @@ def parse_args(in_args):
                         help="API key",
                         default=None, required=True)
     parser.add_argument("--stage", type=str, help="For internal (Nordic) use only", default="")
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     return args
 
 def bulk_claim(api_key, array_of_claims):
@@ -83,9 +87,6 @@ def main(in_args):
     if args.plain:
         logging.setLoggerClass(logging.Logger)
 
-    if args.verbose:
-        logger.debug('OS detect: Linux={}, MacOS={}, Windows={}'.format(is_linux, is_macos, is_windows))
-
     logger.warning('Provisioning API URL: ' + nrf_cloud_diap.set_dev_stage(args.stage))
 
     try:
@@ -102,10 +103,7 @@ def main(in_args):
 
                 # pull fields out of csv
                 imei, uuid, attest_tok, date_time = row[:4]
-                if not args.verbose:
-                    logger.info(f'{row_count}. Claiming {imei}, {uuid}')
-                else:
-                    logger.info(f'{row_count}. Claiming {imei}, {uuid}, {date_time}, {attest_tok}, with tags: "{args.provisioning_tags}"')
+                logger.info(f'{row_count}. Claiming {imei}, {uuid}, {date_time}, {attest_tok}, with tags: "{args.provisioning_tags}"')
 
                 # build an array with the attestation token and any specified provisioning tags
                 # provisioning tags must be enclosed in quotes so they are treated as one field later

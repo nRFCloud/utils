@@ -15,7 +15,6 @@ import coloredlogs, logging
 from cryptography import x509
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 IMEI_LEN = 15
 
@@ -163,8 +162,7 @@ class ATCommandInterface(CredentialCommandInterface):
 
         # convert the encoded blob to an actual cert
         csr_blob = str(output).split('"')[1]
-        if self.verbose:
-            logger.info('CSR blob: {}'.format(csr_blob))
+        logger.debug('CSR blob: {}'.format(csr_blob))
 
         csr_bytes, _, _, _ = modem_credentials_parser.parse_keygen_output(csr_blob)
 

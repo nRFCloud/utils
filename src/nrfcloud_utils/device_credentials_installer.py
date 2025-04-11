@@ -21,7 +21,6 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
@@ -80,9 +79,6 @@ def parse_args(in_args):
     parser.add_argument("-f", "--fileprefix", type=str,
                         help="Prefix for output files (<prefix><UUID>_<sec_tag>_<type>.pem). Selects -s",
                         default="")
-    parser.add_argument("-v", "--verbose",
-                        help="bool: Make output verbose",
-                        action='store_true', default=False)
     parser.add_argument("-s", "--save", action='store_true',
                         help="Save PEM file(s): <UUID>_<sec_tag>_<type>.pem")
     parser.add_argument("-S", "--sectag", type=int,
@@ -156,7 +152,15 @@ def parse_args(in_args):
     parser.add_argument("--cert-type", type=int,
                         help="Certificate type to use for the device",
                         default=1)
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     return args
 
 def write_line(line, hidden = False):
@@ -367,8 +371,6 @@ def main(in_args):
         cleanup()
         sys.exit(1)
 
-    logger.debug('OS detect: Linux={}, MacOS={}, Windows={}'.format(is_linux, is_macos, is_windows))
-
     if args.cmd_type == CMD_TYPE_TLS_SHELL and not (args.local_cert or args.local_cert_file):
         # This check can be removed once the TLS Credential Shell supports CSR generation.
         logger.error(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file")
@@ -427,12 +429,12 @@ def main(in_args):
 
     cred_if = None
     if cmd_type_has_at:
-        cred_if = ATCommandInterface(write_line, wait_for_prompt, args.verbose)
+        cred_if = ATCommandInterface(write_line, wait_for_prompt, args.log_level == 'DEBUG')
         if args.cmd_type == CMD_TYPE_AT_SHELL:
             cred_if.set_shell_mode(True)
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
-        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, args.verbose)
+        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, args.log_level == 'DEBUG')
 
     # prepare modem so we can interact with security keys
     if (cmd_type_has_at):
@@ -511,7 +513,7 @@ def main(in_args):
                 write_file(args.path, args.fileprefix + dev_id + "_prv.pem", prv_bytes)
 
         # display CSR info
-        logger.warning('Device ID: {}'.format(dev_id))
+        logger.info('Device ID: {}'.format(dev_id))
         logger.debug('CSR PEM: {}'.format(csr_bytes))
         logger.debug('Pub key: {}'.format(pub_bytes))
 

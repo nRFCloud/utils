@@ -26,7 +26,6 @@ from nrfcloud_utils.cli_helpers import write_file
 import coloredlogs, logging
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create CA Certificate")
@@ -46,7 +45,15 @@ def parse_args(in_args):
     parser.add_argument(
         "-f", "--fileprefix", type=str, help="Prefix for output files", default=""
     )
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     return args
 
 

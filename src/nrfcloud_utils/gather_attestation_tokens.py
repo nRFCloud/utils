@@ -17,8 +17,6 @@ from datetime import datetime, timezone
 import coloredlogs, logging
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
-
 CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
                  'LF':   '\n',
@@ -27,15 +25,12 @@ cmd_term_key = 'CRLF'
 full_encoding = 'mbcs' if is_windows else 'ascii'
 lf_done = False
 plain = False
-verbose = False
 serial_timeout = 1
 at_cmd_prefix = ''
 args = None
 IMEI_LEN = 15
 
 def parse_args(in_args):
-    global verbose
-
     parser = argparse.ArgumentParser(description="Gather Attestation Tokens",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -56,9 +51,6 @@ def parse_args(in_args):
                         default=115200)
     parser.add_argument("-A", "--all",
                         help="List ports of all types, not just Nordic devices",
-                        action='store_true', default=False)
-    parser.add_argument("-v", "--verbose",
-                        help="bool: Make output verbose",
                         action='store_true', default=False)
     parser.add_argument("-P", "--plain",
                         help="bool: Plain output (no colors)",
@@ -81,8 +73,15 @@ def parse_args(in_args):
     parser.add_argument("--shell",
                         help="Use provisioning shell",
                         action='store_true', default=False)
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
-    verbose = args.verbose
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     return args
 
 def ensure_lf(line):
@@ -267,7 +266,7 @@ def save_attestation_csv(csv_filename, append, replace, imei, uuid, attestation_
     try:
         with open(csv_filename, mode, newline='\n') as devinfo_file:
             devinfo_file.write(row)
-        logger.debug(f'Attestation CSV file {csv_filename} saved, row count: {row_count + 1}')
+        logger.info(f'Attestation CSV file {csv_filename} saved, row count: {row_count + 1}')
     except OSError:
         logger.error('Error opening file {}'.format(csv_filename))
 
@@ -299,13 +298,6 @@ def main(in_args):
     # Adjust method to send an AT command
     at_cmd_prefix = '' if not args.shell else 'at '
 
-    # initialize colorama
-    if is_windows:
-        init(convert = not plain)
-
-    if args.verbose:
-        logger.debug('OS detect: Linux={}, MacOS={}, Windows={}'.format(is_linux, is_macos, is_windows))
-
     if args.rtt:
         cmd_term_key = 'CRLF'
 
@@ -335,7 +327,7 @@ def main(in_args):
                             dsrdtr=args.dsrdtr)
 
     # get attestation token
-    attest_tok = get_attestation_token(args.verbose)
+    attest_tok = get_attestation_token(args.log_level == 'DEBUG')
     if not attest_tok:
         error_exit('Failed to obtain attestation token')
 
@@ -349,11 +341,11 @@ def main(in_args):
     if imei:
         # display the IMEI for reference
         imei = str(imei.decode("utf-8"))[:IMEI_LEN]
-        logger.info('Device IMEI: ' + imei)
+        logger.debug('Device IMEI: ' + imei)
 
     # get device UUID from attestation token
     dev_uuid = modem_credentials_parser.get_device_uuid(attest_tok)
-    logger.info('Device UUID: ' + dev_uuid)
+    logger.debug('Device UUID: ' + dev_uuid)
 
     if len(args.csv) > 0:
         save_attestation_csv(args.csv, not args.overwrite, not args.keep, imei,

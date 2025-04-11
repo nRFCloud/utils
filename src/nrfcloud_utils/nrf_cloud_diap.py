@@ -27,7 +27,6 @@ CLAIM_TAGS = 'tags'
 CONTENT_TYPE = 'contentType'
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 def set_dev_stage(stage = ''):
     global api_url
