@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import requests
+import coloredlogs, logging
 
 DEV_STAGE_DICT = {'dev':     '.dev.',
                   'beta':    '.beta.',
@@ -25,6 +26,9 @@ CLAIM_TOK = 'claimToken'
 CLAIM_TAGS = 'tags'
 CONTENT_TYPE = 'contentType'
 
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
+
 def set_dev_stage(stage = ''):
     global api_url
     global dev_stage_key
@@ -33,7 +37,7 @@ def set_dev_stage(stage = ''):
         dev_stage_key = stage
         api_url = f'{API_URL_START}{DEV_STAGE_DICT[dev_stage_key]}{API_URL_END}'
     else:
-        print('Invalid stage')
+        logger.error('Invalid stage')
 
     return api_url
 
@@ -147,7 +151,6 @@ def get_provisioning_cmd(api_key, dev_uuid, cmd_id):
 
     return requests.get(req, headers=get_auth_header(api_key))
 
-def print_api_result(custom_text, api_result, print_response_txt):
-    print(f'{custom_text}: {api_result.status_code} - {api_result.reason}')
-    if print_response_txt:
-        print(f'Response: {api_result.text}')
+def print_api_result(custom_text, api_result):
+    logger.info(f'{custom_text}: {api_result.status_code} - {api_result.reason}')
+    logger.debug(f'Response: {api_result.text}')

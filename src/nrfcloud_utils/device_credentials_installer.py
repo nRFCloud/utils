@@ -11,13 +11,17 @@ import sys
 import csv
 import getpass
 import semver
+import coloredlogs, logging
 from nrfcloud_utils import create_device_credentials, ca_certs, rtt_interface
-from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles, write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding
+from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding
 from nrfcloud_utils.command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
 from nrfcloud_utils.nordic_boards import ask_for_port, get_serial_port
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
@@ -32,7 +36,6 @@ CMD_TYPE_TLS_SHELL = "tls_cred_shell"
 cmd_term_key = 'CRLF'
 default_password = 'nordic'
 is_gateway = False
-verbose = False
 serial_timeout = 1
 IMEI_LEN = 15
 DEV_ID_MAX_LEN = 64
@@ -159,7 +162,7 @@ def parse_args(in_args):
 def write_line(line, hidden = False):
     global cmd_term_key
     if not hidden:
-        print(send_style('-> {}'.format(line)))
+        logger.debug('-> {}'.format(line.replace('\n', '\\n')))
     if ser:
         ser.write(bytes((line + CMD_TERM_DICT[cmd_term_key]).encode('utf-8')))
     elif rtt:
@@ -216,7 +219,7 @@ def wait_for_prompt(val1='gateway:# ', val2=None, timeout=15, store=None):
                 timeout -= serial_timeout
             continue
 
-        sys.stdout.write('<- ' + str(line, encoding=full_encoding))
+        logging.debug('<- ' + str(line, encoding=full_encoding).strip())
 
         if val1 in line:
             found = True
@@ -227,16 +230,13 @@ def wait_for_prompt(val1='gateway:# ', val2=None, timeout=15, store=None):
         elif store != None and (store in line or str(store) in str(line)):
             output = line
 
-    if b'\n' not in line:
-        sys.stdout.write('\n')
-
     if ser:
         ser.flush()
     if store != None and output == None:
-        print(error_style('String {} not detected in line {}'.format(store, line)))
+        logger.error('String {} not detected in line {}'.format(store, line))
 
     if timeout == 0:
-        print(error_style('Serial timeout'))
+        logger.error('Serial timeout')
 
     return retval, output
 
@@ -246,12 +246,12 @@ def wait_for_prompt(val1='gateway:# ', val2=None, timeout=15, store=None):
 def cleanup():
     if not is_gateway:
         return
-    print(local_style('Restoring terminal...'))
+    logger.info('Restoring terminal...')
     write_line('exit')
     wait_for_prompt()
     write_line('logout')
     wait_for_prompt(b'login:')
-    print(local_style('\nDone.'))
+    logger.info('\nDone.')
 
 def parse_mfw_ver(ver_str):
     # example modem fw version formats:
@@ -268,7 +268,7 @@ def parse_mfw_ver(ver_str):
     # If the version regex does not match exactly once, then we are dealing with a malformed
     # version number.
     if len(matches) != 1:
-        print(error_style('Unexpected modem firmware version format'))
+        logger.error('Unexpected modem firmware version format')
         return None
 
     return matches[0]
@@ -277,20 +277,20 @@ def check_mfw_version():
     # get the modem firmware version
     ver = cred_if.get_mfw_version()
     if not ver:
-        print(error_style('Failed to obtain modem FW version'))
+        logger.error('Failed to obtain modem FW version')
         cleanup()
         sys.exit(8)
 
     # display version for reference
-    print(hivis_style('Modem FW version: ' + ver))
+    logger.info('Modem FW version: ' + ver)
 
     # check for required version
     parsed_ver = parse_mfw_ver(ver)
 
     if parsed_ver is None:
-        print(error_style('Unexpected modem FW version format... continuing'))
+        logger.error('Unexpected modem FW version format... continuing')
     elif semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER) < 0:
-        print(error_style(f'Modem FW version must be >= {MIN_REQD_MFW_VER}'))
+        logger.error(f'Modem FW version must be >= {MIN_REQD_MFW_VER}')
         cleanup()
         sys.exit(8)
     return ver
@@ -306,7 +306,7 @@ def get_csr(custom_dev_id = "", sectag = 0, local = False):
         try:
             csr = cred_if.get_csr(sectag, custom_dev_id)
         except ATKeygenException as e:
-            print(error_style(str(e)))
+            logger.error(str(e))
             cleanup()
             sys.exit(e.exit_code)
 
@@ -350,7 +350,7 @@ def main(in_args):
     args = parse_args(in_args)
 
     if args.plain:
-        cli_disable_styles()
+        logging.setLoggerClass(logging.Logger)
 
     password = args.password
 
@@ -359,46 +359,40 @@ def main(in_args):
     if args.term in CMD_TERM_DICT.keys():
         cmd_term_key = args.term
     else:
-        print(error_style('Invalid --term value provided, using default'))
+        logger.error('Invalid --term value provided, using default')
 
     id_len = len(args.id_str)
     if (id_len > DEV_ID_MAX_LEN) or (args.id_imei and ((id_len + IMEI_LEN) > DEV_ID_MAX_LEN)):
-        print(error_style('Device ID must not exceed {} characters'.format(DEV_ID_MAX_LEN)))
+        logger.error('Device ID must not exceed {} characters'.format(DEV_ID_MAX_LEN))
         cleanup()
-        sys.exit(0)
+        sys.exit(1)
 
-    # initialize colorama
-    if is_windows:
-        init_colorama()
-
-    if verbose:
-        print(local_style('OS detect: Linux={}, MacOS={}, Windows={}'.
-                          format(is_linux, is_macos, is_windows)))
+    logger.debug('OS detect: Linux={}, MacOS={}, Windows={}'.format(is_linux, is_macos, is_windows))
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL and not (args.local_cert or args.local_cert_file):
         # This check can be removed once the TLS Credential Shell supports CSR generation.
-        print(error_style(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file"))
+        logger.error(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file")
         cleanup()
-        sys.exit(0)
+        sys.exit(1)
 
     cmd_type_has_at = args.cmd_type in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL)
     has_shell = (args.cmd_type == CMD_TYPE_AT_SHELL)
 
     if args.gateway and not cmd_type_has_at:
-        print(error_style(f"--gateway requires cmd_type '{CMD_TYPE_AT}' or '{CMD_TYPE_AT_SHELL}'"))
+        logger.error(f"--gateway requires cmd_type '{CMD_TYPE_AT}' or '{CMD_TYPE_AT_SHELL}'")
         cleanup()
-        sys.exit(0)
+        sys.exit(1)
 
     if args.rtt:
         cmd_term_key = 'CRLF'
 
         rtt = rtt_interface.connect_rtt(args.jlink_sn, args.mosh_rtt_hex)
         if not rtt:
-            sys.stderr.write(error_style('Failed connect to device via RTT'))
+            logger.error('Failed connect to device via RTT')
             sys.exit(2)
 
         if not rtt_interface.enable_at_cmds_mosh_rtt(rtt):
-            sys.stderr.write(error_style('Failed to enable AT commands via RTT'))
+            logger.error('Failed to enable AT commands via RTT')
             sys.exit(3)
         ser = None
     else:
@@ -413,40 +407,38 @@ def main(in_args):
         # let user know which we are using and as what kind of device
         if args.gateway:
             is_gateway = True
-        print(local_style('Opening port {} as {}...'.format(port,
-                                                    'gateway' if is_gateway
-                                                    else 'generic device')))
+        logger.info('Opening port {} as {}...'.format(port, 'gateway' if is_gateway else 'generic device'))
 
         # try to open the serial port
         ser = get_serial_port(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
                             dsrdtr=args.dsrdtr)
         # for gateways, get to the AT command prompt first
         if is_gateway:
-            print(local_style('Getting to prompt...'))
+            logger.info('Getting to prompt...')
             handle_login()
 
-            print(local_style('Disabling logs...'))
+            logger.info('Disabling logs...')
             write_line('log disable')
             wait_for_prompt()
 
-            print(local_style('Getting to AT mode...'))
+            logger.info('Getting to AT mode...')
             write_line('at enable')
             wait_for_prompt(b'to exit AT mode')
 
     cred_if = None
     if cmd_type_has_at:
-        cred_if = ATCommandInterface(write_line, wait_for_prompt, verbose)
+        cred_if = ATCommandInterface(write_line, wait_for_prompt, args.verbose)
         if args.cmd_type == CMD_TYPE_AT_SHELL:
             cred_if.set_shell_mode(True)
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
-        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, verbose)
+        cred_if = TLSCredShellInterface(write_line, wait_for_prompt, args.verbose)
 
     # prepare modem so we can interact with security keys
     if (cmd_type_has_at):
-        print(local_style('Disabling LTE and GNSS...'))
+        logger.info('Disabling LTE and GNSS...')
         if not cred_if.go_offline():
-            print(error_style('Unable to communicate'))
+            logger.error('Unable to communicate')
             cleanup()
             sys.exit(6)
 
@@ -456,12 +448,12 @@ def main(in_args):
         imei = cred_if.get_imei()
 
         if imei is None:
-            print(error_style('Failed to obtain IMEI'))
+            logger.error('Failed to obtain IMEI')
             cleanup()
             sys.exit(7)
 
         # display the IMEI for reference
-        print(hivis_style('Device IMEI: ' + imei))
+        logger.info('Device IMEI: ' + imei)
 
     # get and verify the modem firmware version
     mfw_ver = None
@@ -476,7 +468,7 @@ def main(in_args):
     # remove old keys if we are replacing existing ones;
     # it's ok if some or all of these error out -- the slots were empty already
     if args.delete:
-        print(local_style('Deleting sectag {}...'.format(args.sectag)))
+        logger.info('Deleting sectag {}...'.format(args.sectag))
         cred_if.delete_credential(args.sectag, 0)
         cred_if.delete_credential(args.sectag, 1)
         cred_if.delete_credential(args.sectag, 2)
@@ -486,7 +478,7 @@ def main(in_args):
 
     if prv_bytes is None and args.local_cert_file is None:
         # now get a new certificate signing request (CSR)
-        print(local_style('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag)))
+        logger.info('Generating private key and requesting a CSR for sectag {}...'.format(args.sectag))
 
         # Get a CSR
         csr, prv_key = get_csr(custom_dev_id, args.sectag, local=args.local_cert)
@@ -504,7 +496,7 @@ def main(in_args):
         cn_list = csr.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)
 
         if len(cn_list) == 0:
-            print(error_style('CSR\'s Common Name (CN) is empty'))
+            logger.error('CSR\'s Common Name (CN) is empty')
             cleanup()
             sys.exit(11)
 
@@ -519,43 +511,41 @@ def main(in_args):
                 write_file(args.path, args.fileprefix + dev_id + "_prv.pem", prv_bytes)
 
         # display CSR info
-        print(hivis_style('Device ID: {}'.format(dev_id)))
-        if verbose:
-            print(hivis_style('CSR PEM: {}'.format(csr_bytes)))
-            print(hivis_style('Pub key: {}'.format(pub_bytes)))
+        logger.warning('Device ID: {}'.format(dev_id))
+        logger.debug('CSR PEM: {}'.format(csr_bytes))
+        logger.debug('Pub key: {}'.format(pub_bytes))
 
         # check if we have all we need to proceed
         if len(args.ca) == 0 or len(args.ca_key) == 0:
-            print(local_style('No CA or CA key provided; skipping creating dev cert'))
+            logger.info('No CA or CA key provided; skipping creating dev cert')
             cleanup()
             sys.exit(0)
 
         # load the user's certificate authority (CA)
-        print(local_style('Loading CA and key...'))
+        logger.info('Loading CA and key...')
         ca_cert = create_device_credentials.load_ca(args.ca)
         ca_key = create_device_credentials.load_ca_key(args.ca_key)
 
         # create a device cert
-        print(local_style('Creating device certificate...'))
+        logger.info('Creating device certificate...')
         device_cert = create_device_credentials.create_device_cert(args.dv, csr, ca_cert, ca_key)
 
         # save device cert and/or print it
         dev_bytes = device_cert.public_bytes(serialization.Encoding.PEM)
-        if verbose:
-            print(local_style('Dev cert: {}'.format(dev_bytes)))
+
+        logger.debug('Dev cert: {}'.format(dev_bytes))
         if args.save:
-            print(local_style('Saving dev cert...'))
+            logger.info('Saving dev cert...')
             write_file(args.path, args.fileprefix + dev_id + "_crt.pem", dev_bytes)
 
         # save public key and/or print it
-        if verbose:
-            print(local_style('Pub key: {}'.format(pub_bytes)))
+        logger.debug('Pub key: {}'.format(pub_bytes))
         if args.save:
-            print(local_style('Saving pub key...'))
+            logger.info('Saving pub key...')
             write_file(args.path, args.fileprefix + dev_id + "_pub.pem", pub_bytes)
     elif args.local_cert_file:
         if not os.path.isfile(args.local_cert_file):
-            print(error_style(f'Local certificate file {args.local_cert_file} does not exist'))
+            logger.error(f'Local certificate file {args.local_cert_file} does not exist')
             cleanup()
             sys.exit(11)
 
@@ -563,7 +553,7 @@ def main(in_args):
             dev_bytes = f.read()
 
         if args.delete:
-            print(local_style('Deleting sectag {}...'.format(args.sectag)))
+            logger.info('Deleting sectag {}...'.format(args.sectag))
             cred_if.delete_credential(args.sectag, args.cert_type)
         cred_if.write_credential(args.sectag, args.cert_type, dev_bytes)
         if rtt:
@@ -571,7 +561,7 @@ def main(in_args):
         cleanup()
         sys.exit(0)
     else:
-        print(local_style('Using existing private key and device certificate...'))
+        logger.info('Using existing private key and device certificate...')
 
     if prv_bytes is not None:
         prv_text = format_cred(prv_bytes, has_shell)
@@ -580,43 +570,41 @@ def main(in_args):
     # write CA cert(s) to device
     nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), has_shell)
 
-    print(local_style(f'Writing CA cert(s) to device...'))
+    logger.info(f'Writing CA cert(s) to device...')
     cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)
 
     # write dev cert to device
-    print(local_style(f'Writing dev cert to device...'))
+    logger.info(f'Writing dev cert to device...')
     cred_if.write_credential(args.sectag, 1, dev_text)
 
     # If the private key was locally generated, write it to the device
     if prv_text is not None:
-        print(local_style(f'Writing private key to device...'))
+        logger.info(f'Writing private key to device...')
         cred_if.write_credential(args.sectag, 2, prv_text)
 
     if args.verify:
-        print(error_style('Verifying credentials...'))
+        logger.error('Verifying credentials...')
         check_sha = True
 
         # AT-command-based SHA check has a modem firmware version requirement
         if (cmd_type_has_at):
             parsed_ver = parse_mfw_ver(mfw_ver)
             if parsed_ver and semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER_FOR_VERIFY) < 0:
-                print(error_style('Skipping SHA verification, ' +
-                                f'modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}'))
+                logger.error(f'Skipping SHA verification, modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}')
                 check_sha = False
 
         verify_res = verify_credentials(args.sectag, nrf_ca_cert_text, dev_text, prv_text,
                                         check_sha=check_sha)
         if not verify_res:
-            print(error_style('Credential verification: FAIL'))
+            logger.error('Credential verification: FAIL')
             cleanup()
             sys.exit(12)
 
-        print(local_style('Credential verification: PASS'))
+        logger.info('Credential verification: PASS')
 
     # write onboarding information to csv if requested by user
     if len(args.csv) > 0:
-        print(local_style('{} nRF Cloud device onboarding CSV file {}...'
-                          .format('Appending' if args.append else 'Saving', args.csv)))
+        logger.info('{} nRF Cloud device onboarding CSV file {}...'.format('Appending' if args.append else 'Saving', args.csv))
         sub_type = 'gateway' if is_gateway else ''
         if len(args.subtype) > 0:
             sub_type = args.subtype
@@ -654,31 +642,31 @@ def verify_credential(sec_tag, cred_type, cred = None, get_hash = False, verify_
         get_hash = True
 
     cred_type_name = ['CA Cert', 'Client Cert', 'Private Key'][cred_type]
-    print(local_style(f'Verifying {cred_type_name}'))
+    logger.info(f'Verifying {cred_type_name}')
 
     if verify_hash and not cred:
-        print(error_style('Invalid credential string'))
+        logger.error('Invalid credential string')
         return False
 
     present, hash = cred_if.check_credential_exists(sec_tag, cred_type, get_hash = get_hash)
 
     if not present:
-        print(error_style(f'...{cred_type_name} not found'))
+        logger.error(f'...{cred_type_name} not found')
         return False
 
     if get_hash and not hash:
-        print(error_style(f'...{cred_type_name} has invalid hash'))
+        logger.error(f'...{cred_type_name} has invalid hash')
         return False
 
     if verify_hash:
         expected_hash = cred_if.calculate_expected_hash(cred)
         if hash != expected_hash:
-                print(error_style(f'{cred_type_name} - SHA mismatch:'))
-                print(error_style(f'\tDevice    : {hash}'))
-                print(error_style(f'\tCalculated: {expected_hash}'))
+                logger.error(f'{cred_type_name} - SHA mismatch:')
+                logger.error(f'\tDevice    : {hash}')
+                logger.error(f'\tCalculated: {expected_hash}')
                 return False
     else:
-        print(hivis_style(f'{cred_type_name} exists, SHA not verified'))
+        logger.warning(f'{cred_type_name} exists, SHA not verified')
 
     return True
 

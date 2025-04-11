@@ -6,8 +6,12 @@
 
 import time
 from pynrfjprog import LowLevel
+import coloredlogs, logging
 
 CRLF = '\r\n'
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 def send_rtt(api, tx_data):
     for i in range(0, len(tx_data), 12):
@@ -32,7 +36,7 @@ def readlines_at_rtt(api, timeout_s):
         elapsed_s = elapsed_s + 0.1
 
     if elapsed_s >= timeout_s:
-        print('RTT read timeout')
+        logger.error('RTT read timeout')
 
     return rx.splitlines(keepends=True)
 
@@ -62,7 +66,7 @@ def read_string_rtt(api, expected_str, timeout_s):
         time.sleep(0.1)
         elapsed_s = elapsed_s + 0.1
 
-    print('RTT read timeout')
+    logger.error('RTT read timeout')
     return False
 
 def enable_at_cmds_mosh_rtt(api):
@@ -75,7 +79,7 @@ def enable_at_cmds_mosh_rtt(api):
         send_rtt(api, CRLF)
         found = read_string_rtt(api, MOSH_TERM, 1)
         if not found:
-            print('mosh terminal not detected')
+            logger.error('mosh terminal not detected')
             return False
 
     # enable AT command mode
@@ -143,21 +147,21 @@ def connect_and_program(snr, hex_path):
 def program_hex_rtt(api, hex_path):
     if hex_path:
         try:
-            print('Erasing...')
+            logger.info('Erasing...')
             api.erase_file(hex_path)
 
-            print('Programming...')
+            logger.info('Programming...')
             api.program_file(hex_path)
 
-            print('Verifying...')
+            logger.info('Verifying...')
             api.verify_file(hex_path)
 
-            print('Successfully programmed device')
+            logger.info('Successfully programmed device')
             api.sys_reset()
             api.go()
             return True
         except LowLevel.APIError:
-            print('Failed to program device')
+            logger.error('Failed to program device')
 
     return False
 

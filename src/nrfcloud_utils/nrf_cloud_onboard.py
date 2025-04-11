@@ -13,11 +13,15 @@ import json
 import requests
 import os
 import io
+import coloredlogs, logging
 from os import path
 from os import makedirs
 from ast import literal_eval
 from enum import Enum
 from nrfcloud_utils.cli_helpers import write_file
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 class OnboardResult(Enum):
     PERFORMED_SUCCESSFULLY = 0
@@ -86,7 +90,7 @@ def set_dev_stage(stage = ''):
         dev_stage_key = stage
         api_url = '{}{}{}'.format(API_URL_START, DEV_STAGE_DICT[dev_stage_key], API_URL_END)
     else:
-        print('Invalid stage')
+        logger.error('Invalid stage')
 
     return api_url
 
@@ -134,28 +138,27 @@ def onboard_devices(api_key, csv_filepath):
         payload.close()
         return api_result
 
-def print_api_result(custom_text, api_result, print_response_txt):
-    print("{}: {} - {}".format(custom_text, api_result.status_code, api_result.reason))
-    if print_response_txt:
-        print("Response: {}".format(api_result.text))
+def print_api_result(custom_text, api_result):
+    logger.info("{}: {} - {}".format(custom_text, api_result.status_code, api_result.reason))
+    logger.debug("Response: {}".format(api_result.text))
 
 def get_onboarding_results(api_key, bulk_ops_req_id):
 
-    print("Fetching results for {}: {}".format(BULK_OP_REQ_ID, bulk_ops_req_id))
+    logger.info("Fetching results for {}: {}".format(BULK_OP_REQ_ID, bulk_ops_req_id))
 
     while True:
-        print("Waiting 5s...")
+        logger.info("Waiting 5s...")
         time.sleep(5)
 
         api_result = get_bulk_ops_result(api_key, bulk_ops_req_id)
 
         if api_result.status_code != 200:
-            print("Failed to fetch onboarding result")
+            logger.error("Failed to fetch onboarding result")
             return None
 
         api_result_json = api_result.json()
 
-        print("Onboarding status: " + api_result_json["status"])
+        logger.info("Onboarding status: " + api_result_json["status"])
 
         if api_result_json["status"] == "IN_PROGRESS" or api_result_json["status"] == "PENDING":
             continue
@@ -175,7 +178,7 @@ def parse_err_msg(err_str):
     err_end_idx = err_str.rfind(ERR_FIND_END_STR)
 
     if err_begin_idx == -1 or err_end_idx == -1:
-        print("Unhandled error response format")
+        logger.error("Unhandled error response format")
         return
 
     # Inspect the first item for total number of reported errors
@@ -187,7 +190,7 @@ def parse_err_msg(err_str):
             break
 
     if err_cnt == 0:
-        print("Warning: no errors reported")
+        logger.error("Warning: no errors reported")
 
     # Get the start of the detailed error list, which is after the first item
     err_json_str = err_str[ (err_begin_idx + len(ERR_FIND_FIRST_STR)) : err_end_idx]
@@ -213,7 +216,7 @@ def update_device_list_err(dev_list, err_dict):
         for dev_idx in idx_list:
             i = dev_idx -1
             if i >= list_sz:
-                print("Reported device index out of range: {}".format(dev_idx))
+                logger.error("Reported device index out of range: {}".format(dev_idx))
                 continue
 
             # Add the error message to the device list
@@ -247,7 +250,7 @@ def read_onboarding_csv(csv_filepath):
         row_count = sum(1 for row in csv_contents)
 
         if row_count > MAX_CSV_ROWS:
-            print("CSV file contains {} rows; must not exceed {}".format(row_count, MAX_CSV_ROWS))
+            logger.error("CSV file contains {} rows; must not exceed {}".format(row_count, MAX_CSV_ROWS))
             csvfile.close()
             return None
 
@@ -260,7 +263,7 @@ def read_onboarding_csv(csv_filepath):
             try:
                 device_list.append([row[0], ''])
             except IndexError:
-                print("Error reading row {} of onboarding CSV file.".format(row_idx + 1   ))
+                logger.error("Error reading row {} of onboarding CSV file.".format(row_idx + 1   ))
 
     return device_list
 
@@ -280,7 +283,7 @@ def read_devinfo_csv(csv_filepath):
             try:
                 devinfo_list.append([row[0], row[1], imei])
             except IndexError:
-                print("Error reading row {} of modem firmware CSV file.".format(row_idx + 1))
+                logger.error("Error reading row {} of modem firmware CSV file.".format(row_idx + 1))
 
     return devinfo_list
 
@@ -293,14 +296,14 @@ def save_or_print(results, result_filepath, append):
                 with open(result_filepath, "ab") as f:
                     f.write(res_bytes)
             except EnvironmentError:
-                print("Error opening file: " + result_filepath)
+                logger.error("Error opening file: " + result_filepath)
                 return
         else:
             write_file(os.path.dirname(result_filepath),
                        os.path.basename(result_filepath),
                        res_bytes)
     else:
-        print(results.getvalue())
+        logger.info(results.getvalue())
 
 def save_results(bulk_results_json, err_cnt, dev_list, result_filepath):
     results = io.StringIO()
@@ -321,9 +324,8 @@ def save_results(bulk_results_json, err_cnt, dev_list, result_filepath):
     else:
         results.write('Error output could not be accessed\n')
 
-    print("")
     if not len(result_filepath):
-        print("CSV-formatted results:")
+        logger.info("CSV-formatted results:")
 
     save_or_print(results, result_filepath, False)
 
@@ -346,7 +348,7 @@ def check_file_path(file):
         try:
             makedirs(path, exist_ok=True)
         except OSError as e:
-            print("Error creating file path: " + path)
+            logger.error("Error creating file path: " + path)
             return ''
 
     return file_path
@@ -354,7 +356,7 @@ def check_file_path(file):
 def do_onboarding(api_key, csv_in, res_out, do_check):
 
     if len(api_key) < 1:
-        print("API key must be provided")
+        logger.error("API key must be provided")
         return OnboardResult.NOT_PERFORMED_NO_API_KEY
 
     result_filepath = ''
@@ -365,16 +367,16 @@ def do_onboarding(api_key, csv_in, res_out, do_check):
 
     csv_filepath = os.path.abspath(csv_in)
     if not os.path.exists(csv_filepath):
-        print("CSV file does not exist: " + csv_filepath)
+        logger.error("CSV file does not exist: " + csv_filepath)
         return OnboardResult.NOT_PERFORMED_BAD_FILE_PATH
 
     device_list = read_onboarding_csv(csv_filepath)
     if device_list is None:
-        print("CSV file is not valid")
+        logger.error("CSV file is not valid")
         return OnboardResult.NOT_PERFORMED_INVALID_CSV_FORMAT
 
     device_list_len = len(device_list)
-    print("Devices to be onboarded: " + str(device_list_len))
+    logger.info("Devices to be onboarded: " + str(device_list_len))
 
     if do_check and device_list_len == 1:
          # Get the device ID of the first (only) item in the list
@@ -382,23 +384,23 @@ def do_onboarding(api_key, csv_in, res_out, do_check):
         result = fetch_device(api_key, dev_id)
 
         if result.status_code == 404:
-            print("Device \"{}\" does not yet exist, onboarding...".format(dev_id))
+            logger.error("Device \"{}\" does not yet exist, onboarding...".format(dev_id))
         elif result.status_code == 200:
-            print("Device \"{}\" already onboarded".format(dev_id))
+            logger.error("Device \"{}\" already onboarded".format(dev_id))
             return OnboardResult.NOT_PERFORMED_DEVICE_EXISTS
         else:
-            print_api_result("FetchDevice API call failed", result, True)
+            print_api_result("FetchDevice API call failed", result)
             return OnboardResult.NOT_PERFORMED_DEV_CHK_FAILED
 
     elif do_check:
-        print("More than one device in CSV file, ignoring chk flag")
+        logger.warning("More than one device in CSV file, ignoring chk flag")
 
     # Call the onboarding endpoint
     onboard_result = onboard_devices(api_key, csv_filepath)
-    print_api_result("Onboarding API call result", onboard_result, True)
+    print_api_result("Onboarding API call result", onboard_result)
 
     if onboard_result.status_code != 202:
-        print("Onboarding failed")
+        logger.error("Onboarding failed")
         return OnboardResult.NOT_PERFORMED_ONBOARD_CALL_FAILED
 
     # The response to a successful onboarding API call will contain a bulk operations request ID
@@ -407,7 +409,7 @@ def do_onboarding(api_key, csv_in, res_out, do_check):
     # The device onboarding status is obtained through the FetchBulkOpsRequest endpoint
     bulk_results = get_onboarding_results(api_key, bulk_req_id)
     if bulk_results is None:
-        print("Could not get results for {}: {}".format(BULK_OP_REQ_ID, bulk_req_id))
+        logger.error("Could not get results for {}: {}".format(BULK_OP_REQ_ID, bulk_req_id))
         save_bulk_ops_id(bulk_req_id, result_filepath)
         return OnboardResult.PERFORMED_RESULTS_NOT_CONFIRMED
 
@@ -415,7 +417,7 @@ def do_onboarding(api_key, csv_in, res_out, do_check):
     bulk_results_json = bulk_results.json()
 
     if bulk_results_json["status"] == "FAILED":
-        print("Failure during onboarding, downloading error summary...")
+        logger.error("Failure during onboarding, downloading error summary...")
 
         # Errors are detailed in a JSON file, which must be downloaded separately
         error_results = requests.get(bulk_results_json["errorSummaryUrl"])
@@ -425,14 +427,14 @@ def do_onboarding(api_key, csv_in, res_out, do_check):
             err_count, err_json = parse_err_msg(error_results.text)
             device_list = update_device_list_err(device_list, err_json)
         else:
-            print("Could not access error output: " + error_results.text)
+            logger.error("Could not access error output: " + error_results.text)
             device_list = None
 
     elif bulk_results_json["status"] == "SUCCEEDED":
         # No errors, mark the devices as OK
         device_list = update_device_list_ok(device_list)
     else:
-        print("Unhandled bulk ops status: {}".format(bulk_results_json["status"]))
+        logger.error("Unhandled bulk ops status: {}".format(bulk_results_json["status"]))
 
     save_results(bulk_results_json, err_count, device_list, result_filepath)
 
@@ -453,7 +455,7 @@ def update_mfwv_in_shadow(api_key, devinfo_list, res_out):
             return
         res_file_exists = os.path.exists(result_filepath)
 
-    print("Writing modem firmware version to shadow for {} devices...".format(len(devinfo_list)))
+    logger.info("Writing modem firmware version to shadow for {} devices...".format(len(devinfo_list)))
 
     # Update each device's shadow with its installed modem firmware version
     for dev in devinfo_list:
@@ -464,7 +466,7 @@ def update_mfwv_in_shadow(api_key, devinfo_list, res_out):
         res_text = 'OK'
         res = update_device_shadow(api_key, id, shadow_json)
         if res.status_code != 202:
-            print_api_result("Failed to update shadow for {}: ".format(id), res, True)
+            print_api_result("Failed to update shadow for {}: ".format(id), res)
             res_text = res.text
             err_cnt = err_cnt + 1
 
@@ -489,7 +491,7 @@ def update_mfwv_in_shadow(api_key, devinfo_list, res_out):
         results.write('No results\n')
 
     if not len(result_filepath):
-        print("CSV-formatted results:")
+        logger.info("CSV-formatted results:")
 
     save_or_print(results, result_filepath, True)
 
@@ -503,14 +505,14 @@ def set_friendly_name(api_key, devinfo_list, name_prefix):
             imei = ''
 
         if not imei:
-            print("Friendly name not set, IMEI not found for device ID: {}".format(id))
+            logger.warning("Friendly name not set, IMEI not found for device ID: {}".format(id))
             continue
 
         if name_prefix:
             imei = name_prefix + imei
         res = update_device_name(api_key, id, imei)
         if res.status_code != 202:
-            print_api_result("Failed to update friendly name for {}: ".format(id), res, True)
+            print_api_result("Failed to update friendly name for {}: ".format(id), res)
 
 def process_device_info_csv(api_key, csv_in, res_out, set_mfwv, set_name, name_prefix):
     if not csv_in:
@@ -519,7 +521,7 @@ def process_device_info_csv(api_key, csv_in, res_out, set_mfwv, set_name, name_p
     devinfo_list = read_devinfo_csv(csv_in)
 
     if len(devinfo_list) == 0:
-        print("Device info CSV file is empty")
+        logger.error("Device info CSV file is empty")
         return
 
     if set_mfwv:

@@ -25,6 +25,10 @@ from cryptography.x509 import (
 
 from nrfcloud_utils.cli_helpers import write_file, save_onboarding_csv
 from nrfcloud_utils import ca_certs
+import coloredlogs, logging
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create Device Credentials")
@@ -110,7 +114,7 @@ def embed_save_convert(cred_bytes):
 # (As opposed requesting one from a modem)
 # Also generates local public/private keypair.
 def create_local_csr(c = "", st = "", l = "", o = "", ou = "", cn = "", email = ""):
-    print("Warning: Generating private key locally is not recommended. Private keys should never leave the device.")
+    logger.warning("Generating private key locally is not recommended. Private keys should never leave the device.")
     private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
 
     name_attributes = [
@@ -149,7 +153,7 @@ def main(in_args):
     ca_cert = load_ca(args.ca)
     ca_key = load_ca_key(args.ca_key)
 
-    print("Creating device credentials...")
+    logger.info("Creating device credentials...")
 
     local_priv_key = None
 

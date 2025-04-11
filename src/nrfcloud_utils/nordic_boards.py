@@ -3,6 +3,10 @@ import serial
 from collections import defaultdict
 import sys
 import time
+import coloredlogs, logging
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 serial_timeout = 1
 
@@ -68,7 +72,7 @@ def ask_for_port(list_all):
             port = input('--- Enter port index: ')
             index = int(port)
             if not 0 <= index < len(ports):
-                sys.stderr.write('--- Invalid index!\n')
+                logger.error('--- Invalid index!')
                 continue
             return ports[index]
 
@@ -76,7 +80,7 @@ def ask_for_port(list_all):
     ports = get_connected_nordic_boards()
 
     if len(ports) == 0:
-        sys.stderr.write('No device found\n')
+        logger.error('No device found')
         return None
     if len(ports) == 1:
         name, serial, port = ports[0]
@@ -87,7 +91,7 @@ def ask_for_port(list_all):
         port = input('--- Enter port index: ')
         index = int(port)
         if not 0 <= index < len(ports):
-            sys.stderr.write('--- Invalid index!\n')
+            logger.error('--- Invalid index!')
             continue
         name, serial, port = ports[index]
         return port.device
@@ -101,6 +105,6 @@ def get_serial_port(port, baud, xonxoff, rtscts, dsrdtr):
         time.sleep(0.2)
         ser.reset_input_buffer()
     except serial.serialutil.SerialException:
-        sys.stderr.write('Port could not be opened; not a device, or open already.\n')
+        logger.error('Port could not be opened; not a device, or open already.')
         sys.exit(1)
     return ser

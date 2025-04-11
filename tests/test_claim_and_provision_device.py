@@ -9,14 +9,10 @@ from nrfcloud_utils import claim_and_provision_device
 from tempfile import TemporaryDirectory
 from requests import Response
 
-# TODO: mock Serial
-# TODO: mock nrf_cloud_diap
-
 TEST_ATTESTTOKEN = [b"OK\r\n", b"%ATTESTTOKEN: \"2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY\"\r\n"]
 TEST_CGSN = [b"OK\r\n", b"355025930000000\r\n"]
 TEST_RESPONSE = Response()
 TEST_RESPONSE.status_code = 201
-
 class FakeSerial(Mock):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -39,7 +35,6 @@ class FakeSerial(Mock):
             return b""
         response = self.response.pop()
         return response
-
 class TestClaimAndProvisionDevice:
     @patch("nrfcloud_utils.claim_and_provision_device.nrf_cloud_diap")
     @patch("nrfcloud_utils.claim_and_provision_device.get_serial_port", return_value=FakeSerial())

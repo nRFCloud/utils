@@ -14,7 +14,10 @@ from nrfcloud_utils import modem_credentials_parser, rtt_interface
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
 from nrfcloud_utils.nordic_boards import ask_for_port, get_serial_port
 from datetime import datetime, timezone
-from colorama import init, Fore, Back, Style
+import coloredlogs, logging
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
@@ -88,25 +91,11 @@ def ensure_lf(line):
     lf_done = True
     return '\n' + line if not done else line
 
-def local_style(line):
-    return ensure_lf(Fore.CYAN + line
-                     + Style.RESET_ALL) if not plain else line
-
-def hivis_style(line):
-    return ensure_lf(Fore.MAGENTA + line
-                     + Style.RESET_ALL) if not plain else line
-
-def send_style(line):
-    return ensure_lf(Fore.BLUE + line
-                     + Style.RESET_ALL) if not plain else line
-
-def error_style(line):
-    return ensure_lf(Fore.RED + line + Style.RESET_ALL) if not plain else line
 
 def write_line(line, hidden = False):
     global cmd_term_key
     if not hidden:
-        print(send_style('-> {}'.format(line)))
+        logger.debug('-> {}'.format(line))
     if ser:
         ser.write(bytes((line + CMD_TERM_DICT[cmd_term_key]).encode('utf-8')))
     elif rtt:
@@ -143,8 +132,6 @@ def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
                 timeout -= serial_timeout
             continue
 
-        #sys.stdout.write('<- ' + str(line, encoding=full_encoding))
-
         if val1 in line:
             found = True
             retval = True
@@ -158,10 +145,10 @@ def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
     if ser:
         ser.flush()
     if store != None and output == None:
-        print(error_style('String {} not detected in line {}'.format(store, line)))
+        logger.error('String {} not detected in line {}'.format(store, line))
 
     if timeout == 0:
-        print(error_style('Serial timeout'))
+        logger.error('Serial timeout')
         retval = False
 
     return retval, output
@@ -174,7 +161,7 @@ def cleanup():
     if rtt:
         rtt.close()
 
-def get_attestation_token():
+def get_attestation_token(verbose):
     write_at_cmd('AT%ATTESTTOKEN')
     # include the CRLF in OK because 'OK' could be found in the output string
     retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%ATTESTTOKEN: ')
@@ -185,7 +172,7 @@ def get_attestation_token():
 
     # remove quotes
     attest_tok = str(output).split('"')[1]
-    print(local_style('Attestation token: {}'.format(attest_tok)))
+    logger.debug('Attestation token: {}'.format(attest_tok))
 
     if verbose:
         modem_credentials_parser.parse_attesttoken_output(attest_tok)
@@ -215,7 +202,7 @@ def check_if_device_exists_in_csv(csv_filename, uuid, delete_duplicates):
 
             csvfile.close()
     except OSError:
-        print(error_style(f'Error opening (read) file {csv_filename}'))
+        logger.error(f'Error opening (read) file {csv_filename}')
 
     # Re-write the file without the duplicate rows
     if delete_duplicates and len(duplicate_rows):
@@ -228,7 +215,7 @@ def check_if_device_exists_in_csv(csv_filename, uuid, delete_duplicates):
                 csv_writer.writerows(keep_rows)
                 csvfile.close()
         except OSError:
-            print(error_style(f'Error opening file (write) {csv_filename}'))
+            logger.error(f'Error opening file (write) {csv_filename}')
 
     return duplicate_rows, row_count
 
@@ -243,7 +230,7 @@ def user_request_open_mode(filename, append):
             answer = input('--- File {} exists; overwrite, append, or quit (y,a,n)? '.format(filename))
 
         if answer == 'n':
-            print(local_style('File will not be overwritten'))
+            logger.debug('File will not be overwritten')
             return None
         elif answer == 'y':
             mode = 'w'
@@ -252,7 +239,7 @@ def user_request_open_mode(filename, append):
 
     elif not exists and append:
         mode = 'w'
-        print('Append specified but file does not exist...')
+        logger.warning('Append specified but file does not exist...')
 
     return mode
 
@@ -271,24 +258,23 @@ def save_attestation_csv(csv_filename, append, replace, imei, uuid, attestation_
 
         if len(duplicate_rows):
             if replace:
-                print(hivis_style(f'Removed existing data:\r\n\t{duplicate_rows}'))
+                logger.warning(f'Removed existing data:\r\n\t{duplicate_rows}')
             else:
-                print(error_style('Device already exists in CSV, the following row was NOT added:'))
-                print(local_style(row))
+                logger.error('Device already exists in CSV, the following row was NOT added:')
+                logger.debug(row)
                 return
 
     try:
         with open(csv_filename, mode, newline='\n') as devinfo_file:
             devinfo_file.write(row)
-        print(local_style(f'Attestation CSV file {csv_filename} saved, row count: {row_count + 1}'))
+        logger.debug(f'Attestation CSV file {csv_filename} saved, row count: {row_count + 1}')
     except OSError:
-        print(error_style('Error opening file {}'.format(csv_filename)))
+        logger.error('Error opening file {}'.format(csv_filename))
 
 def error_exit(err_msg):
     cleanup()
     if err_msg:
-        sys.stderr.write(error_style(err_msg))
-        sys.stderr.write('\n')
+        logger.error(err_msg)
         sys.exit(1)
     else:
         sys.exit('Error... exiting.')
@@ -318,24 +304,23 @@ def main(in_args):
         init(convert = not plain)
 
     if args.verbose:
-        print(send_style('OS detect: Linux={}, MacOS={}, Windows={}\n'.
-                          format(is_linux, is_macos, is_windows)))
+        logger.debug('OS detect: Linux={}, MacOS={}, Windows={}'.format(is_linux, is_macos, is_windows))
 
     if args.rtt:
         cmd_term_key = 'CRLF'
 
         rtt = rtt_interface.connect_rtt(args.jlink_sn, args.mosh_rtt_hex)
         if not rtt:
-            sys.stderr.write(error_style('Failed connect to device via RTT'))
+            logger.error('Failed connect to device via RTT')
             sys.exit(2)
 
         if not rtt_interface.enable_at_cmds_mosh_rtt(rtt):
-            sys.stderr.write(error_style('Failed to enable AT commands via RTT'))
+            logger.error('Failed to enable AT commands via RTT')
             sys.exit(3)
         ser = None
     else:
         # get a serial port to use
-        print(local_style('Opening serial port...'))
+        logger.debug('Opening serial port...')
         if args.port:
             port = args.port
         else:
@@ -343,14 +328,14 @@ def main(in_args):
         if port == None:
             sys.exit(1)
 
-        print(local_style('Selected serial port: {}'.format(port)))
+        logger.debug('Selected serial port: {}'.format(port))
 
         # try to open the serial port
         ser = get_serial_port(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
                             dsrdtr=args.dsrdtr)
 
     # get attestation token
-    attest_tok = get_attestation_token()
+    attest_tok = get_attestation_token(args.verbose)
     if not attest_tok:
         error_exit('Failed to obtain attestation token')
 
@@ -358,23 +343,23 @@ def main(in_args):
     write_at_cmd('AT+CGSN')
     retval, imei = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
     if not retval:
-        print(error_style('Failed to obtain IMEI'))
+        logger.error('Failed to obtain IMEI')
         imei = None
 
     if imei:
         # display the IMEI for reference
         imei = str(imei.decode("utf-8"))[:IMEI_LEN]
-        print(send_style('\nDevice IMEI: ' + imei))
+        logger.info('Device IMEI: ' + imei)
 
     # get device UUID from attestation token
     dev_uuid = modem_credentials_parser.get_device_uuid(attest_tok)
-    print(send_style('Device UUID: ' + dev_uuid))
+    logger.info('Device UUID: ' + dev_uuid)
 
     if len(args.csv) > 0:
         save_attestation_csv(args.csv, not args.overwrite, not args.keep, imei,
                              dev_uuid, attest_tok)
 
-    print(local_style('Done.'))
+    logger.debug('Done.')
     cleanup()
 
 def run():

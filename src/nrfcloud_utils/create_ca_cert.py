@@ -23,7 +23,10 @@ from cryptography.x509 import (
 )
 
 from nrfcloud_utils.cli_helpers import write_file
+import coloredlogs, logging
 
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create CA Certificate")
@@ -51,7 +54,7 @@ def main(in_args):
 
     args = parse_args(in_args)
 
-    print("Creating self-signed CA certificate...")
+    logger.info("Creating self-signed CA certificate...")
 
     # create EC keypair
     private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
