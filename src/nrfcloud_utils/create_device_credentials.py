@@ -56,8 +56,8 @@ def parse_args(in_args):
     parser.add_argument("--stage", type=str,
                         help="For internal (Nordic) use only", default="")
     parser.add_argument('--log-level',
-                        default='INFO',
-                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        default='info',
+                        choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level'
     )
     args = parser.parse_args(in_args)

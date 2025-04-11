@@ -46,8 +46,8 @@ def parse_args(in_args):
         "-f", "--fileprefix", type=str, help="Prefix for output files", default=""
     )
     parser.add_argument('--log-level',
-                        default='INFO',
-                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        default='info',
+                        choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level'
     )
     args = parser.parse_args(in_args)
