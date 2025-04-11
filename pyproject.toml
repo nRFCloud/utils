@@ -18,6 +18,7 @@ packages = [
 python = "^3.10"
 pyserial = "^3.5"
 cbor2 = "^5.4.2.post1"
+coloredlogs = "^15.0.1"
 colorama = "^0.4.4"
 cryptography = "^44.0.1"
 pynrfjprog = "^10.23.0"

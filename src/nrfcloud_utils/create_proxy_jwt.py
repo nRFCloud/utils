@@ -8,10 +8,11 @@ import argparse
 import sys
 import jwt
 from datetime import datetime, timezone, timedelta
-import platform
 from os import path
-import colorama
-from colorama import Fore, Back, Style
+import coloredlogs, logging
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create JWT for proxy (cloud-to-cloud) requests to nRF Cloud",
@@ -43,11 +44,11 @@ def parse_args(in_args):
 def create_nrf_cloud_jwt(prv_key_bytes, team_id, dev_id, days_valid):
 
     if not team_id:
-        print("Team ID not provided")
+        logger.error("Team ID not provided")
         return None
 
     if not prv_key_bytes:
-        print("Private key not provided")
+        logger.error("Private key not provided")
         return None
 
     payload = {"aud" : team_id}
@@ -61,7 +62,7 @@ def create_nrf_cloud_jwt(prv_key_bytes, team_id, dev_id, days_valid):
     try:
         encoded_jwt = jwt.encode(payload, prv_key_bytes, algorithm="ES256")
     except ValueError:
-        print("Exception encoding JWT. Verify that the provided key is ES256 and in PEM format.")
+        logger.error("Exception encoding JWT. Verify that the provided key is ES256 and in PEM format.")
         return None
 
     return encoded_jwt
@@ -70,13 +71,13 @@ def read_private_key(key_path):
     key_abspath = path.abspath(key_path)
 
     if not path.isfile(key_abspath):
-        print("Private key not found: " + key_abspath)
+        logger.error("Private key not found: " + key_abspath)
         return None
 
     try:
         key_file = open(key_abspath, "rt")
     except OSError:
-        print("Error opening private key file: " + key_abspath)
+        logger.error("Error opening private key file: " + key_abspath)
         return None
 
     key_bytes = key_file.read()
@@ -87,35 +88,23 @@ def read_private_key(key_path):
 def main(in_args):
     args = parse_args(in_args)
 
-    # Init colors for display
-    colorama.init(convert = (platform.system() == 'Windows'))
-
     # Read the private key PEM which will be used to sign the JWT
     key_bytes = read_private_key(args.key)
 
     # Encode the JWT
     encoded_jwt = create_nrf_cloud_jwt(key_bytes, args.team_id, args.dev_id, args.days_valid)
     if not encoded_jwt:
-        print("Error creating JWT")
+        logger.error("Error creating JWT")
         return
 
     # Print the header data
-    print("Header:")
-    print(Fore.RED +
-          "\t{}".format(jwt.get_unverified_header(encoded_jwt)) +
-          Style.RESET_ALL)
+    logger.info(f"Header: {jwt.get_unverified_header(encoded_jwt)}")
 
     # Print the payload data
-    print("Payload:")
-    print(Fore.CYAN +
-          "\t{}\n".format(jwt.decode(encoded_jwt, options={"verify_signature": False})) +
-          Style.RESET_ALL)
+    logger.info("Payload: {}".format(jwt.decode(encoded_jwt, options={'verify_signature': False})))
 
     # Print the encoded JWT
-    print("JWT:")
-    print(Fore.BLACK + Back.GREEN +
-          encoded_jwt +
-          Style.RESET_ALL + '\n')
+    logger.info(f"JWT: {encoded_jwt}")
 
     return
 

@@ -10,6 +10,7 @@ from os import makedirs
 import platform
 import os
 import csv
+import coloredlogs, logging
 
 MAX_CSV_ROWS = 1000
 
@@ -18,30 +19,8 @@ is_windows = platform.system() == 'Windows'
 is_linux = platform.system() == 'Linux'
 full_encoding = 'mbcs' if is_windows else 'ascii'
 
-use_styles = True
-
-def cli_disable_styles():
-    global use_styles
-    use_styles = False
-
-def local_style(line):
-    global use_styles
-    return (Fore.CYAN + line + Style.RESET_ALL) if use_styles else line
-
-def hivis_style(line):
-    global use_styles
-    return (Fore.MAGENTA + line + Style.RESET_ALL) if use_styles else line
-
-def send_style(line):
-    global use_styles
-    return (Fore.BLUE + line + Style.RESET_ALL) if use_styles else line
-
-def error_style(line):
-    global use_styles
-    return (Fore.RED + line + Style.RESET_ALL) if use_styles else line
-
-def init_colorama():
-    init(convert = use_styles)
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 def write_file(pathname, filename, bytes):
     """
@@ -62,7 +41,7 @@ def write_file(pathname, filename, bytes):
         raise RuntimeError("Error opening file: " + full_path)
 
     f.write(bytes)
-    print("File created: " + path.abspath(f.name))
+    logger.info("File created: " + path.abspath(f.name))
     f.close()
 
     return
@@ -78,7 +57,7 @@ def user_request_open_mode(filename, append):
             answer = input('--- File {} exists; overwrite, append, or quit (y,a,n)? '.format(filename))
 
         if answer == 'n':
-            print(local_style('File will not be overwritten'))
+            logger.info('File will not be overwritten')
             return None
         elif answer == 'y':
             mode = 'w'
@@ -87,7 +66,7 @@ def user_request_open_mode(filename, append):
 
     elif not exists and append:
         mode = 'w'
-        print('Append specified but file does not exist...')
+        logger.warning('Append specified but file does not exist...')
 
     return mode
 
@@ -106,19 +85,19 @@ def save_onboarding_csv(csv_filename, append, replace, dev_id, sub_type, tags, f
         duplicate_rows, row_count = check_if_device_exists_in_csv(csv_filename, dev_id, replace)
 
         if row_count >= MAX_CSV_ROWS:
-            print(error_style('Onboarding CSV file is full'))
+            logger.error('Onboarding CSV file is full')
             do_not_write = True
 
         if len(duplicate_rows):
             if replace:
-                print(hivis_style(f'Removed existing device onboarding data:\r\n\t{duplicate_rows}'))
+                logger.warning(f'Removed existing device onboarding data:\r\n\t{duplicate_rows}')
             else:
-                print(error_style(f'Onboarding CSV file already contains device \'{dev_id}\''))
+                logger.error(f'Onboarding CSV file already contains device \'{dev_id}\'')
                 do_not_write = True
 
         if do_not_write:
-            print(error_style('The following row was NOT added to the onboarding CSV file:'))
-            print(local_style(str(row)))
+            logger.error('The following row was NOT added to the onboarding CSV file:')
+            logger.info(str(row))
             return
 
     try:
@@ -126,9 +105,9 @@ def save_onboarding_csv(csv_filename, append, replace, dev_id, sub_type, tags, f
             csv_writer = csv.writer(csvfile, delimiter=',', lineterminator='\n',
                                     quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(row)
-        print(local_style(f'Onboarding CSV file saved, row count: {row_count + 1}'))
+        logger.info(f'Onboarding CSV file saved, row count: {row_count + 1}')
     except OSError:
-        print(error_style(f'Error opening file {csv_filename}'))
+        logger.error(f'Error opening file {csv_filename}')
 
 def check_if_device_exists_in_csv(csv_filename, dev_id, delete_duplicates):
     row_count = 0
@@ -153,7 +132,7 @@ def check_if_device_exists_in_csv(csv_filename, dev_id, delete_duplicates):
 
             csvfile.close()
     except OSError:
-        print(error_style(f'Error opening (read) file {csv_filename}'))
+        logger.error(f'Error opening (read) file {csv_filename}')
 
     # Re-write the file without the duplicate rows
     if delete_duplicates and len(duplicate_rows):
@@ -166,7 +145,7 @@ def check_if_device_exists_in_csv(csv_filename, dev_id, delete_duplicates):
                 csv_writer.writerows(keep_rows)
                 csvfile.close()
         except OSError:
-            print(error_style(f'Error opening file (write) {csv_filename}'))
+            logger.error(f'Error opening file (write) {csv_filename}')
 
     return duplicate_rows, row_count
 
@@ -185,15 +164,15 @@ def save_devinfo_csv(csv_filename, append, replace, dev_id, mfw_ver = None, imei
 
         if len(duplicate_rows):
             if replace:
-                print(hivis_style(f'Removed existing device info data:\r\n\t{duplicate_rows}'))
+                logger.warning(f'Removed existing device info data:\r\n\t{duplicate_rows}')
             else:
-                print(error_style('Device already exists in device info CSV, the following row was NOT added:'))
-                print(local_style(row))
+                logger.error('Device already exists in device info CSV, the following row was NOT added:')
+                logger.info(row)
                 return
 
     try:
         with open(csv_filename, mode, newline='\n') as devinfo_file:
             devinfo_file.write(row)
-        print(local_style(f'Device info CSV file saved, row count: {row_count + 1}'))
+        logger.info(f'Device info CSV file saved, row count: {row_count + 1}')
     except OSError:
-        print(error_style('Error opening file {}'.format(csv_filename)))
+        logger.error('Error opening file {}'.format(csv_filename))

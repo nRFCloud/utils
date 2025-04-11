@@ -6,13 +6,16 @@
 
 from enum import Enum
 from abc import ABC, abstractmethod
-from nrfcloud_utils.cli_helpers import local_style, error_style
 import math
 import time
 from nrfcloud_utils import modem_credentials_parser
 import base64
 import hashlib
+import coloredlogs, logging
 from cryptography import x509
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 IMEI_LEN = 15
 
@@ -95,7 +98,7 @@ class ATCommandInterface(CredentialCommandInterface):
         try:
             return cmng_result_str.decode().split('"')[1]
         except (ValueError, IndexError):
-            print(error_style(f'Could not parse credential hash: {cmng_result_str}'))
+            logger.error(f'Could not parse credential hash: {cmng_result_str}')
             return None
 
     def set_shell_mode(self, shell):
@@ -161,7 +164,7 @@ class ATCommandInterface(CredentialCommandInterface):
         # convert the encoded blob to an actual cert
         csr_blob = str(output).split('"')[1]
         if self.verbose:
-            print(local_style('CSR blob: {}'.format(csr_blob)))
+            logger.info('CSR blob: {}'.format(csr_blob))
 
         csr_bytes, _, _, _ = modem_credentials_parser.parse_keygen_output(csr_blob)
 
@@ -246,8 +249,8 @@ class TLSCredShellInterface(CredentialCommandInterface):
         status_code = data[3].strip()
 
         if (status_code != "0"):
-            print(error_style(f"Error retrieving credential hash: {output.decode().strip()}."))
-            print(error_style("Device might not support credential digests."))
+            logger.error(f"Error retrieving credential hash: {output.decode().strip()}.")
+            logger.error("Device might not support credential digests.")
             return True, None
 
         return True, hash

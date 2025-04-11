@@ -11,9 +11,13 @@ from os import makedirs
 from cbor2 import loads
 import base64
 import hashlib
+import coloredlogs, logging
 from cryptography.hazmat.primitives import serialization
 from cryptography import x509
 from nrfcloud_utils.cli_helpers import write_file
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
 
 msg_type_dict = {
     1: 'Device identity message v1',
@@ -75,56 +79,56 @@ def parse_cose(cose_str, payload_digest=""):
     cose_bytes = base64_decode(cose_str)
     cose_obj = loads(cose_bytes)
 
-    print("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
-    print("COSE:")
+    logger.info("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
+    logger.info("COSE:")
 
     # print protected header info
     phdr_obj = loads(cose_obj.value[0])
     for key in phdr_obj.keys():
-        print("  Prot Hdr:   " + str(key) + " : " +
+        logger.info("  Prot Hdr:   " + str(key) + " : " +
               str(phdr_obj[key]) + " (" +
               header_key_type_dict.get(phdr_obj[key]) + ")")
 
     # the unprotected header contains a map (and another cose object)
     for key in cose_obj.value[1].keys():
         unphdr_obj = loads(cose_obj.value[1].get(key))
-        print("  Unprot Hdr: " + str(key)  + " : " +
+        logger.info("  Unprot Hdr: " + str(key)  + " : " +
               str(unphdr_obj) + " (" +
               header_key_type_dict.get(unphdr_obj) + ")")
 
     # The COSE payload may contain a cbor attestation payload
     # If present, decode the cbor and print
-    print("  ---------------")
-    print("  Attestation:")
+    logger.info("  ---------------")
+    logger.info("  Attestation:")
     if str(cose_obj.value[2]) != "None":
         attest_obj = loads(cose_obj.value[2])
-        print("    Payload ID: " + payload_id_dict.get(attest_obj[0]))
+        logger.info("    Payload ID: " + payload_id_dict.get(attest_obj[0]))
         dev_uuid_hex_str = format_uuid(attest_obj[1].hex())
-        print("    Dev UUID:   " + dev_uuid_hex_str)
+        logger.info("    Dev UUID:   " + dev_uuid_hex_str)
         # sec_tag is another cbor object
         sec_tag = loads(attest_obj[2])
         if sec_tag < 0:
             # sec_tag was encoded as a negative integer, convert it to unsigned
             sec_tag = (-sec_tag ^ 0xFFFFFFFF) + 1
         sec_tag_str = str(sec_tag)
-        print("    sec_tag:    " + sec_tag_str)
+        logger.info("    sec_tag:    " + sec_tag_str)
         # SHA256 digest of cert/key in the payload
-        print("    SHA256:     " + attest_obj[3].hex())
-        print("    Nonce:      " + attest_obj[4].hex())
+        logger.info("    SHA256:     " + attest_obj[3].hex())
+        logger.info("    Nonce:      " + attest_obj[4].hex())
     else:
-        print("    Not present")
-    print("  ---------------")
+        logger.info("    Not present")
+    logger.info("  ---------------")
 
-    # Print the 64-bit signature
-    print("  Sig:")
-    print("      " + cose_obj.value[3].hex())
+    # print the 64-bit signature
+    logger.info("  Sig:")
+    logger.info("      " + cose_obj.value[3].hex())
 
     if len(payload_digest) > 0:
         if attest_obj[3].hex() == payload_digest:
-            print("\nCOSE digest matches payload")
+            logger.info("\nCOSE digest matches payload")
         else:
-            print("\nCOSE digest does NOT match payload")
-    print("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
+            logger.info("\nCOSE digest does NOT match payload")
+    logger.info("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
 
     return dev_uuid_hex_str, sec_tag_str
 
@@ -150,7 +154,7 @@ def parse_keygen_output(keygen_str):
     """
     parse keygen output.
     """
-    print("\nParsing AT%KEYGEN output:\n")
+    logger.info("Parsing AT%KEYGEN output:")
 
     csr_pem_bytes = None
     pub_key_bytes = None
@@ -174,21 +178,21 @@ def parse_keygen_output(keygen_str):
         pub_key_bytes = pub_key.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
     else:
-        # CSR loaded, print it
+        # CSR loaded, logger.info it
         csr_pem_bytes = csr.public_bytes(serialization.Encoding.PEM)
         csr_pem_list = str(csr_pem_bytes.decode()).split('\n')
         for line in csr_pem_list:
-            print(line)
+            logger.info(line)
 
         # Extract public key
         pub_key_bytes = csr.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
-    print("Device public key:")
-    print(pub_key_bytes.decode())
+    logger.info("Device public key:")
+    logger.info(pub_key_bytes.decode())
 
     payload_digest = hashlib.sha256(body_bytes).hexdigest()
-    print("SHA256 Digest:")
-    print(payload_digest + "\n")
+    logger.info("SHA256 Digest:")
+    logger.info(payload_digest)
 
     # Get optional cose
     cose = ""
@@ -200,7 +204,7 @@ def parse_keygen_output(keygen_str):
     return csr_pem_bytes, pub_key_bytes, dev_uuid_hex_str, sec_tag_str
 
 def parse_attesttoken_output(atokout_str):
-    print("\nParsing AT%ATTESTTOKEN output:\n")
+    logger.info("Parsing AT%ATTESTTOKEN output:")
 
     # Input format: <base64url_body>.<base64url_cose>
     #               cose portion is optional
@@ -216,13 +220,13 @@ def parse_attesttoken_output(atokout_str):
     if not dev_type:
         dev_type = "Unknown"
 
-    # Print parsed CBOR
-    print("---------------")
-    print("Msg Type:    " + msg_type_dict[body_obj[0]])
-    print("Dev UUID:    " + format_uuid(body_obj[1].hex()))
-    print("Dev Type:    " + dev_type)
-    print("FW UUID:     " + format_uuid(body_obj[3].hex()))
-    print("---------------")
+    # print parsed CBOR
+    logger.info("---------------")
+    logger.info("Msg Type:    " + msg_type_dict[body_obj[0]])
+    logger.info("Dev UUID:    " + format_uuid(body_obj[1].hex()))
+    logger.info("Dev Type:    " + dev_type)
+    logger.info("FW UUID:     " + format_uuid(body_obj[3].hex()))
+    logger.info("---------------")
 
     # Get optional cose
     cose = ""
@@ -258,7 +262,7 @@ def main(in_args):
 
     if (args.save == False) and ((len(args.path) > 0) or (len(args.fileprefix) > 0)):
         args.save = True
-        print("Argument -s has been selected since path/fileprefix was specified")
+        logger.info("Argument -s has been selected since path/fileprefix was specified")
 
     if (args.save) and (len(args.keygen) > 0):
         if (len(args.path) == 0):

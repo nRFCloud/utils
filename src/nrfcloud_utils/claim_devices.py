@@ -11,10 +11,13 @@ import time
 import json
 import argparse
 import platform
+import coloredlogs, logging
 from nrfcloud_utils import nrf_cloud_diap
-from nrfcloud_utils.cli_helpers import error_style, local_style, send_style, hivis_style, init_colorama, cli_disable_styles, is_linux, is_windows, is_macos
+from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
 
-verbose = False
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG', logger=logger)
+
 args = None
 IMEI_LEN = 15
 MAX_CSV_ROWS = 1000
@@ -42,14 +45,13 @@ def parse_args(in_args):
     args = parser.parse_args(in_args)
     return args
 
-def bulk_claim(api_key, array_of_claims, verbose):
+def bulk_claim(api_key, array_of_claims):
     # convert arrays of claims to properly formatted csv string
     csv_out = io.StringIO()
     csv_writer = csv.writer(csv_out, lineterminator='\n', quoting=csv.QUOTE_ALL)
     csv_writer.writerows(array_of_claims)
     csv_str = csv_out.getvalue()
-    if verbose:
-        print(f'Claim payload:\n{str(csv_str)}')
+    logger.debug(f'Claim payload:\n{str(csv_str)}')
 
     # bulk claim then process response
     api_res = nrf_cloud_diap.bulk_claim_devices(api_key, csv_str)
@@ -62,43 +64,29 @@ def bulk_claim(api_key, array_of_claims, verbose):
         if 'failed' in json:
             failed = json['failed']
     except:
-        print(error_style('Error accessing json'))
+        logger.error('Error accessing json')
         pass
 
     if api_res.status_code in {200, 201}:
-        print(local_style(f'--> Accepted; claimed {len(claimed)}:'))
-        print(local_style(f'    {claimed}'))
+        logger.info(f'--> Accepted; claimed {len(claimed)}:')
+        logger.info(f'    {claimed}')
     else:
-        print(error_style(f'--> Error {api_res.status_code} on {len(failed)} rows:'))
-        print(error_style(f'    {failed}'))
-        print(error_style(f'    {api_res.text}'))
+        logger.error(f'--> Error {api_res.status_code} on {len(failed)} rows:')
+        logger.error(f'    {failed}')
+        logger.error(f'    {api_res.text}')
 
     return len(claimed)
-
-def error_exit(err_msg):
-    cleanup()
-    if err_msg:
-        sys.stderr.write(error_style(err_msg))
-        sys.stderr.write('\n')
-        sys.exit(1)
-    else:
-        sys.exit('Error... exiting.')
 
 def main(in_args):
     # initialize arguments
     args = parse_args(in_args)
     if args.plain:
-        cli_disable_styles()
-
-    # initialize colorama
-    if is_windows:
-        init_colorama()
+        logging.setLoggerClass(logging.Logger)
 
     if args.verbose:
-        print(send_style('OS detect: Linux={}, MacOS={}, Windows={}\n'.
-                          format(is_linux, is_macos, is_windows)))
+        logger.debug('OS detect: Linux={}, MacOS={}, Windows={}'.format(is_linux, is_macos, is_windows))
 
-    print(hivis_style('\nProvisioning API URL: ' + nrf_cloud_diap.set_dev_stage(args.stage)))
+    logger.warning('Provisioning API URL: ' + nrf_cloud_diap.set_dev_stage(args.stage))
 
     try:
         with open(args.csv) as csvfile:
@@ -115,9 +103,9 @@ def main(in_args):
                 # pull fields out of csv
                 imei, uuid, attest_tok, date_time = row[:4]
                 if not args.verbose:
-                    print(local_style(f'{row_count}. Claiming {imei}, {uuid}'))
+                    logger.info(f'{row_count}. Claiming {imei}, {uuid}')
                 else:
-                    print(local_style(f'{row_count}. Claiming {imei}, {uuid}, {date_time}, {attest_tok}, with tags: "{args.provisioning_tags}"'))
+                    logger.info(f'{row_count}. Claiming {imei}, {uuid}, {date_time}, {attest_tok}, with tags: "{args.provisioning_tags}"')
 
                 # build an array with the attestation token and any specified provisioning tags
                 # provisioning tags must be enclosed in quotes so they are treated as one field later
@@ -130,19 +118,19 @@ def main(in_args):
 
                 # if we are at the limit, claim them
                 if row_count == MAX_CSV_ROWS:
-                    pass_count += bulk_claim(args.api_key, bulk_prov_csv, args.verbose)
+                    pass_count += bulk_claim(args.api_key, bulk_prov_csv)
                     bulk_prov_csv = list()
                     row_count = 0
 
             # claim and remaining devices
             if len(bulk_prov_csv) > 0:
-                pass_count += bulk_claim(args.api_key, bulk_prov_csv, args.verbose)
+                pass_count += bulk_claim(args.api_key, bulk_prov_csv)
 
-            print(hivis_style(f'\nDone. {pass_count} of {total_rows} devices claimed.'))
+            logger.warning(f'Done. {pass_count} of {total_rows} devices claimed.')
             csvfile.close()
 
     except OSError:
-        print(error_style(f'Error opening (read) file {args.csv}'))
+        logger.error(f'Error opening (read) file {args.csv}')
 
     sys.exit(0)
 
