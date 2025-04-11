@@ -229,7 +229,7 @@ def wait_for_cmd_status(api_key, dev_uuid, cmd_id, verbose=False):
         return api_result_json.get('response')
 
 def main(in_args):
-    global ser
+    global ser #TODO: remove this, it makes multiple tests impossible!
     global at_cmd_prefix
     # initialize arguments
     args = parse_args(in_args)

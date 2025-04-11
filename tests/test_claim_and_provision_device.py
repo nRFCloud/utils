@@ -13,6 +13,8 @@ TEST_ATTESTTOKEN = [b"OK\r\n", b"%ATTESTTOKEN: \"2dn3hQFQUDYxVDkxRPCAIhIbZAFifQN
 TEST_CGSN = [b"OK\r\n", b"355025930000000\r\n"]
 TEST_RESPONSE = Response()
 TEST_RESPONSE.status_code = 201
+CA_FILE = "tests/fixtures/test_ca.pem"
+CA_KEY_FILE = "tests/fixtures/test_ca_prv.pem"
 class FakeSerial(Mock):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -36,13 +38,26 @@ class FakeSerial(Mock):
         response = self.response.pop()
         return response
 class TestClaimAndProvisionDevice:
+
+    @patch("nrfcloud_utils.claim_and_provision_device.nrf_cloud_diap")
+    @patch("nrfcloud_utils.claim_and_provision_device.get_serial_port", return_value=FakeSerial())
+    def test_local_ca(self, ser, diap):
+        diap.claim_device = Mock(return_value=TEST_RESPONSE)
+        diap.create_provisioning_cmd_csr = Mock(return_value=TEST_RESPONSE)
+        diap.create_provisioning_cmd_client_cert = Mock(return_value=TEST_RESPONSE)
+        diap.create_provisioning_cmd_server_cert = Mock(return_value=TEST_RESPONSE)
+        diap.create_provisioning_cmd_finished = Mock(return_value=TEST_RESPONSE)
+        with TemporaryDirectory() as tmpdir:
+            args = f"--port /not/a/real/device --api-key NOTAKEY --log-level debug --noshell --ca {CA_FILE} --ca-key {CA_KEY_FILE}".split()
+            # call DUT
+            claim_and_provision_device.main(args)
+            diap.claim_device.assert_called_once()
+
     @patch("nrfcloud_utils.claim_and_provision_device.nrf_cloud_diap")
     @patch("nrfcloud_utils.claim_and_provision_device.get_serial_port", return_value=FakeSerial())
     def test_provisioning_tags(self, ser, diap):
         diap.claim_device = Mock(return_value=TEST_RESPONSE)
-        args = f"--port /not/a/real/device --api-key NOTAKEY --noshell --provisioning-tags nrf-cloud-onboarding".split()
+        args = f"--port /not/a/real/device --api-key NOTAKEY --log-level debug --noshell --provisioning-tags nrf-cloud-onboarding".split()
         # call DUT
         claim_and_provision_device.main(args)
         diap.claim_device.assert_called_once()
-
-# TODO: test with local CA
