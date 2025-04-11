@@ -20,8 +20,7 @@ CMD_TERM_DICT = {'NULL': '\0',
                  'CR':   '\r',
                  'LF':   '\n',
                  'CRLF': '\r\n'}
-# 'CR' is the default termination value for the at_host library in the nRF Connect SDK
-cmd_term_key = 'CR'
+cmd_term_key = 'CRLF'
 full_encoding = 'mbcs' if is_windows else 'ascii'
 lf_done = False
 plain = False

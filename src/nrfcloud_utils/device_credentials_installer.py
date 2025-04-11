@@ -29,7 +29,7 @@ CMD_TYPE_AT = "at"
 CMD_TYPE_AT_SHELL = "at_shell"
 CMD_TYPE_TLS_SHELL = "tls_cred_shell"
 
-cmd_term_key = 'CR'
+cmd_term_key = 'CRLF'
 default_password = 'nordic'
 is_gateway = False
 verbose = False
