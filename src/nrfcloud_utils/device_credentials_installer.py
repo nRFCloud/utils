@@ -585,7 +585,7 @@ def main(in_args):
         cred_if.write_credential(args.sectag, 2, prv_text)
 
     if args.verify:
-        logger.error('Verifying credentials...')
+        logger.info('Verifying credentials...')
         check_sha = True
 
         # AT-command-based SHA check has a modem firmware version requirement
