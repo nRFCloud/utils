@@ -11,7 +11,6 @@ import coloredlogs, logging
 CRLF = '\r\n'
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 def send_rtt(api, tx_data):
     for i in range(0, len(tx_data), 12):

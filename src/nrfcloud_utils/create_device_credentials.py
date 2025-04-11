@@ -28,7 +28,6 @@ from nrfcloud_utils import ca_certs
 import coloredlogs, logging
 
 logger = logging.getLogger(__name__)
-coloredlogs.install(level='DEBUG', logger=logger)
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Create Device Credentials")
@@ -56,7 +55,15 @@ def parse_args(in_args):
                         action='store_true', default=False)
     parser.add_argument("--stage", type=str,
                         help="For internal (Nordic) use only", default="")
+    parser.add_argument('--log-level',
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set the logging level'
+    )
     args = parser.parse_args(in_args)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    fmt = '%(levelname)-8s %(message)s'
+    coloredlogs.install(level=level, fmt=fmt)
     if len(args.csr) == 0 and len(args.cn) == 0:
         args.cn = str(uuid.uuid4())
     return args
