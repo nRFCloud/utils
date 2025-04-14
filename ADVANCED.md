@@ -357,7 +357,7 @@ The script can run in two modes:
 **Applying the FOTA Job:**
 
 * **Default Behavior:** By default, the script automatically attempts to apply the created FOTA job to the target device(s).
-* **Manual Application:** To create the job definition without immediately applying it, add the `--not-apply` flag. You can then manually trigger the update later using the [ApplyFOTAJob](https://api.nrfcloud.com/v1#tag/FOTA-Jobs/operation/ApplyFOTAJob) API endpoint or directly from the [Firmware Updates dashboard](https://nrfcloud.com/#/updates-dashboard) on nRF Cloud.
+* **Manual Application:** To create the job definition without immediately applying it, add the `--defer-apply` flag. You can then manually trigger the update later using the [ApplyFOTAJob](https://api.nrfcloud.com/v1#tag/FOTA-Jobs/operation/ApplyFOTAJob) API endpoint or directly from the [Firmware Updates dashboard](https://nrfcloud.com/#/updates-dashboard) on nRF Cloud.
 
 **Output:**
 
@@ -373,7 +373,7 @@ The script can run in two modes:
 
 * **Create (but do not apply) a FOTA job non-interactively for all devices with a specific tag:**
     ```bash
-    nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE --name "MyAppUpdateV1.1" --desc "App core update v1.1 for beta testers" --bundle-id "fw-app-v1.1-bundle-id" --tag "beta-testers" --not-apply
+    nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE --name "MyAppUpdateV1.1" --desc "App core update v1.1 for beta testers" --bundle-id "fw-app-v1.1-bundle-id" --tag "beta-testers" --defer-apply
     ```
 
 * **Create a FOTA job interactively (will prompt for details):**

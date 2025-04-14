@@ -191,7 +191,7 @@ def parse_args(in_args):
     parser.add_argument("--type",
                         help="FOTA update type: APP, MODEM, MDM_FULL, or BOOT",
                         type=str, required=False, default="MODEM")
-    parser.add_argument("--not-apply",
+    parser.add_argument("--defer-apply",
                         help="Not apply job upon creation. If enabled, the job must be applied using the ApplyFOTAJob endpoint.",
                         action='store_false', default=True)
     parser.add_argument("--rd",
@@ -770,7 +770,7 @@ def main(in_args):
         return
 
     do_job_creation(args.api_key, bundles, requested_devices, update_by,
-                    args.tag, args.bundle_id, args.name, args.desc, args.not_apply,
+                    args.tag, args.bundle_id, args.name, args.desc, args.defer_apply,
                     fota_type)
 
     return
