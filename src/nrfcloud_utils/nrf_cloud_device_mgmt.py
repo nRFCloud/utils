@@ -191,9 +191,9 @@ def parse_args(in_args):
     parser.add_argument("--type",
                         help="FOTA update type: APP, MODEM, MDM_FULL, or BOOT",
                         type=str, required=False, default="MODEM")
-    parser.add_argument("--apply",
-                        help="Apply job upon creation; this starts the job. If not enabled, the job must be applied using the ApplyFOTAJob endpoint.",
-                        action='store_true', default=False)
+    parser.add_argument("--defer-apply",
+                        help="Not apply job upon creation. If enabled, the job must be applied using the ApplyFOTAJob endpoint or directly from nRF Cloud.",
+                        action='store_false', default=True)
     parser.add_argument("--rd",
                         help="Display only devices that support the requested FOTA type",
                         action='store_true', default=False)
@@ -770,7 +770,7 @@ def main(in_args):
         return
 
     do_job_creation(args.api_key, bundles, requested_devices, update_by,
-                    args.tag, args.bundle_id, args.name, args.desc, args.apply,
+                    args.tag, args.bundle_id, args.name, args.desc, args.not_apply,
                     fota_type)
 
     return

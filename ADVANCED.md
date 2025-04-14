@@ -62,7 +62,7 @@ device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify
 
 # nRF Cloud Device Onboarding
 The `nrf_cloud_onboard.py` script performs device onboarding with nRF Cloud.
-Your nRF Cloud REST API key is a required parameter. See [https://nrfcloud.com/#/account](https://nrfcloud.com/#/account).
+Your nRF Cloud REST API key is a required parameter and can be found on your [User Account page](https://nrfcloud.com/#/account).
 Also required is a CSV file compatible with the [onboarding endpoint](https://api.nrfcloud.com/v1/#operation/ProvisionDevices). You can use the onboarding CSV file produced by `device_credentials_installer.py`.
 
 ### Example
@@ -292,7 +292,7 @@ CONFIG_SHELL_CMD_BUFF_SIZE=2048
 When not using provisioning tags (with the `--provisioning-tags` argument), this script creates device credentials for use with nRF Cloud and so requires a CA certificate and the associated private key as an input.
 
 Use the `create_ca_cert.py` script to create a self-signed CA certificate and keys.
-Your nRF Cloud REST API key is also a required parameter. See [https://nrfcloud.com/#/account](https://nrfcloud.com/#/account).
+Your nRF Cloud REST API key is also a required parameter. It can be found on your [User Account page](https://nrfcloud.com/#/account).
 Use `--help` for additional parameter information.
 
 ### Examples
@@ -330,26 +330,53 @@ At the end it reports the total number claimed and the total attempted.
 claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
 ```
 
-# Device Management - Creating FOTA Updates:
-Use the `nrf_cloud_device_mgmt.py` script to create FOTA update jobs.
+# Creating FOTA Updates
 
-An nRF Cloud API key `--api-key` is required to create FOTA updates. It can be found on the nrfcloud.com User Account page.
-By providing `--name`, `--desc`, `--bundle-id` and either `--tag` or `--dev-id`, the script will execute without user interaction. Otherwise, the script will prompt the user for information required to create the FOTA update.
+Use the `nrf_cloud_device_mgmt.py` script to create FOTA (Firmware Over-The-Air) update jobs for your devices via nRF Cloud.
 
-If a FOTA update is successfully created, the script will print the `job id`, which can be used with the FOTA REST API endpoints, e.g. [FetchFOTAJob](https://api.nrfcloud.com/v1#operation/FetchFOTAJob).
+**Prerequisites:**
 
-### Examples
+* On boarded device to nRF Cloud. Follow the steps outlined in the [Device Credentials Installer](#device-credentials-installer) and [nRF Cloud Device Onboarding](#nrf-cloud-device-onboarding) sections, which include generating device credentials, programming them to the device, and completing the onboarding process.
+* An **nRF Cloud API key** is required. Provide it using the `--api-key <your_api_key>` argument. You can find your API key on your [nRF Cloud User Account page](https://nrfcloud.com/#/account).
 
-#### Modem FOTA via device tag:
-```
-nrf_cloud_device_mgmt --api-key $API_KEY --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle-id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --tag "device_group_1"
-...
-Created job: 43129aa3-656e-444f-bfd4-2e87932c6199
-```
+**Execution Modes:**
 
-#### Modem FOTA via device ID:
-```
-nrf_cloud_device_mgmt --api-key $API_KEY --type MODEM --name "My FOTA Update" --desc "This is a description of the FOTA update." --bundle-id "MODEM*be0ef0bd*mfw_nrf9160_1.3.1" --dev-id nrf-123456789012345
-...
-Created job: 17058622-683e-48d5-a752-b2a77a13c9c9
-```
+The script can run in two modes:
+
+1.  **Non-interactive:** Executes immediately without prompts if all required information is provided via command-line arguments. This requires:
+    * `--api-key <your_api_key>`
+    * `--name <job_name>` (A descriptive name for the FOTA job)
+    * `--desc <job_description>` (A description for the FOTA job)
+    * `--bundle-id <firmware_bundle_id>` (The ID of the firmware bundle previously uploaded to nRF Cloud)
+    * *And* one of the following target arguments:
+        * `--tag <tag_name>` (Targets all devices associated with this tag)
+        * `--dev-id <device_id>` (Targets a single specific device ID)
+
+2.  **Interactive:** If any of the required arguments for non-interactive mode (excluding `--api-key`) are omitted, the script will prompt you step-by-step to enter the necessary information (job name, description, bundle selection, target device/tag selection).
+
+**Applying the FOTA Job:**
+
+* **Default Behavior:** By default, the script automatically attempts to apply the created FOTA job to the target device(s).
+* **Manual Application:** To create the job definition without immediately applying it, add the `--not-apply` flag. You can then manually trigger the update later using the [ApplyFOTAJob](https://api.nrfcloud.com/v1#tag/FOTA-Jobs/operation/ApplyFOTAJob) API endpoint or directly from the [Firmware Updates dashboard](https://nrfcloud.com/#/updates-dashboard) on nRF Cloud.
+
+**Output:**
+
+* If the FOTA update job is created successfully, the script will print the `job id`.
+* This `job id` can be used to manage or query the job status using other nRF Cloud FOTA REST API endpoints, such as [FetchFOTAJob](https://api.nrfcloud.com/v1#operation/FetchFOTAJob).
+
+**Examples:**
+
+* **Create and apply a FOTA job non-interactively for a specific device:**
+    ```bash
+    nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE --name "MyModemUpdateV2" --desc "Update modem firmware to v2.0" --bundle-id "fw-modem-v2.0-bundle-id" --dev-id "nrf-XXXXXXXXXXXXXX"
+    ```
+
+* **Create (but do not apply) a FOTA job non-interactively for all devices with a specific tag:**
+    ```bash
+    nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE --name "MyAppUpdateV1.1" --desc "App core update v1.1 for beta testers" --bundle-id "fw-app-v1.1-bundle-id" --tag "beta-testers" --not-apply
+    ```
+
+* **Create a FOTA job interactively (will prompt for details):**
+    ```bash
+    nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE
+    ```

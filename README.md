@@ -41,7 +41,9 @@ Finally, add the device to your account with the Onboarding script:
 
 You can also install credentials on many devices in a row using the `--append` option and add the bulk `onboard.csv` to your account with the same command.
 
-Congratulations! You have successfully registered your device. When compiling with the nRF Cloud Libraries, make sure to use the correct KConfig options:
+Congratulations! You have successfully registered your device to nRF Cloud, you should be able to visualize it on the [Devices](https://nrfcloud.com/#/devices).
+
+When compiling with the nRF Cloud Libraries, make sure to add the next KConfig options otherwise it will not be able to connect:
 
     CONFIG_MODEM_JWT=y
     CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
