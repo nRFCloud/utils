@@ -57,9 +57,9 @@ def get_connected_nordic_boards():
     main_ports = []
     for serial, ports in nordic_boards.items():
         for pattern, name, main_port in usb_patterns:
-            if f"SER={pattern}" in ports[main_port].hwid:
+            if f"SER={pattern}" in ports[0].hwid:
                 main_ports.append((name, serial, ports[main_port]))
-            break
+                break
     return main_ports
 
 
@@ -98,10 +98,10 @@ def select_jlink(jlinks, list_all):
     if len(jlinks) == 1:
         return jlinks[0]
     if list_all:
-        jlink_serial = inquirer.List(
+        question = inquirer.List(
             "serial",
             message="Select a J-Link device",
-            choices=[str(serial) for serial in jlinks],
+            choices=[(str(serial), serial) for serial in jlinks],
         )
     else:
         nordic_boards = get_connected_nordic_boards()
@@ -111,13 +111,13 @@ def select_jlink(jlinks, list_all):
         if len(serial_numbers) == 1:
             return serial_numbers[0]
         else:
-            questions = inquirer.List(
+            question = inquirer.List(
                 "serial",
                 message="Select a J-Link device",
-                choices=[str(serial) for serial in serial_numbers],
+                choices=[(str(serial), serial) for serial in serial_numbers],
             )
-            answer = inquirer.prompt(questions)
-            return int(answer["serial"])
+    answer = inquirer.prompt([question])
+    return answer["serial"]
 
 
 def select_device_by_serial(serial_number, list_all):
@@ -136,10 +136,10 @@ def select_device_by_serial(serial_number, list_all):
         if port_index is not None:
             # can return early if we can guess the right port
             return (serial_devices[port_index], serial_number)
-    inquirer.List(
+    question = inquirer.List(
         "port",
         message="Select a serial port",
-        choices=[port.device for port in serial_devices],
+        choices=[(port.device, port) for port in serial_devices],
     )
     answer = inquirer.prompt([question])
     selected_port = answer["port"]
@@ -182,10 +182,10 @@ def select_device(rtt, serial_number, port, list_all):
     if list_all:
         # Show all ports, no filtering
         ports = list_ports.comports()
-        inquirer.List(
+        question = inquirer.List(
             "port",
             message="Select a serial port",
-            choices=[port.device for port in ports],
+            choices=[(port.device, port) for port in ports],
         )
         answer = inquirer.prompt([question])
         selected_port = answer["port"]
@@ -285,8 +285,7 @@ class Comms:
         self.jlink_api = LowLevel.API(LowLevel.DeviceFamily.UNKNOWN)
         self.jlink_api.open()
         self.jlink_api.connect_to_emu_with_snr(self.serial_number)
-        family = self.jlink_api.read_device_family()
-        self.jlink_api.select_family(family)
+        self.jlink_api.select_family(self.jlink_api.read_device_family())
         self.jlink_api.sys_reset()
         self.jlink_api.go()
         self.jlink_api.rtt_start()
