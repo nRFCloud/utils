@@ -120,7 +120,6 @@ def parse_args(in_args):
                         action='store_true', default=False)
     parser.add_argument("--xonxoff",
                         help="Enable software flow control for serial connection",
-
                         action='store_true', default=False)
     parser.add_argument("--rtscts-off",
                         help="Disable hardware (RTS/CTS) flow control for serial connection",

@@ -334,12 +334,12 @@ claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
 
 Use the `nrf_cloud_device_mgmt.py` script to create FOTA (Firmware Over-The-Air) update jobs for your devices via nRF Cloud.
 
-**Prerequisites:**
+### Prerequisites:
 
 * On boarded device to nRF Cloud. Follow the steps outlined in the [Device Credentials Installer](#device-credentials-installer) and [nRF Cloud Device Onboarding](#nrf-cloud-device-onboarding) sections, which include generating device credentials, programming them to the device, and completing the onboarding process.
 * An **nRF Cloud API key** is required. Provide it using the `--api-key <your_api_key>` argument. You can find your API key on your [nRF Cloud User Account page](https://nrfcloud.com/#/account).
 
-**Execution Modes:**
+### Execution Modes:
 
 The script can run in two modes:
 
@@ -354,29 +354,29 @@ The script can run in two modes:
 
 2.  **Interactive:** If any of the required arguments for non-interactive mode (excluding `--api-key`) are omitted, the script will prompt you step-by-step to enter the necessary information (job name, description, bundle selection, target device/tag selection).
 
-**Applying the FOTA Job:**
+### Applying the FOTA Job:
 
 * **Default Behavior:** By default, the script automatically attempts to apply the created FOTA job to the target device(s).
 * **Manual Application:** To create the job definition without immediately applying it, add the `--defer-apply` flag. You can then manually trigger the update later using the [ApplyFOTAJob](https://api.nrfcloud.com/v1#tag/FOTA-Jobs/operation/ApplyFOTAJob) API endpoint or directly from the [Firmware Updates dashboard](https://nrfcloud.com/#/updates-dashboard) on nRF Cloud.
 
-**Output:**
+### Output:
 
 * If the FOTA update job is created successfully, the script will print the `job id`.
 * This `job id` can be used to manage or query the job status using other nRF Cloud FOTA REST API endpoints, such as [FetchFOTAJob](https://api.nrfcloud.com/v1#operation/FetchFOTAJob).
 
-**Examples:**
+### Examples:
 
-* **Create and apply a FOTA job non-interactively for a specific device:**
+* #### Create and apply a FOTA job non-interactively for a specific device:
     ```bash
     nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE --name "MyModemUpdateV2" --desc "Update modem firmware to v2.0" --bundle-id "fw-modem-v2.0-bundle-id" --dev-id "nrf-XXXXXXXXXXXXXX"
     ```
 
-* **Create (but do not apply) a FOTA job non-interactively for all devices with a specific tag:**
+* #### Create (but do not apply) a FOTA job non-interactively for all devices with a specific tag:
     ```bash
     nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE --name "MyAppUpdateV1.1" --desc "App core update v1.1 for beta testers" --bundle-id "fw-app-v1.1-bundle-id" --tag "beta-testers" --defer-apply
     ```
 
-* **Create a FOTA job interactively (will prompt for details):**
+* #### Create a FOTA job interactively (will prompt for details):
     ```bash
     nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE
     ```
