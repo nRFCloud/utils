@@ -311,24 +311,52 @@ claim_and_provision_device --api-key $API_KEY --provisioning-tags "nrf-cloud-onb
 Like before, but use a built-in provisioning tag so the device certificate is created by the cloud and then sent to the device over the air.
 
 # Gather Attestation Tokens
-This script collects IMEI, UUID, and attestation token from the attached device without requiring use of the internet.
-It stores these elements and the current date and time to a csv file.
-This file can later be passed to the `claim_devices.py` script on an internet-connected computer.
 
-### Example
-```
-gather_attestation_tokens
-```
-With the default options, the CSV file `attestation_tokens.csv` will be appended to if it exists, and if the UUID is already present there, the row containing it will be replaced with updated information.
+Use the `gather_attestation_tokens.py` script to collect the IMEI, UUID, and attestation token from a connected device without requiring an internet connection.
 
+The collected data, along with the current date and time, is saved to a CSV file. By default, the file is named `attestation_tokens.csv`. If the file already exists, the script will:
+
+- Append new entries if the UUID is not already present.
+- Replace the row with updated information if the UUID is already in the file.
+
+**Note:** The generated CSV file can later be used with the `claim_devices.py` script on an internet-connected computer.
+
+### Limitation
+
+- This script is **not supported for nRF9160 devices.**
+
+### Examples:
+
+* #### Gather attestation tokens using AT Commands:
+    ```bash
+    gather_attestation_tokens
+    ```
+
+* #### Gather attestation tokens using Shell Commands (e.g. Multi Service Sample):
+    ```bash
+    gather_attestation_tokens --shell
+    ```
 # Claim Devices
-This script sends the contents of a csv file to the REST API, along with a specified set of provisioning tags.
-At the end it reports the total number claimed and the total attempted.
 
-### Example
-```
-claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
-```
+Use the `claim_devices.py` script to claim devices by sending the contents of a CSV file to the nRF Cloud REST API, along with a specified set of provisioning tags. By default, the script looks for a file named `attestation_tokens.csv`. If you want to use a different file, you can specify it using the `--csv` option followed by the file name.
+
+### Output:
+
+The script will display:
+- The total number of devices successfully claimed.
+- The total number of devices attempted.
+
+### Examples:
+
+* #### Claim devices using the default CSV file and a specific provisioning configuration:
+    ```bash
+    claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key YOUR_API_KEY_HERE
+    ```
+
+* #### Claim devices using a custom CSV file:
+    ```bash
+    claim_devices --csv custom_tokens.csv --provisioning-tags "nrf-cloud-onboarding" --api-key YOUR_API_KEY_HERE
+    ```
 
 # Creating FOTA Updates
 

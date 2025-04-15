@@ -165,7 +165,10 @@ def get_attestation_token(verbose):
     # include the CRLF in OK because 'OK' could be found in the output string
     retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%ATTESTTOKEN: ')
     if not retval:
-        error_exit('ATTESTTOKEN command failed')
+        if at_cmd_prefix == 'at ':
+            error_exit('ATTESTTOKEN read command failed, try without --shell')
+        else:
+            error_exit('ATTESTTOKEN read command failed, try with --shell')
     elif output == None:
         error_exit('Unable to detect ATTESTTOKEN output')
 
