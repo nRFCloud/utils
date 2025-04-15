@@ -232,6 +232,7 @@ class Comms:
         self.write = None
         self.read_line = None
         self.line_ending = line_ending
+        self._rtt_line_buffer = ''
 
         serial_port, self.serial_number = select_device(rtt, serial, port, list_all)
 
@@ -256,6 +257,30 @@ class Comms:
             self.serial_api.close()
             self.serial_api = None
 
+    def write_line(self, data):
+        self.write(data + self.line_ending)
+
+    def _readline_rtt(self):
+        time_end = time.time() + self.timeout
+        while time.time() < time_end:
+            self._rtt_line_buffer += self.jlink_api.rtt_read(channel_index=0, length=4096)
+            # find first line ending
+            line_end = self._rtt_line_buffer.find(self.line_ending)
+            if line_end != -1:
+                # split the line from the buffer
+                line = self._rtt_line_buffer[:line_end]
+                self._rtt_line_buffer = self._rtt_line_buffer[line_end + len(self.line_ending) :]
+                return line
+            time.sleep(0.1)
+        return None
+
+    def _readline_serial(self):
+        # read a line from the serial port
+        line = self.serial_api.readline()
+        if line:
+            return line.decode('utf-8').strip()
+        return None
+
     def _write_rtt(self, data):
         # hacky workaround from old rtt_interface
         for i in range(0, len(data), 12):
@@ -264,22 +289,6 @@ class Comms:
 
     def _write_serial(self, data):
         self.serial_api.write(data)
-
-    def _init_serial(self, serial_port, baudrate, xonxoff, rtscts, dsrdtr):
-        self.serial_api = serial.Serial(
-            port=serial_port.device,
-            baudrate=baudrate,
-            timeout=self.timeout,
-            xonxoff=xonxoff,
-            rtscts=rtscts,
-            dsrdtr=dsrdtr,
-        )
-        # initialize the serial port, clear the buffers
-        self.serial_api.reset_output_buffer()
-        self.serial_api.write(self.line_ending)
-        time.sleep(0.2)
-        self.serial_api.reset_input_buffer()
-        self.write = self._write_serial
 
     def _init_rtt(self):
         self.jlink_api = LowLevel.API(LowLevel.DeviceFamily.UNKNOWN)
@@ -294,3 +303,23 @@ class Comms:
                 break
             time.sleep(0.5)
         self.write = self._write_rtt
+        self.read_line = self._readline_rtt
+
+    def _init_serial(self, serial_port, baudrate, xonxoff, rtscts, dsrdtr):
+        self.serial_api = serial.Serial(
+            port=serial_port.device,
+            baudrate=baudrate,
+            timeout=self.timeout,
+            xonxoff=xonxoff,
+            rtscts=rtscts,
+            dsrdtr=dsrdtr,
+        )
+        # initialize the serial port, clear the buffers
+        self.serial_api.reset_output_buffer()
+        self.serial_api.write(self.line_ending)
+        self.serial_api.flush()
+        time.sleep(0.2)
+        self.serial_api.reset_input_buffer()
+        self.write = self._write_serial
+        self.read_line = self._readline_serial
+
