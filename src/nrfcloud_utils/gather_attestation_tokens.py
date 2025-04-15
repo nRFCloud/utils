@@ -326,6 +326,14 @@ def main(in_args):
         ser = get_serial_port(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
                             dsrdtr=args.dsrdtr)
 
+    # verify that the device is not nrf9160
+    write_at_cmd('AT+CGMM')
+    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'nRF')
+    if retval and b'nRF9160' in output:
+        logger.error('Device is nRF9160, not supported')
+        cleanup()
+        sys.exit(1)
+
     # get attestation token
     attest_tok = get_attestation_token(args.log_level == 'DEBUG')
     if not attest_tok:
