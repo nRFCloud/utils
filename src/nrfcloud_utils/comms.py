@@ -257,15 +257,15 @@ class Comms:
             self.serial_api.close()
             self.serial_api = None
 
-    def write_line(self, data):
-        self.write(data + self.line_ending)
+    def write_line(self, data : str):
+        self.write(data.encode('ascii') + self.line_ending)
 
-    def _readline_rtt(self):
+    def _readline_rtt(self) -> str:
         time_end = time.time() + self.timeout
         while time.time() < time_end:
             self._rtt_line_buffer += self.jlink_api.rtt_read(channel_index=0, length=4096)
             # find first line ending
-            line_end = self._rtt_line_buffer.find(self.line_ending)
+            line_end = self._rtt_line_buffer.find(self.line_ending.decode('ascii'))
             if line_end != -1:
                 # split the line from the buffer
                 line = self._rtt_line_buffer[:line_end]
@@ -274,7 +274,7 @@ class Comms:
             time.sleep(0.1)
         return None
 
-    def _readline_serial(self):
+    def _readline_serial(self) -> str:
         # read a line from the serial port
         line = self.serial_api.readline()
         if line:
