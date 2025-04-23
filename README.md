@@ -24,7 +24,7 @@ Run the following command to use this package as a dependency:
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. Retrieve your API key. You can find it in your [nRF Cloud account](https://nrfcloud.com/#/account).
+2. Retrieve your API key. You can find it in your [nRF Cloud User Account page](https://nrfcloud.com/#/account).
 3. To simplify the use of the scripts, you can declare your API key as an environment variable in your terminal. This way, you won't need to repeatedly type it in each command. Here's how to do it:
 
 ```bash
@@ -66,8 +66,6 @@ Start by creating a local certificate authority (CA). Its contents won't be chec
     create_ca_cert
 
 Now, you should have three `.pem` files containing the key pair and the CA certificate of your CA. The files have a unique prefix.
-
-**Note:** Creating the key pair outside the device is not ideal as the secret key is exposed. We recommend using the Claim and Provisioning process instead for enhanced security.
 
 The fastest way to get your device registered is using the Device Credentials Installer:
 
