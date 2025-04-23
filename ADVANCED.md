@@ -275,7 +275,7 @@ If no CN (common name) is provided/available, the serial number hex value will b
 
 ### Examples
 
-#### No CSR provided:
+#### No CSR provided
 ```
 create_device_credentials --ca /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem --ca-key my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem -c US --st WA -l Seattle -o "My Company" --ou "Devs" --cn my-unique-device-id -e email@example.com --dv 2000 -p dev_credentials -f hw_rev2-
 Creating device credentials...
@@ -284,7 +284,7 @@ File created: /dev_credentials/hw_rev2-my-unique-device-id_pub.pem
 File created: /dev_credentials/hw_rev2-my-unique-device-id_prv.pem
 ```
 
-#### CSR provided:
+#### CSR provided
 ```
 create_device_credentials --ca /my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_ca.pem --ca-key my_ca/my_company-0x3bc7f3b014a8ad492999c594f08bbc2fcffc5fd1_prv.pem --csr my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_csr.pem --dv 2000 -p dev_credentials -f hw_rev2-
 Creating device credentials...
@@ -313,14 +313,14 @@ Use `--help` for additional parameter information.
 
 ### Examples
 
-#### Device certificate created locally from CSR received over the air:
+#### Device certificate created locally from CSR received over the air
 ```
 claim_and_provision_device --api-key $API_KEY --ca=./ca.pem --ca-key=ca_prv_key.pem
 ```
 Query the device for its attestation token over USB, claim the device with the REST API, then provision over the air up to receiving the CSR.
 Create the device certificate locally, then send back to the device over the air.
 
-#### Claim device and use a provisioning tag to fully provision and onboard it:
+#### Claim device and use a provisioning tag to fully provision and onboard it
 ```
 claim_and_provision_device --api-key $API_KEY --provisioning-tags "nrf-cloud-onboarding"
 ```
@@ -341,14 +341,14 @@ The collected data, along with the current date and time, is saved to a CSV file
 
 - This script is **not supported for nRF9160 devices.**
 
-### Examples:
+### Examples
 
-* #### Gather attestation tokens using AT Commands:
+* #### Gather attestation tokens using AT Commands
     ```bash
     gather_attestation_tokens
     ```
 
-* #### Gather attestation tokens using Shell Commands (e.g. Multi Service Sample):
+* #### Gather attestation tokens using Shell Commands (e.g. Multi Service Sample)
     ```bash
     gather_attestation_tokens --shell
     ```
@@ -356,20 +356,20 @@ The collected data, along with the current date and time, is saved to a CSV file
 
 Use the `claim_devices.py` script to claim devices by sending the contents of a CSV file to the nRF Cloud REST API, along with a specified set of provisioning tags. By default, the script looks for a file named `attestation_tokens.csv`. If you want to use a different file, you can specify it using the `--csv` option followed by the file name.
 
-### Output:
+### Output
 
 The script will display:
 - The total number of devices successfully claimed.
 - The total number of devices attempted.
 
-### Examples:
+### Examples
 
-* #### Claim devices using the default CSV file and a specific provisioning configuration:
+* #### Claim devices using the default CSV file and a specific provisioning configuration
     ```bash
     claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
     ```
 
-* #### Claim devices using a custom CSV file:
+* #### Claim devices using a custom CSV file
     ```bash
     claim_devices --csv custom_tokens.csv --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
     ```
@@ -378,12 +378,13 @@ The script will display:
 
 Use the `nrf_cloud_device_mgmt.py` script to create FOTA (Firmware Over-The-Air) update jobs for your devices via nRF Cloud.
 
-### Prerequisites:
+### Prerequisites
 
 * On boarded device to nRF Cloud. Follow the steps outlined in the [Device Credentials Installer](#device-credentials-installer) and [nRF Cloud Device Onboarding](#nrf-cloud-device-onboarding) sections, which include generating device credentials, programming them to the device, and completing the onboarding process.
-* An **nRF Cloud API key** is required. Provide it using the `--api-key <your_api_key>` argument. You can find your API key on your [nRF Cloud User Account page](https://nrfcloud.com/#/account).
+* Enable FOTA in your project by referring to the following design examples: [nRF Cloud REST FOTA Sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_rest_fota) and [nRF Cloud Multi-Service Sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_multi_service).
+* An **nRF Cloud API key** is required. You can find your API key on your [nRF Cloud User Account page](https://nrfcloud.com/#/account).
 
-### Execution Modes:
+### Execution Modes
 
 The script can run in two modes:
 
@@ -398,29 +399,29 @@ The script can run in two modes:
 
 2.  **Interactive:** If any of the required arguments for non-interactive mode (excluding `--api-key`) are omitted, the script will prompt you step-by-step to enter the necessary information (job name, description, bundle selection, target device/tag selection).
 
-### Applying the FOTA Job:
+### Applying the FOTA Job
 
 * **Default Behavior:** By default, the script automatically attempts to apply the created FOTA job to the target device(s).
 * **Manual Application:** To create the job definition without immediately applying it, add the `--defer-apply` flag. You can then manually trigger the update later using the [ApplyFOTAJob](https://api.nrfcloud.com/v1#tag/FOTA-Jobs/operation/ApplyFOTAJob) API endpoint or directly from the [Firmware Updates dashboard](https://nrfcloud.com/#/updates-dashboard) on nRF Cloud.
 
-### Output:
+### Output
 
 * If the FOTA update job is created successfully, the script will print the `job id`.
 * This `job id` can be used to manage or query the job status using other nRF Cloud FOTA REST API endpoints, such as [FetchFOTAJob](https://api.nrfcloud.com/v1#operation/FetchFOTAJob).
 
-### Examples:
+### Examples
 
-* #### Create and apply a FOTA job non-interactively for a specific device:
+* #### Create and apply a FOTA job non-interactively for a specific device
     ```bash
     nrf_cloud_device_mgmt --api-key $API_KEY --name "MyModemUpdateV2" --desc "Update modem firmware to v2.0" --bundle-id "fw-modem-v2.0-bundle-id" --dev-id "nrf-XXXXXXXXXXXXXX"
     ```
 
-* #### Create (but do not apply) a FOTA job non-interactively for all devices with a specific tag:
+* #### Create (but do not apply) a FOTA job non-interactively for all devices with a specific tag
     ```bash
     nrf_cloud_device_mgmt --api-key $API_KEY --name "MyAppUpdateV1.1" --desc "App core update v1.1 for beta testers" --bundle-id "fw-app-v1.1-bundle-id" --tag "beta-testers" --defer-apply
     ```
 
-* #### Create a FOTA job interactively (will prompt for details):
+* #### Create a FOTA job interactively (will prompt for details)
     ```bash
     nrf_cloud_device_mgmt --api-key $API_KEY
     ```
