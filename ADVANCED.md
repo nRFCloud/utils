@@ -1,11 +1,27 @@
-# Python Utilities for Working with Modem Firmware v1.3+
+# nRF Cloud Utils
 
-[Modem firmware v1.3 and later](https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK/Download#infotabs) is required on the device for these scripts to work correctly.
-This requirement is fulfilled implicitly when using nRF9151 and nRF9161 devices.
+These Python scripts are designed to assist users in provisioning devices with the necessary credentials to connect to nRF Cloud, creating FOTA jobs, and onboarding devices to their nRF Cloud accounts.
 
-The goal of these scripts is to help users provision devices with the credentials needed to connect with nRF Cloud, create FOTA jobs, and onboard devices to your nRF Cloud account. For more information see: [Security](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/external_comp/nrf_cloud.html#security).
+## Table of Contents
 
-# Create CA Cert
+- [Overview of Python Utilities for nRF Cloud Integration](#overview-of-python-utilities-for-nrf-cloud-integration)
+- [Create CA Cert](#create-ca-cert)
+- [Device Credentials Installer](#device-credentials-installer)
+- [nRF Cloud Device Onboarding](#nrf-cloud-device-onboarding)
+- [Modem Credentials Parser](#modem-credentials-parser)
+- [Create Device Credentials](#create-device-credentials)
+- [Claim and Provision Device](#claim-and-provision-device)
+- [Gather Attestation Tokens](#gather-attestation-tokens)
+- [Claim Devices](#claim-devices)
+- [Creating FOTA Updates](#creating-fota-updates)
+
+## Overview of Python Utilities for nRF Cloud Integration
+
+When using nRF9160, these utilities require [Modem firmware v1.3 or later](https://www.nordicsemi.com/Software-and-tools/Development-Kits/nRF9160-DK/Download#infotabs) to function correctly. This requirement is automatically met when using nRF9151 and nRF9161 devices.
+
+For additional details, refer to the [nRF Cloud Security documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/external_comp/nrf_cloud.html#security).
+
+## Create CA Cert
 This script creates a self-signed CA certificate and an associated EC keypair. The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials. The specific values that you specify for the various options are not important, though it is recommended to use reasonable and accurate values for country code, state or province, locality, organization and its unit. The number of days valid defaults to 10 years.  The common name could be your company domain name or something similar.
 
 The output file name format is as follows:
@@ -22,7 +38,7 @@ File created: /some/path/my_ca/0x48a2b0c9862ffe08d709864f576caa0a9ff9bfbf_prv.pe
 File created: /some/path/my_ca/0x48a2b0c9862ffe08d709864f576caa0a9ff9bfbf_pub.pem
 ```
 
-# Device Credentials Installer
+## Device Credentials Installer
 
 This script automates the process of generating and programming device credentials to a device such as a Thingy:91 X or nRF9151-DK running an nRF Connect SDK application containing the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html).
 The [AT Client sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/at_client) is the simplest implementation of the AT Host library.
@@ -60,7 +76,7 @@ device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify
 device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify --id-imei --id-str nrf-
 ```
 
-# nRF Cloud Device Onboarding
+## nRF Cloud Device Onboarding
 The `nrf_cloud_onboard.py` script performs device onboarding with nRF Cloud.
 Your nRF Cloud REST API key is a required parameter and can be found on your [User Account page](https://nrfcloud.com/#/account).
 Also required is a CSV file compatible with the [onboarding endpoint](https://api.nrfcloud.com/v1/#operation/ProvisionDevices). You can use the onboarding CSV file produced by `device_credentials_installer.py`.
@@ -72,7 +88,7 @@ nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
 
 If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
 
-# Modem Credentials Parser
+## Modem Credentials Parser
 The script above, `device_credentials_installer.py` makes use of this script, `modem_credentials_parser.py`, so if you use the former, you do not need to also follow the directions below. If `device_credentials_installer.py` does not meet your needs, you can use `modem_credentials_parser.py` directly to take advantage of additional options.
 
 This script parses the output of `AT%KEYGEN` and `AT%ATTESTTOKEN`. Each command outputs two base64 strings joined by a `.` character. The first string is the command specific data. The second string is the [COSE](https://datatracker.ietf.org/doc/html/rfc8152) signature of the first string.
@@ -242,7 +258,7 @@ File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d
 File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_pub.pem
 ```
 
-# Create Device Credentials
+## Create Device Credentials
 The script above, `device_credentials_installer.py` makes use of this script, `create_device_credentials.py`, so if you use the former, you do not need to also follow the directions below.
 If `device_credentials_installer.py` does not meet your needs, you can use `create_device_credentials.py` directly to take advantage of additional options.
 
@@ -276,7 +292,7 @@ File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_crt.
 File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_pub.pem
 ```
 
-# Claim and Provision Device
+## Claim and Provision Device
 This script uses the [nRF Cloud Identity and Provisioning API](https://api.provisioning.nrfcloud.com/v1/) to perform remote device provisioning tasks.
 This service is only compatible with nRF91x1 devices running modem firmware >= 2.0.0.
 
@@ -310,7 +326,7 @@ claim_and_provision_device --api-key $API_KEY --provisioning-tags "nrf-cloud-onb
 ```
 Like before, but use a built-in provisioning tag so the device certificate is created by the cloud and then sent to the device over the air.
 
-# Gather Attestation Tokens
+## Gather Attestation Tokens
 
 Use the `gather_attestation_tokens.py` script to collect the IMEI, UUID, and attestation token from a connected device without requiring an internet connection.
 
@@ -336,7 +352,7 @@ The collected data, along with the current date and time, is saved to a CSV file
     ```bash
     gather_attestation_tokens --shell
     ```
-# Claim Devices
+## Claim Devices
 
 Use the `claim_devices.py` script to claim devices by sending the contents of a CSV file to the nRF Cloud REST API, along with a specified set of provisioning tags. By default, the script looks for a file named `attestation_tokens.csv`. If you want to use a different file, you can specify it using the `--csv` option followed by the file name.
 
@@ -350,15 +366,15 @@ The script will display:
 
 * #### Claim devices using the default CSV file and a specific provisioning configuration:
     ```bash
-    claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key YOUR_API_KEY_HERE
+    claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
     ```
 
 * #### Claim devices using a custom CSV file:
     ```bash
-    claim_devices --csv custom_tokens.csv --provisioning-tags "nrf-cloud-onboarding" --api-key YOUR_API_KEY_HERE
+    claim_devices --csv custom_tokens.csv --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
     ```
 
-# Creating FOTA Updates
+## Creating FOTA Updates
 
 Use the `nrf_cloud_device_mgmt.py` script to create FOTA (Firmware Over-The-Air) update jobs for your devices via nRF Cloud.
 
@@ -396,15 +412,15 @@ The script can run in two modes:
 
 * #### Create and apply a FOTA job non-interactively for a specific device:
     ```bash
-    nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE --name "MyModemUpdateV2" --desc "Update modem firmware to v2.0" --bundle-id "fw-modem-v2.0-bundle-id" --dev-id "nrf-XXXXXXXXXXXXXX"
+    nrf_cloud_device_mgmt --api-key $API_KEY --name "MyModemUpdateV2" --desc "Update modem firmware to v2.0" --bundle-id "fw-modem-v2.0-bundle-id" --dev-id "nrf-XXXXXXXXXXXXXX"
     ```
 
 * #### Create (but do not apply) a FOTA job non-interactively for all devices with a specific tag:
     ```bash
-    nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE --name "MyAppUpdateV1.1" --desc "App core update v1.1 for beta testers" --bundle-id "fw-app-v1.1-bundle-id" --tag "beta-testers" --defer-apply
+    nrf_cloud_device_mgmt --api-key $API_KEY --name "MyAppUpdateV1.1" --desc "App core update v1.1 for beta testers" --bundle-id "fw-app-v1.1-bundle-id" --tag "beta-testers" --defer-apply
     ```
 
 * #### Create a FOTA job interactively (will prompt for details):
     ```bash
-    nrf_cloud_device_mgmt --api-key YOUR_API_KEY_HERE
+    nrf_cloud_device_mgmt --api-key $API_KEY
     ```
