@@ -9,6 +9,7 @@ from nrfcloud_utils import gather_attestation_tokens
 from tempfile import TemporaryDirectory
 import os
 import datetime
+from collections import namedtuple
 
 TEST_ATTESTTOKEN = [b"OK\r\n", b"%ATTESTTOKEN: \"2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY\"\r\n"]
 TEST_CGSN = [b"OK\r\n", b"355025930000000\r\n"]
@@ -34,9 +35,11 @@ class FakeSerial(Mock):
         response = self.response.pop()
         return response
 
+FakeSerialPort = namedtuple("FakeSerialPort", ["device"])
 class TestGatherAttestationTokens:
-    @patch("nrfcloud_utils.gather_attestation_tokens.get_serial_port", return_value=FakeSerial())
-    def test_minimal_case(self, ser):
+    @patch("nrfcloud_utils.comms.select_device", return_value=(FakeSerialPort("/not/a/real/device"), "TEST_DEVICE"))
+    @patch("nrfcloud_utils.comms.serial.Serial", return_value=FakeSerial())
+    def test_minimal_case(self, ser, select_device):
         with TemporaryDirectory() as tmp_dir:
             csv_file = os.path.join(tmp_dir, 'tokens.csv')
             args = f"--port /not/a/real/device --csv {csv_file}".split()

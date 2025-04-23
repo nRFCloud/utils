@@ -28,7 +28,9 @@ device_type_dict = {
     1: 'nRF9160 SIAA',
     2: 'nRF9160 SIBA',
     3: 'NRF9160 SIAA',
-    4: 'nRF9161 LACA AAA'
+    4: 'nRF9161 LACA',
+    5: 'nRF9131 LACA',
+    6: 'nRF9151 LACA',
 }
 payload_id_dict = {
     8: 'pubkey_msg_v2',
@@ -222,7 +224,7 @@ def parse_attesttoken_output(atokout_str):
 
     dev_type = device_type_dict.get(body_obj[2])
     if not dev_type:
-        dev_type = "Unknown"
+        dev_type = f"Unknown:{body_obj[2]}"
 
     # print parsed CBOR
     logger.info("---------------")

@@ -12,7 +12,6 @@ import platform
 import coloredlogs, logging
 from nrfcloud_utils import (
     ca_certs,
-    rtt_interface,
     nrf_cloud_onboard,
     modem_credentials_parser,
     nrf_cloud_diap,
@@ -21,33 +20,23 @@ from nrfcloud_utils import (
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
-from nrfcloud_utils.nordic_boards import ask_for_port, get_serial_port
+from nrfcloud_utils.comms import CMD_TERM_DICT, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args, Comms
+from nrfcloud_utils.command_interface import ATCommandInterface
 
 logger = logging.getLogger(__name__)
-full_encoding = 'mbcs' if is_windows else 'ascii'
-serial_timeout = 1
+
 IMEI_LEN = 15
 DEV_ID_MAX_LEN = 64
-CSR_ATTR_CN = 'CN='
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="nRF Cloud Claim and Provision",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
+    parser_add_comms_args(parser)
     parser.add_argument("--dv", type=int, help="Number of days cert is valid",
                         default=(10 * 365))
     parser.add_argument("--ca", type=str, help="Filepath to your CA cert PEM. Not used with '--provisioning-tags'.")
     parser.add_argument("--ca-key", type=str,
                         help="Filepath to your CA's private key PEM. Not used with '--provisioning-tags'.")
-    parser.add_argument("--port", type=str,
-                        help="Specify which serial port to open, otherwise pick from list",
-                        default=None)
-    parser.add_argument("--baud", type=int,
-                        help="Baud rate for serial port",
-                        default=115200)
-    parser.add_argument("-A", "--all",
-                        help="List ports of all types, not just Nordic devices",
-                        action='store_true', default=False)
     parser.add_argument("-S", "--sectag", type=int,
                         help="integer: Security tag to use", default=16842753)
     parser.add_argument("-P", "--plain",
@@ -77,18 +66,6 @@ def parse_args(in_args):
     parser.add_argument("--coap",
                         help="Install the CoAP server root CA cert in addition to the AWS root CA cert",
                         action='store_true', default=False)
-    parser.add_argument("--xonxoff",
-                        help="Enable software flow control for serial connection",
-                        action='store_true', default=False)
-    parser.add_argument("--rtscts-off",
-                        help="Disable hardware (RTS/CTS) flow control for serial connection",
-                        action='store_true', default=False)
-    parser.add_argument("--dsrdtr",
-                        help="Enable hardware (DSR/DTR) flow control for serial connection",
-                        action='store_true', default=False)
-    parser.add_argument("--jlink-sn", type=int,
-                        help="Serial number of J-Link device to use for RTT; optional",
-                        default=None)
     parser.add_argument("--prov-hex", type=str, help="Filepath to nRF Provisioning sample hex file",
                         default="")
     parser.add_argument("--api-key", type=str,
@@ -99,9 +76,6 @@ def parse_args(in_args):
                         default=None)
     parser.add_argument("--unclaim",
                         help="Perform a call to the UnclaimDevice API before claiming and provisioning",
-                        action='store_true', default=False)
-    parser.add_argument("--noshell",
-                        help="Assume raw AT commands OK -- not using provisioning shell",
                         action='store_true', default=False)
     parser.add_argument('--log-level',
                         default='info',
@@ -114,92 +88,10 @@ def parse_args(in_args):
     coloredlogs.install(level=level, fmt=fmt)
     return args
 
-def write_line(line, hidden = False):
-    if not hidden:
-        logger.debug('-> {}'.format(line))
-    ser.write(bytes((line + '\r\n').encode('utf-8')))
-
-def write_at_cmd(at_cmd_prefix, at_cmd):
-    write_line(f'{at_cmd_prefix}{at_cmd}')
-
-def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
-    found = False
-    retval = False
-    output = None
-
-    # Convert string arguments to bytes if needed.
-    if isinstance(val1, str):
-        val1=val1.encode()
-
-    if isinstance(val2, str):
-        val2=val2.encode()
-
-    if isinstance(store, str):
-        store=store.encode()
-
-    ser.flush()
-
-    while not found and timeout != 0:
-        line = ser.readline()
-
-        if line == b'\r\n':
-            # Skip the initial CRLF (see 3GPP TS 27.007 AT cmd specification)
-            continue
-
-        if line == None or len(line) == 0:
-            if timeout > 0:
-                timeout -= serial_timeout
-            continue
-
-        if val1 in line:
-            found = True
-            retval = True
-        elif val2 != None and val2 in line:
-            found = True
-            retval = False
-        elif store != None and (store in line or str(store) in str(line)):
-            output = line
-
-    if ser:
-        ser.flush()
-    if store != None and output == None:
-        logger.error('String {} not detected in line {}'.format(store, line))
-
-    if timeout == 0:
-        logger.error('Serial timeout')
-        retval = False
-
-    return retval, output
-
-def cleanup(ser):
-    if ser:
-        ser.close()
-
-def get_attestation_token(verbose):
-    write_at_cmd(at_cmd_prefix, 'AT%ATTESTTOKEN')
-    # include the CRLF in OK because 'OK' could be found in the CSR string
-    retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%ATTESTTOKEN: ')
-    if not retval:
-        error_exit(ser, 'ATTESTTOKEN command failed')
-    elif output == None:
-        error_exit(ser, 'Unable to detect ATTESTTOKEN output')
-
-    # remove quotes
-    attest_tok = str(output).split('"')[1]
-    logger.info('Attestation token: {}'.format(attest_tok))
-
-    if verbose:
-        _, _ = modem_credentials_parser.parse_attesttoken_output(attest_tok)
-
-    return attest_tok
-
-def error_exit(ser, err_msg):
-    cleanup(ser)
+def error_exit(err_msg):
     if err_msg:
         logger.error(err_msg)
-        sys.exit(1)
-    else:
-        sys.exit('Error... exiting.')
+    sys.exit(1)
 
 def wait_for_cmd_status(api_key, dev_uuid, cmd_id, verbose=False):
     prev_status = ''
@@ -229,32 +121,26 @@ def wait_for_cmd_status(api_key, dev_uuid, cmd_id, verbose=False):
         return api_result_json.get('response')
 
 def main(in_args):
-    global ser
-    global at_cmd_prefix
+
     # initialize arguments
     args = parse_args(in_args)
 
     if args.plain:
         logging.setLoggerClass(logging.Logger)
 
-    ser = None
-
-    # Adjust method to send an AT command
-    at_cmd_prefix = '' if args.noshell else 'at '
-
     # check device ID length
     if args.id_str:
         id_len = len(args.id_str)
         if (id_len > DEV_ID_MAX_LEN) or (args.id_imei and ((id_len + IMEI_LEN) > DEV_ID_MAX_LEN)):
-            error_exit(ser, f'Device ID must not exceed {DEV_ID_MAX_LEN} characters')
+            error_exit(f'Device ID must not exceed {DEV_ID_MAX_LEN} characters')
 
-    if CSR_ATTR_CN in args.csr_attr:
-        error_exit(ser, f'Do not include CN in --csr_attr. The device ID will be used as the CN')
+    if 'CN=' in args.csr_attr:
+        error_exit(f'Do not include CN in --csr_attr. The device ID will be used as the CN')
 
     # load local CA cert and key if needed; assume not needed if using provisioning tags
     if args.provisioning_tags is None:
         if args.ca is None or args.ca_key is None:
-            error_exit(ser, 'CA cert and key are required for device provisioning without provisioning tags')
+            error_exit('CA cert and key are required for device provisioning without provisioning tags')
          # check for valid CA files...
         logger.info('Loading CA and key...')
         ca_cert = create_device_credentials.load_ca(args.ca)
@@ -262,58 +148,43 @@ def main(in_args):
     elif args.ca or args.ca_key:
         logger.info('Ignoring "ca" and "ca-key" because provisioning tags are used.')
 
-     # flash prov client
-    if args.prov_hex:
-        if not os.path.isfile(args.prov_hex):
-            error_exit(ser, f'nRF Provisioning sample hex file does not exist: {args.prov_hex}')
-        logger.info('Programming nRF Provisioning sample...')
-        prog_result = rtt_interface.connect_and_program(args.jlink_sn, args.prov_hex)
-        if not prog_result:
-            error_exit(ser, 'Failed to program nRF Provisioning sample')
-        time.sleep(3)
+    if args.cmd_type not in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL):
+        error_exit('Attestation tokens are only supported on devices with AT command support')
 
-    # get a serial port to use
-    logger.info('Opening serial port...')
-    if args.port:
-        port = args.port
-    else:
-        port = ask_for_port(args.all)
-    if port == None:
-        sys.exit(1)
+    serial_interface = Comms(
+        port=args.port,
+        serial=args.serial_number,
+        baudrate=args.baud,
+        xonxoff=args.xonxoff,
+        rtscts=not args.rtscts_off,
+        dsrdtr=args.dsrdtr,
+        line_ending=CMD_TERM_DICT[args.term],
+        list_all=args.all,
+        rtt=args.rtt,
+    )
 
-    logger.info('Selected serial port: {}'.format(port))
-
-    # try to open the serial port
-    ser = get_serial_port(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
-                          dsrdtr=args.dsrdtr)
-
-    # disable modem, just so the provisioning client doesn't try to do anything...
-    logger.info('Disabling modem...')
-    write_at_cmd(at_cmd_prefix, 'AT+CFUN=4')
-    retval = wait_for_prompt(b'OK')
-    if not retval:
-        error_exit(ser, 'Unable to communicate')
+    cred_if = None
+    cred_if = ATCommandInterface(serial_interface)
+    if args.cmd_type == CMD_TYPE_AT_SHELL:
+        cred_if.set_shell_mode(True)
+    elif args.rtt:
+        cred_if.write_raw('at at_cmd_mode start')
 
     attest_tok = args.attest
     if not attest_tok:
         # get attestation token
-        attest_tok = get_attestation_token(args.log_level == 'DEBUG')
+        attest_tok = cred_if.get_attestation_token()
         if not attest_tok:
-            error_exit(ser, 'Failed to obtain attestation token')
+            error_exit('Failed to obtain attestation token')
 
     # get the IMEI
-    write_at_cmd(at_cmd_prefix, 'AT+CGSN')
-    retval, imei = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
-    if not retval:
-        logger.error('Failed to obtain IMEI')
-        imei = None
+    imei = cred_if.get_imei()
 
     if imei:
         # display the IMEI for reference
-        imei = str(imei.decode("utf-8"))[:IMEI_LEN]
         logger.info('Device IMEI: ' + imei)
     elif args.id_imei:
-        error_exit(ser, 'Cannot format device ID without IMEI')
+        error_exit('Cannot format device ID without IMEI')
 
     # get device UUID from attestation token
     dev_uuid = modem_credentials_parser.get_device_uuid(attest_tok)
@@ -328,7 +199,7 @@ def main(in_args):
             logger.info(f'...success')
         else:
             nrf_cloud_diap.print_api_result("Unclaim device response", api_res)
-            error_exit(ser, 'Failed to unclaim device')
+            error_exit('Failed to unclaim device')
 
     # claim device
     logger.info('Claiming device...')
@@ -337,10 +208,9 @@ def main(in_args):
     api_res = nrf_cloud_diap.claim_device(args.api_key, attest_tok, args.provisioning_tags)
     nrf_cloud_diap.print_api_result("Claim device response", api_res)
     if api_res.status_code != 201:
-        error_exit(ser, 'ClaimDeviceOwnership API call failed')
+        error_exit('ClaimDeviceOwnership API call failed')
     elif args.provisioning_tags is not None:
         logger.info('Done. It is assumed the provisioning tags complete the process over the air.')
-        cleanup(ser)
         return
 
     # get the device ID
@@ -356,7 +226,7 @@ def main(in_args):
         device_id = dev_uuid
 
     # add the device ID as the CN in the attributes
-    csr_attr = f'{CSR_ATTR_CN}{device_id}'
+    csr_attr = f'CN={device_id}'
     if args.csr_attr:
         csr_attr = f'{csr_attr},{args.csr_attr}'
 
@@ -368,29 +238,26 @@ def main(in_args):
                                                          sec_tag=args.sectag)
     nrf_cloud_diap.print_api_result("Prov cmd CSR response", api_res)
     if api_res.status_code != 201:
-        error_exit(ser, 'CreateDeviceProvisioningCommand API call failed')
+        error_exit('CreateDeviceProvisioningCommand API call failed')
 
     # get the provisioning cmd ID from the response
     prov_id = None
     res_json = json.loads(api_res.text)
     if not res_json:
-        error_exit(ser, 'Unexpected CreateDeviceProvisioningCommand API response')
+        error_exit('Unexpected CreateDeviceProvisioningCommand API response')
 
     prov_id = res_json.get('id')
     if not prov_id:
-        error_exit(ser, 'Failed to obtain provisioning cmd ID')
+        error_exit('Failed to obtain provisioning cmd ID')
 
     logger.warning('Provisioning command (CSR) ID: ' + prov_id)
 
     # reset the device since we disabled the modem
     logger.debug('Resetting device')
-    if args.noshell:
-        try:
-            rtt_interface.reset_device(args.jlink_sn)
-        except:
-            logger.error('Failed to reset device using RTT interface')
-    else:
-        write_line('kernel reboot warm')
+    if args.rtt:
+        serial_interface.reset_device()
+    elif args.cmd_type == CMD_TYPE_AT_SHELL:
+        cred_if.write_raw('kernel reboot warm')
 
     # wait for device to boot and process the command
     logger.info('Waiting for device to process command...')
@@ -401,7 +268,7 @@ def main(in_args):
     if csr_txt == None:
         csr_txt = cmd_response.get('certificateSigningRequest').get('message')
         if csr_txt == None:
-            error_exit(ser, 'CSR response not found')
+            error_exit('CSR response not found')
     if csr_txt:
         logger.warning('CSR:' + csr_txt.replace('\\n', '\n'))
 
@@ -426,17 +293,16 @@ def main(in_args):
                                                                  sec_tag=args.sectag)
     nrf_cloud_diap.print_api_result("Prov cmd client cert response", api_res)
     if api_res.status_code != 201:
-        error_exit(ser, 'CreateDeviceProvisioningCommand API call failed')
+        error_exit('CreateDeviceProvisioningCommand API call failed')
 
     # get the provisioning cmd ID from the response
     res_json = json.loads(api_res.text)
     if not res_json:
-        cleanup(ser)
-        error_exit(ser, 'Unexpected CreateDeviceProvisioningCommand API response')
+        error_exit('Unexpected CreateDeviceProvisioningCommand API response')
 
     prov_id = res_json.get('id')
     if not prov_id:
-        error_exit(ser, 'Failed to obtain provisioning cmd ID')
+        error_exit('Failed to obtain provisioning cmd ID')
 
     # create provisioning command to install server cert
     logger.info('Creating provisioning command (server cert)...')
@@ -446,29 +312,28 @@ def main(in_args):
                                                                  sec_tag=args.sectag)
     nrf_cloud_diap.print_api_result("Prov cmd client cert response", api_res)
     if api_res.status_code != 201:
-        error_exit(ser, 'CreateDeviceProvisioningCommand API call failed')
+        error_exit('CreateDeviceProvisioningCommand API call failed')
 
     # create provisioning finished command
     logger.info('Creating provisioning command (finished)...')
     api_res = nrf_cloud_diap.create_provisioning_cmd_finished(args.api_key, dev_uuid)
     nrf_cloud_diap.print_api_result("Prov cmd finished response", api_res)
     if api_res.status_code != 201:
-        error_exit(ser, 'CreateDeviceProvisioningCommand API call failed')
+        error_exit('CreateDeviceProvisioningCommand API call failed')
 
     # get the provisioning finished cmd ID from the response
     res_json = json.loads(api_res.text)
     if not res_json:
-        cleanup(ser)
-        error_exit(ser, 'Unexpected CreateDeviceProvisioningCommand API response')
+        error_exit('Unexpected CreateDeviceProvisioningCommand API response')
 
     finished_id = res_json.get('id')
     if not finished_id:
-        error_exit(ser, 'Failed to obtain provisioning finished cmd ID')
+        error_exit('Failed to obtain provisioning finished cmd ID')
 
     # tell the device to check for commands
-    if not args.noshell:
-        write_line('nrf_provisioning now')
-        retval = wait_for_prompt(b'nrf_provisioning: Externally initiated provisioning', b'ERROR',)
+    if args.cmd_type == CMD_TYPE_AT_SHELL:
+        cred_if.write_raw('nrf_provisioning now')
+        retval = serial_interface.expect_response('nrf_provisioning: Externally initiated provisioning', 'ERROR')
         if not retval:
             logger.error('Did not receive expected response on serial port... continuing')
     else:
@@ -491,7 +356,6 @@ def main(in_args):
     nrf_cloud_onboard.print_api_result("Onboarding API call response", api_res)
 
     logger.info('Done.')
-    cleanup(ser)
 
 def run():
     main(sys.argv[1:])

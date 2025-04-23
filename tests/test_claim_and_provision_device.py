@@ -8,6 +8,7 @@ import pytest
 from nrfcloud_utils import claim_and_provision_device
 from tempfile import TemporaryDirectory
 from requests import Response
+from collections import namedtuple
 
 TEST_ATTESTTOKEN = [b"OK\r\n", b"%ATTESTTOKEN: \"2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY\"\r\n"]
 TEST_CGSN = [b"OK\r\n", b"355025930000000\r\n"]
@@ -35,12 +36,16 @@ class FakeSerial(Mock):
             return b""
         response = self.response.pop()
         return response
+
+FakeSerialPort = namedtuple("FakeSerialPort", ["device"])
+
 class TestClaimAndProvisionDevice:
     @patch("nrfcloud_utils.claim_and_provision_device.nrf_cloud_diap")
-    @patch("nrfcloud_utils.claim_and_provision_device.get_serial_port", return_value=FakeSerial())
-    def test_provisioning_tags(self, ser, diap):
+    @patch("nrfcloud_utils.comms.select_device", return_value=(FakeSerialPort("/not/a/real/device"), "TEST_DEVICE"))
+    @patch("nrfcloud_utils.comms.serial.Serial", return_value=FakeSerial())
+    def test_provisioning_tags(self, ser, select_device, diap):
         diap.claim_device = Mock(return_value=TEST_RESPONSE)
-        args = f"--port /not/a/real/device --api-key NOTAKEY --noshell --provisioning-tags nrf-cloud-onboarding".split()
+        args = f"--port /not/a/real/device --api-key NOTAKEY --provisioning-tags nrf-cloud-onboarding".split()
         # call DUT
         claim_and_provision_device.main(args)
         diap.claim_device.assert_called_once()

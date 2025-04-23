@@ -8,6 +8,7 @@ import pytest
 from nrfcloud_utils import device_credentials_installer
 from tempfile import TemporaryDirectory
 import os
+from collections import namedtuple
 
 TEST_KEYGEN = [b"OK\r\n", b"%KEYGEN: \"MIIBCzCBrwIBADAvMS0wKwYDVQQDDCQ1MDM2Mzk1My0zMjM0LTQ3MjMtODBiOS0xNTAzZDg4MjcxYmYwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQ37lDghqs2kF2iiH8lYRDDxNMiziQRPPdw9Meb1iHfTEZNdlB1xZzMV-oK6i52p1GHYQszjoDzUAZF2zU2MTGGoB4wHAYJKoZIhvcNAQkOMQ8wDTALBgNVHQ8EBAMCA-gwDAYIKoZIzj0EAwIFAANJADBGAiEAzaMPi5NcWFYZBJGBMk0tU-TBoNDVlQUzhHWJzXKRTWsCIQCWYpYqjccA281F5Geb8SwOP3tnjS_ZbAXUgVWhTVNuvg.0oRDoQEmoQRBIVhM2dn3hQlQUDY5UzI0RyOAuRUD2IJxv0IYNFggTaa7Z9K-8bQPz3YG5o_h32quNr0FHEtnX5VpEZ-8gflQY8D67v4xx32mF0L3-mbuuVhAfY3TgibaimIVPaN1C3Sz_oWj6JPf8sEOV2XNBDUNCV3sD3WdNOjgv32-rLXAx_vBIvpk1DTCb3Y97zqFhhdKlw\"\r\n"]
 TEST_CA_FILE = "tests/fixtures/test_ca.pem"
@@ -42,9 +43,12 @@ class FakeSerial(Mock):
         response = self.response.pop()
         return response
 
+FakeSerialPort = namedtuple("FakeSerialPort", ["device"])
+
 class TestDeviceCredentialsInstaller:
-    @patch("nrfcloud_utils.device_credentials_installer.get_serial_port", return_value=FakeSerial())
-    def test_minimal_case(self, ser):
+    @patch("nrfcloud_utils.comms.select_device", return_value=(FakeSerialPort("/not/a/real/device"), "TEST_DEVICE"))
+    @patch("nrfcloud_utils.comms.serial.Serial", return_value=FakeSerial())
+    def test_minimal_case(self, ser, select_device):
         with TemporaryDirectory() as tmp_dir:
             csv_file = os.path.join(tmp_dir, 'onboard.csv')
             args = f"--port /not/a/real/device --ca {TEST_CA_FILE} --ca-key {TEST_CA_KEY_FILE} --csv {csv_file} --term CRLF --sectag 52".split()
