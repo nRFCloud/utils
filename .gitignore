@@ -12,3 +12,4 @@ src/nrfcloud_utils/__pycache__/
 coverage.xml
 tests/__pycache__/
 htmlcov/
+dist/
