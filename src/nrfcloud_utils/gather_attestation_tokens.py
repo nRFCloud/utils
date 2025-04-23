@@ -10,30 +10,21 @@ import time
 import json
 import argparse
 import platform
-from nrfcloud_utils import modem_credentials_parser, rtt_interface
+from nrfcloud_utils import modem_credentials_parser
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
-from nrfcloud_utils.nordic_boards import ask_for_port, get_serial_port
+from nrfcloud_utils.comms import CMD_TERM_DICT, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args, Comms
+from nrfcloud_utils.command_interface import ATCommandInterface
 from datetime import datetime, timezone
 import coloredlogs, logging
 
 logger = logging.getLogger(__name__)
-CMD_TERM_DICT = {'NULL': '\0',
-                 'CR':   '\r',
-                 'LF':   '\n',
-                 'CRLF': '\r\n'}
-cmd_term_key = 'CRLF'
-full_encoding = 'mbcs' if is_windows else 'ascii'
-lf_done = False
-plain = False
-serial_timeout = 1
-at_cmd_prefix = ''
-args = None
+
 IMEI_LEN = 15
 
 def parse_args(in_args):
     parser = argparse.ArgumentParser(description="Gather Attestation Tokens",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
+    parser_add_comms_args(parser)
     parser.add_argument("--csv", type=str,
                         help="Filepath to attestation token CSV file",
                         default="attestation_tokens.csv")
@@ -43,35 +34,8 @@ def parse_args(in_args):
     parser.add_argument("--keep",
                         help="When appending to CSV files: if UUID exists in file, keep old data not current",
                         action='store_true', default=False)
-    parser.add_argument("--port", type=str,
-                        help="Specify which serial port to open, otherwise pick from list",
-                        default=None)
-    parser.add_argument("--baud", type=int,
-                        help="Baud rate for serial port",
-                        default=115200)
-    parser.add_argument("-A", "--all",
-                        help="List ports of all types, not just Nordic devices",
-                        action='store_true', default=False)
     parser.add_argument("-P", "--plain",
                         help="bool: Plain output (no colors)",
-                        action='store_true', default=False)
-    parser.add_argument("--xonxoff",
-                        help="Enable software flow control for serial connection",
-                        action='store_true', default=False)
-    parser.add_argument("--rtscts-off",
-                        help="Disable hardware (RTS/CTS) flow control for serial connection",
-                        action='store_true', default=False)
-    parser.add_argument("--dsrdtr",
-                        help="Enable hardware (DSR/DTR) flow control for serial connection",
-                        action='store_true', default=False)
-    parser.add_argument("--rtt",
-                        help="Use RTT instead of serial. Requires application configured for RTT console",
-                        action='store_true', default=False)
-    parser.add_argument("--jlink-sn", type=int,
-                        help="Serial number of J-Link device to use for RTT; optional",
-                        default=None)
-    parser.add_argument("--shell",
-                        help="Use provisioning shell",
                         action='store_true', default=False)
     parser.add_argument('--log-level',
                         default='info',
@@ -83,103 +47,6 @@ def parse_args(in_args):
     fmt = '%(levelname)-8s %(message)s'
     coloredlogs.install(level=level, fmt=fmt)
     return args
-
-def ensure_lf(line):
-    global lf_done
-    done = lf_done
-    lf_done = True
-    return '\n' + line if not done else line
-
-
-def write_line(line, hidden = False):
-    global cmd_term_key
-    if not hidden:
-        logger.debug('-> {}'.format(line))
-    if ser:
-        ser.write(bytes((line + CMD_TERM_DICT[cmd_term_key]).encode('utf-8')))
-    elif rtt:
-        rtt_interface.send_rtt(rtt, line + CMD_TERM_DICT[cmd_term_key])
-
-def write_at_cmd(at_cmd):
-    write_line(f'{at_cmd_prefix}{at_cmd}')
-
-def wait_for_prompt(val1=b'uart:~$: ', val2=None, timeout=15, store=None):
-    global lf_done
-    found = False
-    retval = False
-    output = None
-
-    if ser:
-        ser.flush()
-    else:
-        rtt_lines = rtt_interface.readlines_at_rtt(rtt, timeout)
-
-    while not found and timeout != 0:
-        if ser:
-            line = ser.readline()
-        else:
-            if len(rtt_lines) == 0:
-                break
-            line = rtt_lines.pop(0).encode()
-
-        if line == b'\r\n':
-            # Skip the initial CRLF (see 3GPP TS 27.007 AT cmd specification)
-            continue
-
-        if line == None or len(line) == 0:
-            if timeout > 0:
-                timeout -= serial_timeout
-            continue
-
-        if val1 in line:
-            found = True
-            retval = True
-        elif val2 != None and val2 in line:
-            found = True
-            retval = False
-        elif store != None and (store in line or str(store) in str(line)):
-            output = line
-
-    lf_done = b'\n' in line
-    if ser:
-        ser.flush()
-    if store != None and output == None:
-        logger.error('String {} not detected in line {}'.format(store, line))
-
-    if timeout == 0:
-        logger.error('Serial timeout')
-        retval = False
-
-    return retval, output
-
-def cleanup():
-    global ser
-    global rtt
-    if ser:
-        ser.close()
-    if rtt:
-        rtt.close()
-
-def get_attestation_token(verbose):
-    write_at_cmd('AT%ATTESTTOKEN')
-    # include the CRLF in OK because 'OK' could be found in the output string
-    retval, output = wait_for_prompt(b'OK\r', b'ERROR', store=b'%ATTESTTOKEN: ')
-    if not retval:
-        if at_cmd_prefix == 'at ':
-            error_exit('ATTESTTOKEN read command failed, try without --shell')
-        else:
-            error_exit('ATTESTTOKEN read command failed, try with --shell')
-    elif output == None:
-        error_exit('Unable to detect ATTESTTOKEN output')
-
-    # remove quotes
-    attest_tok = str(output).split('"')[1]
-    logger.debug('Attestation token: {}'.format(attest_tok))
-
-    if verbose:
-        modem_credentials_parser.parse_attesttoken_output(attest_tok)
-
-    return attest_tok
 
 def check_if_device_exists_in_csv(csv_filename, uuid, delete_duplicates):
     row_count = 0
@@ -274,84 +141,60 @@ def save_attestation_csv(csv_filename, append, replace, imei, uuid, attestation_
         logger.error('Error opening file {}'.format(csv_filename))
 
 def error_exit(err_msg):
-    cleanup()
     if err_msg:
         logger.error(err_msg)
-        sys.exit(1)
-    else:
-        sys.exit('Error... exiting.')
+    sys.exit(1)
 
 def main(in_args):
-    global args
-    global plain
-    global ser
-    global rtt
-    global cmd_term_key
-    global at_cmd_prefix
 
     # initialize arguments
     args = parse_args(in_args)
-    plain = args.plain
 
-    rtt = None
+    if args.plain:
+        logging.setLoggerClass(logging.Logger)
 
-    # Set to CRLF for interaction with provisioning sample
-    cmd_term_key = 'CRLF'
+    if args.cmd_type not in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL):
+        logger.error('Attestation tokens are only supported on devices with AT command support')
+        sys.exit(1)
 
-    # Adjust method to send an AT command
-    at_cmd_prefix = '' if not args.shell else 'at '
+    serial_interface = Comms(
+        port=args.port,
+        serial=args.serial_number,
+        baudrate=args.baud,
+        xonxoff=args.xonxoff,
+        rtscts=not args.rtscts_off,
+        dsrdtr=args.dsrdtr,
+        line_ending=CMD_TERM_DICT[args.term],
+        list_all=args.all,
+        rtt=args.rtt,
+    )
 
-    if args.rtt:
-        cmd_term_key = 'CRLF'
-
-        rtt = rtt_interface.connect_rtt(args.jlink_sn, args.mosh_rtt_hex)
-        if not rtt:
-            logger.error('Failed connect to device via RTT')
-            sys.exit(2)
-
-        if not rtt_interface.enable_at_cmds_mosh_rtt(rtt):
-            logger.error('Failed to enable AT commands via RTT')
-            sys.exit(3)
-        ser = None
-    else:
-        # get a serial port to use
-        logger.debug('Opening serial port...')
-        if args.port:
-            port = args.port
-        else:
-            port = ask_for_port(args.all)
-        if port == None:
-            sys.exit(1)
-
-        logger.debug('Selected serial port: {}'.format(port))
-
-        # try to open the serial port
-        ser = get_serial_port(port, args.baud, xonxoff= args.xonxoff, rtscts=(not args.rtscts_off),
-                            dsrdtr=args.dsrdtr)
+    cred_if = None
+    cred_if = ATCommandInterface(serial_interface)
+    if args.cmd_type == CMD_TYPE_AT_SHELL:
+        cred_if.set_shell_mode(True)
+    elif args.rtt:
+        cred_if.write_raw('at at_cmd_mode start')
 
     # verify that the device is not nrf9160
-    write_at_cmd('AT+CGMM')
-    retval, output = wait_for_prompt(b'OK', b'ERROR', store=b'nRF')
-    if retval and b'nRF9160' in output:
+    model_id = cred_if.get_model_id()
+    if model_id and 'nRF9160' in model_id:
         logger.error('Device is nRF9160, not supported')
-        cleanup()
         sys.exit(1)
 
     # get attestation token
-    attest_tok = get_attestation_token(args.log_level == 'DEBUG')
+    attest_tok = cred_if.get_attestation_token()
     if not attest_tok:
         error_exit('Failed to obtain attestation token')
 
+    if args.log_level == 'debug':
+        modem_credentials_parser.parse_attesttoken_output(attest_tok)
+
     # get the IMEI
-    write_at_cmd('AT+CGSN')
-    retval, imei = wait_for_prompt(b'OK', b'ERROR', store=b'\r\n')
-    if not retval:
-        logger.error('Failed to obtain IMEI')
-        imei = None
+    imei = cred_if.get_imei()
 
     if imei:
         # display the IMEI for reference
-        imei = str(imei.decode("utf-8"))[:IMEI_LEN]
         logger.debug('Device IMEI: ' + imei)
 
     # get device UUID from attestation token
@@ -363,7 +206,6 @@ def main(in_args):
                              dev_uuid, attest_tok)
 
     logger.debug('Done.')
-    cleanup()
 
 def run():
     main(sys.argv[1:])
