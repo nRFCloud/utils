@@ -325,7 +325,7 @@ Create the device certificate locally, then send back to the device over the air
 
 #### Claim device and use a provisioning tag to fully provision and onboard it
 ```
-claim_and_provision_device --api-key $API_KEY --provisioning-tags "nrf-cloud-onboarding"
+claim_and_provision_device --api-key $API_KEY --provisioning-tags "nrf-cloud-onboarding" --cmd-type at_shell
 ```
 Like before, but use a built-in provisioning tag so the device certificate is created by the cloud and then sent to the device over the air.
 
