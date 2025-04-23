@@ -17,6 +17,7 @@ import atexit
 import inquirer
 from pynrfjprog import LowLevel
 import coloredlogs, logging
+from nrfcloud_utils.cli_helpers import is_macos
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,10 @@ usb_patterns = [
 
 # returns a list of printable name, serial number and serial port for connected Nordic boards
 def get_connected_nordic_boards():
-    ports = sorted(list_ports.comports(), key=lambda x: x.hwid)
+    if is_macos:
+        ports = sorted(list_ports.comports(), key=lambda x: x.device)
+    else:
+        ports = sorted(list_ports.comports(), key=lambda x: x.hwid)
     nordic_boards = defaultdict(list)
     for port in ports:
         # Get serial number from hwid, because port.serial_number is not always available
