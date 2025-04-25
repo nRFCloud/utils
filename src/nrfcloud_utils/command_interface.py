@@ -89,7 +89,7 @@ class ATCommandInterface(CredentialCommandInterface):
         #   %CMNG: 123,0,"2C43952EE9E000FF2ACC4E2ED0897C0A72AD5FA72C3D934E81741CBD54F05BD1"
         # The first item in " is the SHA.
         try:
-            return cmng_result_str.decode().split('"')[1]
+            return cmng_result_str.split('"')[1]
         except (ValueError, IndexError):
             logger.error(f'Could not parse credential hash: {cmng_result_str}')
             return None
