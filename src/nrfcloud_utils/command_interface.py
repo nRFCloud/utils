@@ -192,7 +192,7 @@ class ATCommandInterface(CredentialCommandInterface):
         retval, output = self.comms.expect_response("OK", "ERROR", "%ATTESTTOKEN:")
         if not retval:
             return None
-        attest_tok = str(output).split('"')[1]
+        attest_tok = output.split('"')[1]
         return attest_tok
 
 TLS_CRED_TYPES = ["CA", "SERV", "PK"]
@@ -225,13 +225,13 @@ class TLSCredShellInterface(CredentialCommandInterface):
 
         # Store the buffered credential
         self.write_raw(f"cred add {sectag} {TLS_CRED_TYPES[cred_type]} DEFAULT bint")
-        result, output = self.comms.expect_response("Added TLS credential")
+        result, _ = self.comms.expect_response("Added TLS credential")
         time.sleep(1)
         return result
 
     def delete_credential(self, sectag, cred_type):
         self.write_raw(f'cred del {sectag} {TLS_CRED_TYPES[cred_type]}')
-        result, output = self.comms.expect_response("Deleted TLS credential", "There is no TLS credential")
+        result, _ = self.comms.expect_response("Deleted TLS credential", "There is no TLS credential")
         time.sleep(2)
         return result
 
@@ -250,12 +250,12 @@ class TLSCredShellInterface(CredentialCommandInterface):
             return True, None
 
         # Output is a comma separated list of positional items
-        data = output.decode().split(",")
+        data = output.split(",")
         hash = data[2].strip()
         status_code = data[3].strip()
 
         if (status_code != "0"):
-            logger.error(f"Error retrieving credential hash: {output.decode().strip()}.")
+            logger.error(f"Error retrieving credential hash: {output.strip()}.")
             logger.error("Device might not support credential digests.")
             return True, None
 
