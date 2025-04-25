@@ -74,8 +74,8 @@ def get_ca_certs(coap=False, stage="prod"):
         return aws_ca
 
     if stage == "dev":
-        return nrf_cloud_coap_ca_dev + aws_ca
+        return aws_ca + '\n' + nrf_cloud_coap_ca_dev
     if stage == "beta":
-        return nrf_cloud_coap_ca_beta + aws_ca
+        return aws_ca + '\n' + nrf_cloud_coap_ca_beta
 
-    return nrf_cloud_coap_ca + aws_ca
+    return aws_ca + '\n' + nrf_cloud_coap_ca
