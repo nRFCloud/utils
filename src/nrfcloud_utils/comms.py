@@ -15,7 +15,7 @@ import sys
 import time
 import atexit
 import inquirer
-from pynrfjprog import LowLevel
+import pylink
 import coloredlogs, logging
 from nrfcloud_utils.cli_helpers import is_macos
 
@@ -107,10 +107,10 @@ def get_connected_nordic_boards():
     return main_ports
 
 
-# returns a list of SEGGER J-Link serial numbers as int
+# returns a list of SEGGER J-Link serial numbers as (int, name) tuples
 def get_connected_jlinks():
-    with LowLevel.API(LowLevel.DeviceFamily.UNKNOWN) as api:
-        return api.enum_emu_snr() or []
+    with pylink.JLink() as jlink:
+        return [(x.SerialNumber, (x.acNickname or x.acProduct).decode()) for x in jlink.connected_emulators()]
 
 
 # for a serial device, return the serial number
@@ -156,16 +156,16 @@ def select_jlink(jlinks, list_all):
     if len(jlinks) == 0:
         raise Exception("No J-Link device found")
     if len(jlinks) == 1:
-        return jlinks[0]
+        return jlinks[0][0]
     if list_all:
         question = inquirer.List(
             "serial",
             message="Select a J-Link device",
-            choices=[(f"{serial} {extract_product_name_from_jlink_serial(serial)}", serial) for serial in jlinks],
+            choices=[(f"{serial} {extract_product_name_from_jlink_serial(serial) or name}", serial) for serial, name in jlinks],
         )
     else:
         nordic_boards = get_connected_nordic_boards()
-        serial_numbers = [serial for _, serial, _ in nordic_boards if serial in jlinks]
+        serial_numbers = [serial for _, serial, _ in nordic_boards if serial in (x[0] for x in jlinks)]
         if len(serial_numbers) == 0:
             raise Exception("No J-Link device found")
         if len(serial_numbers) == 1:
@@ -215,7 +215,7 @@ def select_device(rtt, serial_number, port, list_all):
         # RTT requires a J-Link device
         jlinks = get_connected_jlinks()
         if serial_number:
-            if serial_number in jlinks:
+            if serial_number in (x[0] for x in jlinks):
                 return (None, serial_number)
             else:
                 raise Exception(f"No device found with serial {serial_number}")
@@ -346,20 +346,20 @@ class Comms:
             logger.error("Cannot reset device, not using RTT")
 
     def write_line(self, data : str):
-        logger.debug(f"> {data}")
+        logger.error(f"> {data}")
         self.write((data + self.line_ending).encode('ascii'))
 
     def _readline_rtt(self) -> str:
         time_end = time.time() + self.timeout
         while time.time() < time_end:
-            self._rtt_line_buffer += self.jlink_api.rtt_read(channel_index=0, length=4096)
+            self._rtt_line_buffer += bytes(self.jlink_api.rtt_read(0, 4096)).decode('utf-8', errors="replace")
             # find first line ending
             line_end = self._rtt_line_buffer.find(self.line_ending)
             if line_end != -1:
                 # split the line from the buffer
                 line = self._rtt_line_buffer[:line_end]
                 self._rtt_line_buffer = self._rtt_line_buffer[line_end + len(self.line_ending) :]
-                logger.debug(f"< {line}")
+                logger.error(f"< {line}")
                 return line
             time.sleep(0.1)
         return None
@@ -374,26 +374,33 @@ class Comms:
         return None
 
     def _write_rtt(self, data: bytes):
-        # hacky workaround from old rtt_interface
-        for i in range(0, len(data), 12):
-            self.jlink_api.rtt_write(channel_index=0, msg=data[i : i + 12])
+        time_end = time.time() + self.timeout
+        # TODO: this doesn´t seem to work, need to check
+        data += b'\0'
+        n = 0
+        while (n < len(data)) and (time.time() < time_end):
             time.sleep(0.01)
+            n += self.jlink_api.rtt_write(0, list(data[n:]))
 
     def _write_serial(self, data: bytes):
         self.serial_api.write(data)
 
     def _init_rtt(self):
-        self.jlink_api = LowLevel.API(LowLevel.DeviceFamily.UNKNOWN)
-        self.jlink_api.open()
-        self.jlink_api.connect_to_emu_with_snr(self.serial_number)
-        self.jlink_api.select_family(self.jlink_api.read_device_family())
-        self.jlink_api.sys_reset()
-        self.jlink_api.go()
+        self.jlink_api = pylink.JLink()
+        self.jlink_api.open(serial_no=self.serial_number)
+        self.jlink_api.set_tif(pylink.enums.JLinkInterfaces.SWD)
+        self.jlink_api.connect('NRF9151_XXCA')
+        self.jlink_api.reset()
         self.jlink_api.rtt_start()
-        for _ in range(5):
-            if self.jlink_api.rtt_is_control_block_found():
+        while True:
+            try:
+                num_up = self.jlink_api.rtt_get_num_up_buffers()
+                num_down = self.jlink_api.rtt_get_num_down_buffers()
+                logging.info("RTT started, %d up bufs, %d down bufs." % (num_up, num_down))
                 break
-            time.sleep(0.5)
+            except pylink.errors.JLinkRTTException:
+                time.sleep(0.1)
+        time.sleep(1)
         self.write = self._write_rtt
         self.read_line = self._readline_rtt
 
