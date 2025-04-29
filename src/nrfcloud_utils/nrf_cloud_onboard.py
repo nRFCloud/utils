@@ -82,10 +82,14 @@ def parse_args(in_args):
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level'
     )
+    parser.add_argument("-P", "--plain",
+                        help="bool: Plain output (no colors)",
+                        action='store_true', default=False)
     args = parser.parse_args(in_args)
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
-    fmt = '%(levelname)-8s %(message)s'
-    coloredlogs.install(level=level, fmt=fmt)
+    if args.plain:
+        logging.basicConfig(level=args.log_level.upper())
+    else:
+        coloredlogs.install(level=args.log_level.upper(), fmt='%(levelname)-8s %(message)s')
     return args
 
 def set_dev_stage(stage = ''):
