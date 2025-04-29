@@ -43,9 +43,10 @@ def parse_args(in_args):
                         help='Set the logging level'
     )
     args = parser.parse_args(in_args)
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
-    fmt = '%(levelname)-8s %(message)s'
-    coloredlogs.install(level=level, fmt=fmt)
+    if args.plain:
+        logging.basicConfig(level=args.log_level.upper())
+    else:
+        coloredlogs.install(level=args.log_level.upper(), fmt='%(levelname)-8s %(message)s')
     return args
 
 def check_if_device_exists_in_csv(csv_filename, uuid, delete_duplicates):
@@ -149,9 +150,6 @@ def main(in_args):
 
     # initialize arguments
     args = parse_args(in_args)
-
-    if args.plain:
-        logging.setLoggerClass(logging.Logger)
 
     if args.cmd_type not in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL):
         logger.error('Attestation tokens are only supported on devices with AT command support')

@@ -106,9 +106,10 @@ def parse_args(in_args):
                         help='Set the logging level'
     )
     args = parser.parse_args(in_args)
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
-    fmt = '%(levelname)-8s %(message)s'
-    coloredlogs.install(level=level, fmt=fmt)
+    if args.plain:
+        logging.basicConfig(level=args.log_level.upper())
+    else:
+        coloredlogs.install(level=args.log_level.upper(), fmt='%(levelname)-8s %(message)s')
     return args
 
 def parse_mfw_ver(ver_str):
@@ -197,9 +198,6 @@ def get_existing_credentials(args, dev_id):
 def main(in_args):
     # initialize arguments
     args = parse_args(in_args)
-
-    if args.plain:
-        logging.setLoggerClass(logging.Logger)
 
     id_len = len(args.id_str)
     if (id_len > DEV_ID_MAX_LEN) or (args.id_imei and ((id_len + IMEI_LEN) > DEV_ID_MAX_LEN)):

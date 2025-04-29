@@ -83,9 +83,10 @@ def parse_args(in_args):
                         help='Set the logging level'
     )
     args = parser.parse_args(in_args)
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
-    fmt = '%(levelname)-8s %(message)s'
-    coloredlogs.install(level=level, fmt=fmt)
+    if args.plain:
+        logging.basicConfig(level=args.log_level.upper())
+    else:
+        coloredlogs.install(level=args.log_level.upper(), fmt='%(levelname)-8s %(message)s')
     return args
 
 def error_exit(err_msg):
@@ -124,9 +125,6 @@ def main(in_args):
 
     # initialize arguments
     args = parse_args(in_args)
-
-    if args.plain:
-        logging.setLoggerClass(logging.Logger)
 
     # check device ID length
     if args.id_str:
