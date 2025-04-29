@@ -317,7 +317,7 @@ class Comms:
             self.serial_api.close()
             self.serial_api = None
 
-    def expect_response(self, ok_str=None, error_str=None, store_str=None, timeout=15):
+    def expect_response(self, ok_str=None, error_str=None, store_str=None, timeout=1):
         '''
         Read lines until either ok_str or error_str is found or timeout (seconds) is reached.
         If store_str is in one of the lines, it will be returned as the output.
@@ -329,12 +329,15 @@ class Comms:
         while time.time() < time_end:
             line = self.read_line()
             if line:
+                logger.debug(f"Reading line {line.strip()}")
                 if ok_str and ok_str == line.strip():
                     return (True, output)
                 if error_str and error_str == line.strip():
                     return (False, output)
                 if (store_str is not None) and store_str in line:
                     output += line
+            else:
+                logger.debug("No line read")
             time.sleep(0.1)
         return (False, output)
 
@@ -365,6 +368,7 @@ class Comms:
         return None
 
     def _readline_serial(self) -> str:
+        logger.debug("Reading line from serial")
         # read a line from the serial port
         line = self.serial_api.readline()
         if line:
