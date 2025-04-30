@@ -188,21 +188,25 @@ def main(in_args):
 
     # save device cert
     dev   = device_cert.public_bytes(serialization.Encoding.PEM)
-    write_file(args.path, args.fileprefix + common_name + "_crt.pem", dev)
     if args.embed_save:
         write_file(args.path, "client-cert.pem", embed_save_convert(dev))
+    else:
+        write_file(args.path, args.fileprefix + common_name + "_crt.pem", dev)
 
     # save public key
     pub  = csr.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
-    write_file(args.path, args.fileprefix + common_name + "_pub.pem", pub)
+    if not args.embed_save:
+        write_file(args.path, args.fileprefix + common_name + "_pub.pem", pub)
 
     # If we generated a local private key, save that to disk too, so it can be installed to the
     # device.
     if local_priv_key is not None:
         priv = local_priv_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
-        write_file(args.path, args.fileprefix + common_name + "_prv.pem", priv)
         if args.embed_save:
             write_file(args.path, "private-key.pem", embed_save_convert(priv))
+        else:
+            write_file(args.path, args.fileprefix + common_name + "_prv.pem", priv)
+
 
     if args.embed_save:
         # save the AWS CA cert
