@@ -1,5 +1,9 @@
 # nRF Cloud Utils
 
+[![PyPI version](https://img.shields.io/pypi/v/nrfcloud-utils)](https://pypi.org/project/nrfcloud-utils/)
+![License](https://img.shields.io/pypi/l/nrfcloud-utils)
+![Python versions](https://img.shields.io/pypi/pyversions/nrfcloud-utils)
+
 nRF Cloud Utils is a script collection to make it easier to interface with nRF Cloud.
 
 The scripts in this repository mainly use endpoints in [the REST API](https://api.nrfcloud.com/v1).
