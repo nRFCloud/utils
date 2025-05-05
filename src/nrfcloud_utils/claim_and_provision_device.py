@@ -197,7 +197,7 @@ def main(in_args):
             logger.info(f'...success')
         else:
             nrf_cloud_diap.print_api_result("Unclaim device response", api_res)
-            error_exit('Failed to unclaim device')
+            logger.info("Device may not have been claimed before, continuing...")
 
     # claim device
     logger.info('Claiming device...')
