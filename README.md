@@ -28,17 +28,8 @@ Run the following command to use this package as a dependency:
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. Retrieve your API key. You can find it in your [nRF Cloud User Account page](https://nrfcloud.com/#/account).
-3. To simplify the use of the scripts, you can declare your API key as an environment variable in your terminal. This way, you won't need to repeatedly type it in each command. Here's how to do it:
-
-```bash
-export API_KEY=<your_api_key>
-```
-
-Replace `<your_api_key>` with your actual API key.
-If you don't choose this path, take note of your API key, you will need it soon. Note that if you are part of multiple teams on nRF Cloud, the API key will be different for each one.
-
-4. Depending on your goal, you'll need to configure your nRF Connect SDK project with the following libraries:
+2. Retrieve your API key. You can find it in your [nRF Cloud User Account page](https://nrfcloud.com/#/account). Note that if you are part of multiple teams on nRF Cloud, the API key will be different for each one.
+3. Depending on your goal, you'll need to configure your nRF Connect SDK project with the following libraries:
 
 * **For basic device registration:** Enable the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html). Refer to the [AT Client sample](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/samples/cellular/at_client/README.html) in the nRF Connect SDK for an implementation example.
 
@@ -49,7 +40,7 @@ If you don't choose this path, take note of your API key, you will need it soon.
     * **nRF Provisioning Sample:** Provides a focused look at the provisioning steps.
         * [https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning)
 
-5. When compiling with the nRF Cloud Libraries, make sure to add the next Kconfig options:
+4. When compiling with the nRF Cloud Libraries, make sure your project has the next Kconfig options:
 
     ```Kconfig
     # Enable modem-based JSON Web Token (JWT) generation required for nRF Cloud authentication
@@ -71,18 +62,18 @@ Start by creating a local certificate authority (CA). Its contents won't be chec
 
 Now, you should have three `.pem` files containing the key pair and the CA certificate of your CA. The files have a unique prefix.
 
-The fastest way to get your device registered is using the Device Credentials Installer:
+To get your device registered is using the `device_credentials_installer` script:
 
     device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --coap --verify
 
-Upon success, you can find an `onboard.csv` file with information about your device. We need this file to register the certificate with your account.
+Upon success, you can find an `onboard.csv` file with information about your device. This file is needed to register the certificate with your account.
 If you encounter a `No device found` error, you might need to specify the serial port using the `--port` option.
 
-Finally, add the device to your account with the Onboarding script:
+Onboard the device to your account using the `nrf_cloud_onboard` script as follows:
 
     nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
 
-You can also install credentials on many devices in a row using the `--append` option and add the bulk `onboard.csv` to your account with the same command.
+It is possible to install credentials on many devices in a row using the `--append` option and add the bulk `onboard.csv` to your account with the same command.
 
 Congratulations! You have successfully registered your device to nRF Cloud, you should be able to visualize it on the [Devices panel](https://nrfcloud.com/#/devices).
 
