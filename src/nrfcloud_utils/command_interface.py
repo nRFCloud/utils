@@ -14,6 +14,7 @@ import base64
 import hashlib
 import coloredlogs, logging
 from cryptography import x509
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,16 @@ class ATCommandInterface(CredentialCommandInterface):
 
     def set_shell_mode(self, shell):
         self.shell = shell
+
+    def detect_shell_mode(self):
+        """Detect if the device is in shell mode or not."""
+        for _ in range(3):
+            self.write_raw("at AT+CGSN")
+            result, output = self.comms.expect_response("OK", "ERROR")
+            if result and len(re.findall("[0-9]{15}", output)) > 0:
+                self.set_shell_mode(True)
+                return
+        self.set_shell_mode(False)
 
     def at_command(self, at_command, wait_for_result=False):
         """Write an AT command to the command interface. Optionally wait for OK"""

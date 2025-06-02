@@ -15,7 +15,7 @@ import coloredlogs, logging
 from nrfcloud_utils import create_device_credentials, ca_certs
 from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding
 from nrfcloud_utils.command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
-from nrfcloud_utils.comms import CMD_TERM_DICT, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args, Comms
+from nrfcloud_utils.comms import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args, Comms
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
@@ -209,8 +209,7 @@ def main(in_args):
         logger.error(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file")
         sys.exit(1)
 
-    cmd_type_has_at = args.cmd_type in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL)
-    has_shell = (args.cmd_type == CMD_TYPE_AT_SHELL)
+    cmd_type_has_at = args.cmd_type in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_AUTO)
 
     serial_interface = Comms(
         port=args.port,
@@ -227,10 +226,15 @@ def main(in_args):
     cred_if = None
     if cmd_type_has_at:
         cred_if = ATCommandInterface(serial_interface)
-        if args.cmd_type == CMD_TYPE_AT_SHELL:
+        if args.cmd_type == CMD_TYPE_AUTO:
+            cred_if.detect_shell_mode()
+            logger.debug(f'Detected shell mode: {cred_if.shell}')
+        elif args.cmd_type == CMD_TYPE_AT_SHELL:
             cred_if.set_shell_mode(True)
         elif args.rtt:
             cred_if.write_raw('at at_cmd_mode start')
+
+    has_shell = cred_if.shell
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
         cred_if = TLSCredShellInterface(serial_interface)

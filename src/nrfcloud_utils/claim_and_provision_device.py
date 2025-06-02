@@ -20,7 +20,7 @@ from nrfcloud_utils import (
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
-from nrfcloud_utils.comms import CMD_TERM_DICT, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args, Comms
+from nrfcloud_utils.comms import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args, Comms
 from nrfcloud_utils.command_interface import ATCommandInterface
 
 logger = logging.getLogger(__name__)
@@ -146,7 +146,7 @@ def main(in_args):
     elif args.ca or args.ca_key:
         logger.info('Ignoring "ca" and "ca-key" because provisioning tags are used.')
 
-    if args.cmd_type not in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL):
+    if args.cmd_type not in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_AUTO):
         error_exit('Attestation tokens are only supported on devices with AT command support')
 
     serial_interface = Comms(
@@ -163,7 +163,9 @@ def main(in_args):
 
     cred_if = None
     cred_if = ATCommandInterface(serial_interface)
-    if args.cmd_type == CMD_TYPE_AT_SHELL:
+    if args.cmd_type == CMD_TYPE_AUTO:
+        cred_if.detect_shell_mode()
+    elif args.cmd_type == CMD_TYPE_AT_SHELL:
         cred_if.set_shell_mode(True)
     elif args.rtt:
         cred_if.write_raw('at at_cmd_mode start')
