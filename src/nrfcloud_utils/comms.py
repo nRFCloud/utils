@@ -18,6 +18,7 @@ import inquirer
 from pynrfjprog import LowLevel
 import coloredlogs, logging
 from nrfcloud_utils.cli_helpers import is_macos
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ CMD_TYPE_AT = "at"
 CMD_TYPE_AT_SHELL = "at_shell"
 CMD_TYPE_TLS_SHELL = "tls_cred_shell"
 CMD_TYPE_AUTO = "auto"
+
+ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 
 def parser_add_comms_args(parser):
     parser.add_argument("-A", "--all",
@@ -330,9 +333,9 @@ class Comms:
         while time.time() < time_end:
             line = self.read_line()
             if line:
-                if ok_str and ok_str == line.strip():
+                if ok_str and ok_str == ansi_escape.sub('', line.strip()):
                     return (True, output)
-                if error_str and error_str == line.strip():
+                if error_str and error_str == ansi_escape.sub('', line.strip()):
                     return (False, output)
                 if (store_str is not None) and store_str in line:
                     output += line

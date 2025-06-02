@@ -102,7 +102,7 @@ class ATCommandInterface(CredentialCommandInterface):
         """Detect if the device is in shell mode or not."""
         for _ in range(3):
             self.write_raw("at AT+CGSN")
-            result, output = self.comms.expect_response("OK", "ERROR")
+            result, output = self.comms.expect_response("OK", "ERROR", "")
             if result and len(re.findall("[0-9]{15}", output)) > 0:
                 self.set_shell_mode(True)
                 return
