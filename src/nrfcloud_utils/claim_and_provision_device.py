@@ -3,12 +3,10 @@
 # Copyright (c) 2025 Nordic Semiconductor ASA
 #
 # SPDX-License-Identifier: BSD-3-Clause
-import os
 import sys
 import time
 import json
 import argparse
-import platform
 import coloredlogs, logging
 from nrfcloud_utils import (
     ca_certs,
@@ -18,10 +16,11 @@ from nrfcloud_utils import (
     create_device_credentials
 )
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
+from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
-from nrfcloud_utils.comms import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args, Comms
-from nrfcloud_utils.command_interface import ATCommandInterface
+from nrfcredstore.comms import Comms
+from nrfcredstore.command_interface import ATCommandInterface
 
 logger = logging.getLogger(__name__)
 

@@ -46,8 +46,8 @@ class FakeSerial(Mock):
 FakeSerialPort = namedtuple("FakeSerialPort", ["device"])
 
 class TestDeviceCredentialsInstaller:
-    @patch("nrfcloud_utils.comms.select_device", return_value=(FakeSerialPort("/not/a/real/device"), "TEST_DEVICE"))
-    @patch("nrfcloud_utils.comms.serial.Serial", return_value=FakeSerial())
+    @patch("nrfcredstore.comms.select_device", return_value=(FakeSerialPort("/not/a/real/device"), "TEST_DEVICE"))
+    @patch("nrfcredstore.comms.serial.Serial", return_value=FakeSerial())
     def test_minimal_case(self, ser, select_device):
         with TemporaryDirectory() as tmp_dir:
             csv_file = os.path.join(tmp_dir, 'onboard.csv')

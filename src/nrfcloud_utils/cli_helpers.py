@@ -4,13 +4,12 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-from colorama import init, Fore, Back, Style
 from os import path
 from os import makedirs
 import platform
 import os
 import csv
-import coloredlogs, logging
+import logging
 
 MAX_CSV_ROWS = 1000
 
@@ -175,3 +174,44 @@ def save_devinfo_csv(csv_filename, append, replace, dev_id, mfw_ver = None, imei
         logger.info(f'Device info CSV file saved, row count: {row_count + 1}')
     except OSError:
         logger.error('Error opening file {}'.format(csv_filename))
+
+CMD_TERM_DICT = {'NULL': '\0',
+                 'CR':   '\r',
+                 'LF':   '\n',
+                 'CRLF': '\r\n'}
+
+CMD_TYPE_AT = "at"
+CMD_TYPE_AT_SHELL = "at_shell"
+CMD_TYPE_TLS_SHELL = "tls_cred_shell"
+CMD_TYPE_AUTO = "auto"
+
+def parser_add_comms_args(parser):
+    parser.add_argument("-A", "--all",
+                        help="List ports of all types, not just Nordic devices",
+                        action='store_true', default=False)
+    parser.add_argument("--port", type=str,
+                        help="Specify which serial port to open, otherwise pick from list",
+                        default=None)
+    parser.add_argument("--serial-number", type=int,
+                        help="Serial number of Nordic or J-Link device",
+                        default=None)
+    parser.add_argument("--baud", type=int,
+                        help="Baud rate for serial port",
+                        default=115200)
+    parser.add_argument("--xonxoff",
+                        help="Enable software flow control for serial connection",
+                        action='store_true', default=False)
+    parser.add_argument("--rtscts-off",
+                        help="Disable hardware (RTS/CTS) flow control for serial connection",
+                        action='store_true', default=False)
+    parser.add_argument("--dsrdtr",
+                        help="Enable hardware (DSR/DTR) flow control for serial connection",
+                        action='store_true', default=False)
+    parser.add_argument("--rtt",
+                        help="Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay",
+                        action='store_true', default=False)
+    parser.add_argument("--cmd-type", default=CMD_TYPE_AT, choices=[CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL], type=str.lower,
+                    help=f"Specify the device command line type. '{CMD_TYPE_AT}' will use AT commands, '{CMD_TYPE_AT_SHELL}' will prefix AT commands with 'at ', and '{CMD_TYPE_TLS_SHELL}' will use TLS Credentials Shell commands.")
+    parser.add_argument("--term", type=str,
+                        help="AT command termination",choices=list(CMD_TERM_DICT.keys()),
+                        default='CRLF')

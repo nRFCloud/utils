@@ -41,8 +41,8 @@ FakeSerialPort = namedtuple("FakeSerialPort", ["device"])
 
 class TestClaimAndProvisionDevice:
     @patch("nrfcloud_utils.claim_and_provision_device.nrf_cloud_diap")
-    @patch("nrfcloud_utils.comms.select_device", return_value=(FakeSerialPort("/not/a/real/device"), "TEST_DEVICE"))
-    @patch("nrfcloud_utils.comms.serial.Serial", return_value=FakeSerial())
+    @patch("nrfcredstore.comms.select_device", return_value=(FakeSerialPort("/not/a/real/device"), "TEST_DEVICE"))
+    @patch("nrfcredstore.comms.serial.Serial", return_value=FakeSerial())
     def test_provisioning_tags(self, ser, select_device, diap):
         diap.claim_device = Mock(return_value=TEST_RESPONSE)
         args = f"--port /not/a/real/device --api-key NOTAKEY --provisioning-tags nrf-cloud-onboarding".split()

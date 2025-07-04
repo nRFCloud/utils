@@ -8,14 +8,13 @@ import argparse
 import re
 import os
 import sys
-import csv
-import getpass
 import semver
 import coloredlogs, logging
-from nrfcloud_utils import create_device_credentials, ca_certs
+from nrfcloud_utils import create_device_credentials, ca_certs, modem_credentials_parser
 from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding
-from nrfcloud_utils.command_interface import ATCommandInterface, ATKeygenException, TLSCredShellInterface
-from nrfcloud_utils.comms import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args, Comms
+from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args
+from nrfcredstore.command_interface import ATCommandInterface, TLSCredShellInterface
+from nrfcredstore.comms import Comms
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
@@ -160,12 +159,14 @@ def get_csr(cred_if, custom_dev_id = "", sectag = 0, local = False):
         csr, local_priv_key = create_device_credentials.create_local_csr(cn = custom_dev_id)
     else:
         # Use AT commands to request a CSR.
-        try:
-            csr = cred_if.get_csr(sectag, custom_dev_id)
-        except ATKeygenException as e:
-            logger.error(str(e))
+        csr_blob = cred_if.get_csr(sectag, custom_dev_id)
 
-            sys.exit(e.exit_code)
+        if csr_blob is None:
+            logger.error('Failed to obtain CSR from device')
+            sys.exit(9)
+
+        csr_bytes, _, _, _ = modem_credentials_parser.parse_keygen_output(csr_blob)
+        csr = x509.load_pem_x509_csr(csr_bytes)
 
     return csr, local_priv_key
 

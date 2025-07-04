@@ -3,14 +3,10 @@
 # Copyright (c) 2025 Nordic Semiconductor ASA
 #
 # SPDX-License-Identifier: BSD-3-Clause
-import os
 import io
 import sys
 import csv
-import time
-import json
 import argparse
-import platform
 import coloredlogs, logging
 from nrfcloud_utils import nrf_cloud_diap
 from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
