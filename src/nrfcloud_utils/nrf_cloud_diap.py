@@ -151,5 +151,76 @@ def get_provisioning_cmd(api_key, dev_uuid, cmd_id):
     return requests.get(req, headers=get_auth_header(api_key))
 
 def print_api_result(custom_text, api_result):
-    logger.info(f'{custom_text}: {api_result.status_code} - {api_result.reason}')
-    logger.debug(f'Response: {api_result.text}')
+    logger.info(f"{custom_text}: {api_result.status_code} - {api_result.reason}")
+    logger.debug(f"Response: {api_result.text}")
+
+def create_provisioning_rule(api_key, name="nRF Cloud Onboarding", coap=True, sec_tag=16842753, tags=["nrf-cloud-onboarding"]):
+    global api_url
+
+    payload = {
+        "name": name,
+        "description": "Onboarding rule for nRF Cloud",
+        "active": True,
+        "commands": [
+            {"request": {"clientPrivateKeyGeneration": {"secTag": sec_tag}},},
+            {"request": {"cloudAccessKeyGeneration": {"secTag": sec_tag}},},
+            {"request": {"serverCertificate": {"secTag": sec_tag, "content": ca_certs.get_ca_certs(coap=coap)}},},
+        ],
+        "tags": tags,
+    }
+
+    req = f"{api_url}provisioning-rules"
+
+    return requests.post(req, json=payload, headers=get_auth_header(api_key))
+
+
+def list_provisioning_rules(api_key):
+    global api_url
+
+    req = f"{api_url}provisioning-rules"
+
+    return requests.get(req, headers=get_auth_header(api_key))
+
+
+def list_provisioning_tags(api_key):
+    global api_url
+
+    req = f"{api_url}provisioning/tags"
+
+    return requests.get(req, headers=get_auth_header(api_key))
+
+
+def create_provisioning_tag(api_key, tag_name, description=""):
+    global api_url
+
+    payload = {
+        "tag": tag_name,
+        "description": description,
+    }
+
+    req = f"{api_url}provisioning/tags"
+
+    return requests.post(req, json=payload, headers=get_auth_header(api_key))
+
+
+def ensure_nrfcloud_provisioning_rule(api_key, sec_tag):
+    # Check if the nRF Cloud Onboarding provisioning rule already exists
+    found_rule = False
+    existing_rules = list_provisioning_rules(api_key)
+    if existing_rules.status_code != 200:
+        raise RuntimeError('Failed to list existing provisioning rules')
+    existing_rules_json = existing_rules.json()
+    if existing_rules_json:
+        for rule in existing_rules_json["items"]:
+            if "nrf-cloud-onboarding" in rule["tags"]:
+                found_rule = True
+                break
+
+    create_tag_result = create_provisioning_tag(api_key, "nrf-cloud-onboarding", "Generated tag for rule: nRF Cloud Onboarding")
+
+    if not found_rule:
+        logger.info('Creating nRF Cloud Onboarding provisioning rule...')
+        api_res = create_provisioning_rule(api_key, sec_tag=sec_tag)
+        print_api_result("Create provisioning rule response", api_res)
+        if api_res.status_code != 201:
+            raise RuntimeError('Failed to create nRF Cloud Onboarding provisioning rule')

@@ -203,6 +203,8 @@ def main(in_args):
     # claim device
     logger.info('Claiming device...')
     if args.provisioning_tags is not None:
+        if args.provisioning_tags == "nrf-cloud-onboarding":
+            nrf_cloud_diap.ensure_nrfcloud_provisioning_rule(args.api_key, args.sectag)
         logger.info(f'with provisioning tags: {args.provisioning_tags}')
     api_res = nrf_cloud_diap.claim_device(args.api_key, attest_tok, args.provisioning_tags)
     nrf_cloud_diap.print_api_result("Claim device response", api_res)
