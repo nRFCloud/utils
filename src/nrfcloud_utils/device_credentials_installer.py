@@ -170,14 +170,14 @@ def get_csr(cred_if, custom_dev_id = "", sectag = 0, local = False):
 
     return csr, local_priv_key
 
-def format_cred(cred, escape_line_endings = False):
+def format_cred(cred):
     formatted = cred
 
     if not isinstance(cred, str):
         formatted = str(cred, encoding=full_encoding)
 
-    if escape_line_endings:
-        formatted = formatted.replace("\n", "\\n")
+    formatted = formatted.replace('\r', '')
+    formatted = formatted.replace('\n', '\r\n')
 
     return formatted
 
@@ -367,11 +367,11 @@ def main(in_args):
         logger.info('Using existing private key and device certificate...')
 
     if prv_bytes is not None:
-        prv_text = format_cred(prv_bytes, has_shell)
-    dev_text = format_cred(dev_bytes, has_shell)
+        prv_text = format_cred(prv_bytes)
+    dev_text = format_cred(dev_bytes)
 
     # write CA cert(s) to device
-    nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage), has_shell)
+    nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage))
 
     logger.info(f'Writing CA cert(s) to device...')
     cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)
