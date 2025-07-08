@@ -45,9 +45,10 @@ class TestClaimAndProvisionDevice:
     @patch("nrfcredstore.comms.serial.Serial", return_value=FakeSerial())
     def test_provisioning_tags(self, ser, select_device, diap):
         diap.claim_device = Mock(return_value=TEST_RESPONSE)
-        args = f"--port /not/a/real/device --api-key NOTAKEY --provisioning-tags nrf-cloud-onboarding".split()
+        args = f"--port /not/a/real/device --cmd-type at --api-key NOTAKEY --provisioning-tags nrf-cloud-onboarding".split()
         # call DUT
         claim_and_provision_device.main(args)
         diap.claim_device.assert_called_once()
+        diap.ensure_nrfcloud_provisioning_rule.assert_called_once_with("NOTAKEY", 16842753)
 
 # TODO: test with local CA

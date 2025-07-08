@@ -51,7 +51,7 @@ class TestDeviceCredentialsInstaller:
     def test_minimal_case(self, ser, select_device):
         with TemporaryDirectory() as tmp_dir:
             csv_file = os.path.join(tmp_dir, 'onboard.csv')
-            args = f"--port /not/a/real/device --ca {TEST_CA_FILE} --ca-key {TEST_CA_KEY_FILE} --csv {csv_file} --term CRLF --sectag 52".split()
+            args = f"--port /not/a/real/device --cmd-type at --ca {TEST_CA_FILE} --ca-key {TEST_CA_KEY_FILE} --csv {csv_file} --term CRLF --sectag 52".split()
             # call DUT
             device_credentials_installer.main(args)
             # check that the file was created

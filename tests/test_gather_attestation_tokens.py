@@ -42,7 +42,7 @@ class TestGatherAttestationTokens:
     def test_minimal_case(self, ser, select_device):
         with TemporaryDirectory() as tmp_dir:
             csv_file = os.path.join(tmp_dir, 'tokens.csv')
-            args = f"--port /not/a/real/device --csv {csv_file}".split()
+            args = f"--port /not/a/real/device --cmd-type at --csv {csv_file}".split()
             # call DUT
             gather_attestation_tokens.main(args)
             # check that the file was created
