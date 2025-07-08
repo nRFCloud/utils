@@ -4,9 +4,9 @@
 ![License](https://img.shields.io/pypi/l/nrfcloud-utils)
 ![Python versions](https://img.shields.io/pypi/pyversions/nrfcloud-utils)
 
-nRF Cloud Utils is a script collection to make it easier to interface with nRF Cloud.
+nRF Cloud Utils is a script collection to make it easier to interface with nRF Cloud. They also include [nrfcredstore](https://github.com/NordicSemiconductor/nrfcredstore) to interface with nRF91 Series devices.
 
-The scripts in this repository mainly use endpoints in [the REST API](https://api.nrfcloud.com/v1).
+The scripts in this repository mainly use endpoints in the [nRF Cloud API](https://api.nrfcloud.com/v1) and the [nRF Cloud Provisioning API](https://api.provisioning.nrfcloud.com/v1/).
 
 See also the official [nRF Cloud documentation](https://docs.nordicsemi.com/bundle/nrf-cloud/page/index.html).
 
