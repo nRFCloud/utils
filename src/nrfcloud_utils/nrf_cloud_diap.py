@@ -6,6 +6,7 @@
 
 import requests
 import coloredlogs, logging
+from nrfcloud_utils import ca_certs
 
 DEV_STAGE_DICT = {'dev':     '.dev.',
                   'beta':    '.beta.',
