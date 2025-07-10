@@ -46,13 +46,13 @@ Run the following command to use this package as a dependency:
     # Enable modem-based JSON Web Token (JWT) generation required for nRF Cloud authentication
     CONFIG_MODEM_JWT=y
 
-    # Configure the nRF Cloud library to use the device's internal UUID as the client ID
+    # Configure the nRF Cloud library to use the device's internal UUID 
     CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
-
-    # Define the modem security tag where nRF Cloud credentials will be stored (16842753 is the standard tag used by Nordic examples)
-    CONFIG_NRF_CLOUD_SEC_TAG=16842753
+    # Or IMEI as the device ID
+    CONFIG_NRF_CLOUD_CLIENT_ID_SRC_IMEI=y
+    # But not both at the same time
     ```
-**Failure to include these settings will prevent the device from connecting to nRF Cloud.**
+:warning:**Failure to include these settings will prevent the device from connecting to nRF Cloud.**
 
 ## How-To: Registering devices quickly
 
@@ -62,9 +62,18 @@ Start by creating a local certificate authority (CA). Its contents won't be chec
 
 Now, you should have three `.pem` files containing the key pair and the CA certificate of your CA. The files have a unique prefix.
 
-To get your device registered is using the `device_credentials_installer` script:
+To get your device registered, use the `device_credentials_installer` script. Be aware of which device ID is your project using, as it can be either a UUID or an IMEI. Depending on your device ID type, use one of the following commands:
 
-    device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --coap --verify
+#### UUID
+```
+device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify
+```
+
+#### nrf-\<IMEI\>
+```
+device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify --id-imei --id-str nrf-
+```
+:warning:**Failure to select the correct device ID will result in a connection refused from nRF Cloud.**
 
 Upon success, you can find an `onboard.csv` file with information about your device. This file is needed to register the certificate with your account.
 If you encounter a `No device found` error, you might need to specify the serial port using the `--port` option.
