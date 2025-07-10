@@ -14,6 +14,7 @@ These Python scripts are designed to assist users in provisioning devices with t
 - [Gather Attestation Tokens](#gather-attestation-tokens)
 - [Claim Devices](#claim-devices)
 - [Creating FOTA Updates](#creating-fota-updates)
+- [nRF Credential Store](#nrf-credential-store)
 
 ## Overview of Python Utilities for nRF Cloud Integration
 
@@ -22,6 +23,7 @@ When using nRF9160, these utilities require [Modem firmware v1.3 or later](https
 For additional details, refer to the [nRF Cloud Security documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/external_comp/nrf_cloud.html#security).
 
 ## Create CA Cert
+
 This script creates a self-signed CA certificate and an associated EC keypair. The CA cert and private key can then be used to create device credentials.  Generally, this script needs to be called only once and then its output can be used to produce many device credentials. The specific values that you specify for the various options are not important, though it is recommended to use reasonable and accurate values for country code, state or province, locality, organization and its unit. The number of days valid defaults to 10 years.  The common name could be your company domain name or something similar.
 
 The output file name format is as follows:
@@ -40,8 +42,7 @@ File created: /some/path/my_ca/0x48a2b0c9862ffe08d709864f576caa0a9ff9bfbf_pub.pe
 
 ## Device Credentials Installer
 
-This script automates the process of generating and programming device credentials to a device such as a Thingy:91 X or nRF9151-DK running an nRF Connect SDK application containing the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html).
-The [AT Client sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/at_client) is the simplest implementation of the AT Host library.
+This script automates the process of generating and programming device credentials to a device such as the nRF9160-DK, Thingy:91X or nRF9151-DK running an nRF Connect SDK application containing the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html) or [AT Shell](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_shell.html).
 
 Use the `create_ca_cert` script to generate the required CA certificate and CA key before running this script.
 
@@ -70,12 +71,13 @@ See: [Configuration options for device ID](https://docs.nordicsemi.com/bundle/nc
 device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify
 ```
 
-#### nrf-\<IMEI\> device ID (for nRF91 DKs and Thingy91s) with verification enabled
+#### nrf-\<IMEI\> device ID with verification enabled
 ```
 device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify --id-imei --id-str nrf-
 ```
 
-# nRF Cloud Device Onboarding
+## nRF Cloud Device Onboarding
+
 The `nrf_cloud_onboard` script performs device onboarding with nRF Cloud.
 Your nRF Cloud REST API key is a required parameter and can be found on your [User Account page](https://nrfcloud.com/#/account).
 Also required is a CSV file compatible with the [onboarding endpoint](https://api.nrfcloud.com/v1/#operation/ProvisionDevices). You can use the onboarding CSV file produced by `device_credentials_installer`.
@@ -87,7 +89,8 @@ nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
 
 If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
 
-# Modem Credentials Parser
+## Modem Credentials Parser
+
 The script above, `device_credentials_installer` makes use of this script, `modem_credentials_parser`, so if you use the former, you do not need to also follow the directions below. If `device_credentials_installer` does not meet your needs, you can use `modem_credentials_parser` directly to take advantage of additional options.
 
 This script parses the output of `AT%KEYGEN` and `AT%ATTESTTOKEN`. Each command outputs two base64 strings joined by a `.` character. The first string is the command specific data. The second string is the [COSE](https://datatracker.ietf.org/doc/html/rfc8152) signature of the first string.
@@ -257,7 +260,8 @@ File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d
 File created: /my_devices/pem_files/hw_rev2-50363154-3931-44f0-8022-121b6401627d_17_pub.pem
 ```
 
-# Create Device Credentials
+## Create Device Credentials
+
 The script above, `device_credentials_installer` makes use of this script, `create_device_credentials`, so if you use the former, you do not need to also follow the directions below.
 If `device_credentials_installer` does not meet your needs, you can use `create_device_credentials` directly to take advantage of additional options.
 
@@ -292,17 +296,18 @@ File created: /dev_credentials/hw_rev2-50363154-3931-44f0-8022-121b6401627d_pub.
 ```
 
 ## Claim and Provision Device
+
 This script uses the [nRF Cloud Identity and Provisioning API](https://api.provisioning.nrfcloud.com/v1/) to perform remote device provisioning tasks.
-This service is only compatible with nRF91x1 devices running modem firmware >= 2.0.0.
+
+### Limitation
+
+- This script is **not supported for nRF9160 devices.**
+- This service is only compatible with nRF91x1 devices running modem firmware >= 2.0.0.
+- Since this process takes some time, it is not recommended in a production setting.
+- For a production setting, it's better to use `gather_attestation_tokens` (see below).
 
 After claiming and provisioning, this script will onboard the device to your nRF Cloud account.
-The target device must be running the [nRF Device Provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning) sample built with the following options:
-```
-CONFIG_AT_SHELL=y
-CONFIG_NRF_PROVISIONING_RX_BUF_SZ=2048
-CONFIG_SHELL_BACKEND_SERIAL_RX_RING_BUFFER_SIZE=2048
-CONFIG_SHELL_CMD_BUFF_SIZE=2048
-```
+The target device must have the Provisioning feature enabled. A good reference on how to integrate this is the [nRF Device Provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning) sample.
 
 When not using provisioning tags (with the `--provisioning-tags` argument), this script creates device credentials for use with nRF Cloud and so requires a CA certificate and the associated private key as an input.
 
@@ -314,18 +319,18 @@ Use `--help` for additional parameter information.
 
 #### Device certificate created locally from CSR received over the air:
 
-It's recommended to use the `nrf_cloud_multi_service` sample with the provisioning overlay for this.
-Since this process takes some time, it is not recommended in a production setting.
-For a production setting, it's better to use `gather_attestation_tokens` (see below).
+It's recommended to use the [nRF Device Provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning) sample for this.
+
 ```
-claim_and_provision_device --api-key $API_KEY --ca=./ca.pem --ca-key=ca_prv_key.pem --cmd-type at_shell
+claim_and_provision_device --api-key $API_KEY --ca=./ca.pem --ca-key=ca_prv_key.pem
 ```
 Query the device for its attestation token over USB, claim the device with the REST API, then provision over the air up to receiving the CSR.
 Create the device certificate locally, then send back to the device over the air.
 
 #### Claim device and use a provisioning tag to fully provision and onboard it
+
 ```
-claim_and_provision_device --api-key $API_KEY --provisioning-tags "nrf-cloud-onboarding" --cmd-type at_shell
+claim_and_provision_device --api-key $API_KEY --provisioning-tags "nrf-cloud-onboarding"
 ```
 Like before, but use a built-in provisioning tag so the device certificate is created by the cloud and then sent to the device over the air.
 
@@ -343,18 +348,15 @@ The collected data, along with the current date and time, is saved to a CSV file
 ### Limitation
 
 - This script is **not supported for nRF9160 devices.**
+- This service is only compatible with nRF91x1 devices running modem firmware >= 2.0.0.
 
 ### Examples
 
-* #### Gather attestation tokens using AT Commands
+* #### Gather attestation tokens
     ```bash
     gather_attestation_tokens
     ```
 
-* #### Gather attestation tokens using Shell Commands (e.g. Multi Service Sample)
-    ```bash
-    gather_attestation_tokens --coap --cmd-type at_shell
-    ```
 ## Claim Devices
 
 Use the `claim_devices` script to claim devices by sending the contents of a CSV file to the nRF Cloud REST API, along with a specified set of provisioning tags. By default, the script looks for a file named `attestation_tokens.csv`. If you want to use a different file, you can specify it using the `--csv` option followed by the file name.
@@ -428,3 +430,36 @@ The script can run in two modes:
     ```bash
     nrf_cloud_device_mgmt --api-key $API_KEY
     ```
+
+## nRF Credential Store
+
+`nrfcredstore` is a command-line tool that simplifies the management of credentials stored in nRF91 modems.
+
+It supports the following subcommands:
+
+    list                List all keys stored in the modem
+    write               Write key/cert to a secure tag
+    delete              Delete value from a secure tag
+    deleteall           Delete all keys in a secure tag
+    imei                Get IMEI from the modem
+    attoken             Get attestation token of the modem
+    generate            Generate private key
+
+### Examples
+
+* #### List all keys stored in the modem
+    ```bash
+    nrfcredstore /dev/ttyACM0 list
+    ```
+
+* #### Delete sectag 42, Key type ROOT_CA_CERT
+    ```bash
+    nrfcredstore /dev/ttyACM0 delete 42 ROOT_CA_CERT
+    ```
+
+* #### Delete all keys in the modem, similar to a factory reset.
+    ```bash
+    nrfcredstore /dev/ttyACM0 deleteall
+    ```
+
+More information can be found on the [nrfcredstore GitHub page](https://github.com/NordicSemiconductor/nrfcredstore/tree/main)
