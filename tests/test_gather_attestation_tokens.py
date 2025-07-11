@@ -13,6 +13,7 @@ from collections import namedtuple
 
 TEST_ATTESTTOKEN = [b"OK\r\n", b"%ATTESTTOKEN: \"2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY\"\r\n"]
 TEST_CGSN = [b"OK\r\n", b"355025930000000\r\n"]
+TEST_CGMM = [b"OK\r\n", b"nRF9151-LACA\r\n"]
 
 class FakeSerial(Mock):
     def __init__(self, *args, **kwargs):
@@ -25,6 +26,8 @@ class FakeSerial(Mock):
             self.response = TEST_ATTESTTOKEN
         elif data_str.strip() == "AT+CGSN":
             self.response = TEST_CGSN
+        elif data_str.strip() == "AT+CGMM":
+            self.response = TEST_CGMM
         elif len(data_str.strip()) == 0:
             self.response = [b"OK\r\n"]
         else:
