@@ -68,12 +68,12 @@ See: [Configuration options for device ID](https://docs.nordicsemi.com/bundle/nc
 
 #### UUID device ID with verification enabled
 ```
-device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify
+device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify
 ```
 
 #### nrf-\<IMEI\> device ID with verification enabled
 ```
-device_credentials_installer -d --ca ./ca.pem --ca-key ./ca_prv_key.pem --verify --id-imei --id-str nrf-
+device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-imei --id-str nrf-
 ```
 
 ## nRF Cloud Device Onboarding
