@@ -46,7 +46,7 @@ Run the following command to use this package as a dependency:
     # Enable modem-based JSON Web Token (JWT) generation required for nRF Cloud authentication
     CONFIG_MODEM_JWT=y
 
-    # Configure the nRF Cloud library to use the device's internal UUID 
+    # Configure the nRF Cloud library to use the device's internal UUID
     CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
     # Or IMEI as the device ID
     CONFIG_NRF_CLOUD_CLIENT_ID_SRC_IMEI=y
@@ -120,4 +120,4 @@ Running the tests depends on a [development installation](#development-installat
 
 Check coverage
 
-    poetry run pytest --cov=. tests
+    poetry run pytest --cov=src tests

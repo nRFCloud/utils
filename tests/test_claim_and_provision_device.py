@@ -45,6 +45,7 @@ class TestClaimAndProvisionDevice:
     @patch("nrfcredstore.comms.serial.Serial", return_value=FakeSerial())
     def test_provisioning_tags(self, ser, select_device, diap):
         diap.claim_device = Mock(return_value=TEST_RESPONSE)
+        diap.can_device_be_claimed = Mock(return_value=(True, ""))
         args = f"--port /not/a/real/device --cmd-type at --api-key NOTAKEY --provisioning-tags nrf-cloud-onboarding".split()
         # call DUT
         claim_and_provision_device.main(args)

@@ -70,6 +70,20 @@ def unclaim_device(api_key, dev_uuid):
 
     return requests.delete(req, headers=get_auth_header(api_key))
 
+def can_device_be_claimed(api_key, claim_token):
+    global api_url
+    req = f'{api_url}{CLAIMED_DEV}?dryrun=true'
+
+    response = requests.post(req, json={CLAIM_TOK : claim_token}, headers=get_auth_header(api_key))
+
+    reason = None
+
+    if response.text:
+        response_json = response.json()
+        reason = response_json.get('message', None)
+
+    return (response.status_code == 202, reason)
+
 def get_create_prov_cmd_req(dev_uuid):
     global api_url
     return f'{api_url}{CLAIMED_DEV}/{dev_uuid}/{PROV}'

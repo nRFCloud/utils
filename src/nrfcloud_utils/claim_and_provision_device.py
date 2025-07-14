@@ -206,11 +206,19 @@ def main(in_args):
         if args.provisioning_tags == "nrf-cloud-onboarding":
             nrf_cloud_diap.ensure_nrfcloud_provisioning_rule(args.api_key, args.sectag)
         logger.info(f'with provisioning tags: {args.provisioning_tags}')
+
+    can_claim, can_claim_reason = nrf_cloud_diap.can_device_be_claimed(args.api_key, attest_tok)
+    if not can_claim:
+        error_exit(f'Cannot claim device: {can_claim_reason}')
+
     api_res = nrf_cloud_diap.claim_device(args.api_key, attest_tok, args.provisioning_tags)
     nrf_cloud_diap.print_api_result("Claim device response", api_res)
     if api_res.status_code != 201:
-        error_exit('ClaimDeviceOwnership API call failed')
+        error_exit('ClaimDeviceOwnership API call failed: ' + api_res.text)
     elif args.provisioning_tags is not None:
+        if cred_if.shell:
+            # issue reboot to speed up provisioning
+            cred_if.write_raw('kernel reboot warm')
         logger.info('Done. It is assumed the provisioning tags complete the process over the air.')
         return
 
