@@ -159,7 +159,10 @@ def get_csr(cred_if, custom_dev_id = "", sectag = 0, local = False):
         csr, local_priv_key = create_device_credentials.create_local_csr(cn = custom_dev_id)
     else:
         # Use AT commands to request a CSR.
-        csr_blob = cred_if.get_csr(sectag, f"CN={custom_dev_id}")
+        if custom_dev_id:
+            csr_blob = cred_if.get_csr(sectag, f"CN={custom_dev_id}")
+        else:
+            csr_blob = cred_if.get_csr(sectag)
 
         if csr_blob is None:
             logger.error('Failed to obtain CSR from device')
