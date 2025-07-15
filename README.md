@@ -66,12 +66,12 @@ To get your device registered, use the `device_credentials_installer` script. Be
 
 #### UUID
 ```
-device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify
+device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap
 ```
 
 #### nrf-\<IMEI\>
 ```
-device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-imei --id-str nrf-
+device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-imei --id-str nrf- --coap
 ```
 :warning:**Failure to select the correct device ID will result in a connection refused from nRF Cloud.**
 
