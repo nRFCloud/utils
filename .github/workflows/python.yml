@@ -11,6 +11,7 @@ on:
 env:
   REGISTRY_NAME: ${{ vars.REGISTRY_NAME }}
   REGISTRY_URI: ${{ vars.REGISTRY_URI }}
+  POETRY_VERSION: 2.2.1
 
 jobs:
   build:
@@ -30,7 +31,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install poetry
         run: |
-          curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.4.2 python3 -
+          curl -sSL https://install.python-poetry.org | POETRY_VERSION=$POETRY_VERSION python3 -
       - name: Install dependencies
         run: |
           poetry install
@@ -55,7 +56,7 @@ jobs:
           python-version: 3.11
       - name: Install poetry
         run: |
-          curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.4.2 python3 -
+          curl -sSL https://install.python-poetry.org | POETRY_VERSION=$POETRY_VERSION python3 -
       - name: Update version in pyproject.toml
         run: |
           echo $GITHUB_REF_NAME | sed 's/^v//' | xargs poetry version
