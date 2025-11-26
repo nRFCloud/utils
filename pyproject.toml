@@ -17,7 +17,7 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.10"
 cbor2 = "^5.4.2.post1"
-cryptography = "^44.0.2"
+cryptography = "^45.0.4"
 cffi = "^1.17.1"
 requests = "^2.32.0"
 urllib3 = "^2.2.2"
