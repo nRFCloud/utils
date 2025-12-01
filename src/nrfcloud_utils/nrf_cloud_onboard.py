@@ -178,38 +178,34 @@ def get_onboarding_results(api_key, bulk_ops_req_id):
 
 def parse_err_msg(err_str):
 
-    # Until the error msg is fixed by the cloud, we have to do some extra parsing...
-    # See IRIS-3758
-
-    # Search for the end of the first item, which is just a general error msg
-    err_begin_idx = err_str.find(ERR_FIND_FIRST_STR)
-
-    # Find the end of the detailed error list, which has escaped quotes
-    err_end_idx = err_str.rfind(ERR_FIND_END_STR)
-
-    if err_begin_idx == -1 or err_end_idx == -1:
+    # Parse JSON format: {"errors":["[0]: error message"]}
+    try:
+        err_json = json.loads(err_str)
+        if "errors" in err_json and isinstance(err_json["errors"], list):
+            # New format: simple list of error strings with indices
+            err_dict = {}
+            err_cnt = 0
+            for err_item in err_json["errors"]:
+                # Extract index from "[0]: message" format
+                if err_item.startswith("[") and "]:" in err_item:
+                    idx_end = err_item.find("]:")
+                    try:
+                        idx = int(err_item[1:idx_end])
+                        msg = err_item[idx_end + 2:].strip()
+                        if msg not in err_dict:
+                            err_dict[msg] = []
+                        err_dict[msg].append(idx)
+                        err_cnt += 1
+                    except ValueError:
+                        pass
+            if err_cnt > 0:
+                return err_cnt, err_dict
+    except (json.JSONDecodeError, AttributeError):
         logger.error("Unhandled error response format")
         return
 
-    # Inspect the first item for total number of reported errors
-    err_begin_str = err_str[:err_begin_idx]
-    err_cnt = 0
-    for s in err_begin_str.split():
-        if s.isdigit():
-            err_cnt = int(s)
-            break
-
-    if err_cnt == 0:
-        logger.error("Warning: no errors reported")
-
-    # Get the start of the detailed error list, which is after the first item
-    err_json_str = err_str[ (err_begin_idx + len(ERR_FIND_FIRST_STR)) : err_end_idx]
-
-    # Fix the escaped quotes
-    err_json_str = literal_eval("'%s'" % err_json_str)
-
-    # Return the error count and the json formatted error dict
-    return err_cnt, json.loads(err_json_str)
+    logger.error("Unhandled error response format")
+    return
 
 def update_device_list_err(dev_list, err_dict):
 
@@ -224,7 +220,7 @@ def update_device_list_err(dev_list, err_dict):
 
         # Use the indicies to access the device list
         for dev_idx in idx_list:
-            i = dev_idx -1
+            i = dev_idx
             if i >= list_sz:
                 logger.error("Reported device index out of range: {}".format(dev_idx))
                 continue
@@ -434,6 +430,7 @@ def do_onboarding(api_key, csv_in, res_out, do_check):
 
         if error_results.status_code == 200:
             # Parse the error message and update the device list
+            logger.error("Onboarding errors:\n" + error_results.text)
             err_count, err_json = parse_err_msg(error_results.text)
             device_list = update_device_list_err(device_list, err_json)
         else:
