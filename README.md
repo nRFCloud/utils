@@ -48,9 +48,6 @@ Run the following command to use this package as a dependency:
 
     # Configure the nRF Cloud library to use the device's internal UUID
     CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
-    # Or IMEI as the device ID
-    CONFIG_NRF_CLOUD_CLIENT_ID_SRC_IMEI=y
-    # But not both at the same time
     ```
 :warning:**Failure to include these settings will prevent the device from connecting to nRF Cloud.**
 
