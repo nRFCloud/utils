@@ -8,6 +8,7 @@ import argparse
 import re
 import os
 import sys
+import uuid
 import semver
 import coloredlogs, logging
 from nrfcloud_utils import create_device_credentials, ca_certs, modem_credentials_parser
@@ -213,6 +214,9 @@ def main(in_args):
         logger.error(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file")
         sys.exit(1)
 
+    if args.cmd_type == CMD_TYPE_TLS_SHELL and id_len == 0:
+        args.id_str = str(uuid.uuid4())
+
     cmd_type_has_at = args.cmd_type in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_AUTO)
 
     serial_interface = Comms(
@@ -237,11 +241,11 @@ def main(in_args):
             cred_if.set_shell_mode(True)
         elif args.rtt:
             cred_if.write_raw('at at_cmd_mode start')
-
-    has_shell = cred_if.shell
+        has_shell = cred_if.shell
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
         cred_if = TLSCredShellInterface(serial_interface)
+        has_shell = True
 
     # prepare modem so we can interact with security keys
     if (cmd_type_has_at):
