@@ -163,7 +163,11 @@ def main(in_args):
     cred_if = None
     cred_if = ATCommandInterface(serial_interface)
     if args.cmd_type == CMD_TYPE_AUTO:
-        cred_if.detect_shell_mode()
+        try:
+            cred_if.detect_shell_mode()
+        except TimeoutError as e:
+            logger.error(f"{e}")
+            sys.exit(12)
     elif args.cmd_type == CMD_TYPE_AT_SHELL:
         cred_if.set_shell_mode(True)
     elif args.rtt:
