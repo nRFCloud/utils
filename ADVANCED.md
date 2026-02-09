@@ -79,7 +79,7 @@ device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-i
 ## nRF Cloud Device Onboarding
 
 The `nrf_cloud_onboard` script performs device onboarding with nRF Cloud.
-Your nRF Cloud REST API key is a required parameter and can be found on your [User Account page](https://nrfcloud.com/#/account).
+Your nRF Cloud REST API key is a required parameter and can be found on your [User Account page](https://app.nrfcloud.com/#/account).
 Also required is a CSV file compatible with the [onboarding endpoint](https://api.nrfcloud.com/v1/#operation/ProvisionDevices). You can use the onboarding CSV file produced by `device_credentials_installer`.
 
 ### Example
@@ -312,7 +312,7 @@ The target device must have the Provisioning feature enabled. A good reference o
 When not using provisioning tags (with the `--provisioning-tags` argument), this script creates device credentials for use with nRF Cloud and so requires a CA certificate and the associated private key as an input.
 
 Use the `create_ca_cert` script to create a self-signed CA certificate and keys.
-Your nRF Cloud REST API key is also a required parameter. It can be found on your [User Account page](https://nrfcloud.com/#/account).
+Your nRF Cloud REST API key is also a required parameter. It can be found on your [User Account page](https://app.nrfcloud.com/#/account).
 Use `--help` for additional parameter information.
 
 ### Examples
@@ -387,7 +387,7 @@ Use the `nrf_cloud_device_mgmt` script to create FOTA (Firmware Over-The-Air) up
 
 * On boarded device to nRF Cloud. Follow the steps outlined in the [Device Credentials Installer](#device-credentials-installer) and [nRF Cloud Device Onboarding](#nrf-cloud-device-onboarding) sections, which include generating device credentials, programming them to the device, and completing the onboarding process.
 * Enable FOTA in your project by referring to the following design examples: [nRF Cloud REST FOTA Sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_rest_fota) and [nRF Cloud Multi-Service Sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_multi_service).
-* An **nRF Cloud API key** is required. You can find your API key on your [nRF Cloud User Account page](https://nrfcloud.com/#/account).
+* An **nRF Cloud API key** is required. You can find your API key on your [nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
 
 ### Execution Modes
 
@@ -407,7 +407,7 @@ The script can run in two modes:
 ### Applying the FOTA Job
 
 * **Default Behavior:** By default, the script automatically attempts to apply the created FOTA job to the target device(s).
-* **Manual Application:** To create the job definition without immediately applying it, add the `--defer-apply` flag. You can then manually trigger the update later using the [ApplyFOTAJob](https://api.nrfcloud.com/v1#tag/FOTA-Jobs/operation/ApplyFOTAJob) API endpoint or directly from the [Firmware Updates dashboard](https://nrfcloud.com/#/updates-dashboard) on nRF Cloud.
+* **Manual Application:** To create the job definition without immediately applying it, add the `--defer-apply` flag. You can then manually trigger the update later using the [ApplyFOTAJob](https://api.nrfcloud.com/v1#tag/FOTA-Jobs/operation/ApplyFOTAJob) API endpoint or directly from the [Firmware Updates dashboard](https://app.nrfcloud.com/#/updates-dashboard) on nRF Cloud.
 
 ### Output
 

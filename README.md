@@ -28,7 +28,7 @@ Run the following command to use this package as a dependency:
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. Retrieve your API key. You can find it in your [nRF Cloud User Account page](https://nrfcloud.com/#/account). Note that if you are part of multiple teams on nRF Cloud, the API key will be different for each one.
+2. Retrieve your API key. You can find it in your [nRF Cloud User Account page](https://app.nrfcloud.com/#/account). Note that if you are part of multiple teams on nRF Cloud, the API key will be different for each one.
 3. Depending on your goal, you'll need to configure your nRF Connect SDK project with the following libraries:
 
 * **For basic device registration:** Enable the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html). Refer to the [AT Client sample](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/samples/cellular/at_client/README.html) in the nRF Connect SDK for an implementation example.
@@ -81,7 +81,7 @@ Onboard the device to your account using the `nrf_cloud_onboard` script as follo
 
 It is possible to install credentials on many devices in a row using the `--append` option and add the bulk `onboard.csv` to your account with the same command.
 
-Congratulations! You have successfully registered your device to nRF Cloud, you should be able to visualize it on the [Devices panel](https://nrfcloud.com/#/devices).
+Congratulations! You have successfully registered your device to nRF Cloud, you should be able to visualize it on the [Devices panel](https://app.nrfcloud.com/#/devices).
 
 ## Advanced Usage
 
