@@ -19,12 +19,12 @@ def parse_args(in_args):
 
     parser.add_argument("--key", type=str, required=True,
                         help="Required filepath to the ES256 private key PEM (Service Key) used for JWT signing. \
-                              Obtained from https://nrfcloud.com/#/manage-services",
+                              Obtained from https://app.nrfcloud.com/#/manage-services",
                         default=None)
 
     parser.add_argument("--team-id", type=str, required=True,
                         help="Required nRF Cloud Team ID; added to the aud claim. \
-                              Your Team ID can be found at https://nrfcloud.com/#/teams",
+                              Your Team ID can be found at https://app.nrfcloud.com/#/teams",
                         default=None)
 
     parser.add_argument("--dev-id", type=str, required=False,
