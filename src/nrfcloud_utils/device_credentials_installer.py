@@ -10,9 +10,9 @@ import os
 import sys
 import uuid
 import semver
-import coloredlogs, logging
+import logging
 from nrfcloud_utils import create_device_credentials, ca_certs, modem_credentials_parser
-from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding
+from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding, setup_logging
 from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args
 from nrfcredstore.command_interface import ATCommandInterface, TLSCredShellInterface
 from nrfcredstore.comms import Comms
@@ -106,10 +106,7 @@ def parse_args(in_args):
                         help='Set the logging level'
     )
     args = parser.parse_args(in_args)
-    if args.plain:
-        logging.basicConfig(level=args.log_level.upper())
-    else:
-        coloredlogs.install(level=args.log_level.upper(), fmt='%(levelname)-8s %(message)s')
+    setup_logging(level=args.log_level, use_color=not args.plain)
     return args
 
 def parse_mfw_ver(ver_str):
@@ -381,16 +378,31 @@ def main(in_args):
     nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage))
 
     logger.info(f'Writing CA cert(s) to device...')
-    cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)
+    try:
+        cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)
+    except Exception as e:
+        logger.error(f'Failed to write CA certificate to device')
+        logger.debug(f'Error details: {e}')
+        raise
 
     # write dev cert to device
     logger.info(f'Writing dev cert to device...')
-    cred_if.write_credential(args.sectag, 1, dev_text)
+    try:
+        cred_if.write_credential(args.sectag, 1, dev_text)
+    except Exception as e:
+        logger.error(f'Failed to write device certificate to device')
+        logger.debug(f'Error details: {e}')
+        raise
 
     # If the private key was locally generated, write it to the device
     if prv_text is not None:
         logger.info(f'Writing private key to device...')
-        cred_if.write_credential(args.sectag, 2, prv_text)
+        try:
+            cred_if.write_credential(args.sectag, 2, prv_text)
+        except Exception as e:
+            logger.error(f'Failed to write private key to device')
+            logger.debug(f'Error details: {e}')
+            raise
 
     if args.verify:
         logger.info('Verifying credentials...')
@@ -451,7 +463,14 @@ def verify_credential(cred_if, sec_tag, cred_type, cred = None, get_hash = False
         logger.error('Invalid credential string')
         return False
 
-    present, hash = cred_if.check_credential_exists(sec_tag, cred_type, get_hash = get_hash)
+    try:
+        present, hash = cred_if.check_credential_exists(sec_tag, cred_type, get_hash = get_hash)
+    except IndexError as e:
+        logger.error(f'...Failed to verify {cred_type_name}: Modem returned malformed response')
+        logger.debug(f'Error details: {e}')
+        logger.error('This may indicate the credential was not properly written to the device.')
+        logger.error('Try re-running the provisioning process.')
+        return False
 
     if not present:
         logger.error(f'...{cred_type_name} not found')
@@ -462,7 +481,13 @@ def verify_credential(cred_if, sec_tag, cred_type, cred = None, get_hash = False
         return False
 
     if verify_hash:
-        expected_hash = cred_if.calculate_expected_hash(cred)
+        try:
+            expected_hash = cred_if.calculate_expected_hash(cred)
+        except (IndexError, Exception) as e:
+            logger.error(f'...Failed to calculate hash for {cred_type_name}')
+            logger.debug(f'Error details: {e}')
+            return False
+            
         if hash != expected_hash:
                 logger.error(f'{cred_type_name} - SHA mismatch:')
                 logger.error(f'\tDevice    : {hash}')

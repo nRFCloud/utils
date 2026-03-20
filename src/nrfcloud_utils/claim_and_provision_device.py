@@ -7,7 +7,7 @@ import sys
 import time
 import json
 import argparse
-import coloredlogs, logging
+import logging
 from nrfcloud_utils import (
     ca_certs,
     nrf_cloud_onboard,
@@ -15,7 +15,7 @@ from nrfcloud_utils import (
     nrf_cloud_diap,
     create_device_credentials
 )
-from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos
+from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos, setup_logging
 from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
@@ -82,10 +82,7 @@ def parse_args(in_args):
                         help='Set the logging level'
     )
     args = parser.parse_args(in_args)
-    if args.plain:
-        logging.basicConfig(level=args.log_level.upper())
-    else:
-        coloredlogs.install(level=args.log_level.upper(), fmt='%(levelname)-8s %(message)s')
+    setup_logging(level=args.log_level, use_color=not args.plain)
     return args
 
 def error_exit(err_msg):
