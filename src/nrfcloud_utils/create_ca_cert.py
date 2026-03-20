@@ -22,8 +22,8 @@ from cryptography.x509 import (
     SubjectKeyIdentifier,
 )
 
-from nrfcloud_utils.cli_helpers import write_file
-import coloredlogs, logging
+from nrfcloud_utils.cli_helpers import write_file, setup_logging
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +51,7 @@ def parse_args(in_args):
                         help='Set the logging level'
     )
     args = parser.parse_args(in_args)
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
-    fmt = '%(levelname)-8s %(message)s'
-    coloredlogs.install(level=level, fmt=fmt)
+    setup_logging(level=args.log_level)
     return args
 
 

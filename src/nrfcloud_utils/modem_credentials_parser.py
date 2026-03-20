@@ -11,10 +11,10 @@ from os import makedirs
 from cbor2 import loads
 import base64
 import hashlib
-import coloredlogs, logging
+import logging
 from cryptography.hazmat.primitives import serialization
 from cryptography import x509
-from nrfcloud_utils.cli_helpers import write_file
+from nrfcloud_utils.cli_helpers import write_file, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,7 @@ def parse_args(in_args):
                         help="bool: Plain output (no colors)",
                         action='store_true', default=False)
     args = parser.parse_args(in_args)
-    if args.plain:
-        logging.basicConfig(level=args.log_level.upper())
-    else:
-        coloredlogs.install(level=args.log_level.upper(), fmt='%(levelname)-8s %(message)s')
+    setup_logging(level=args.log_level, use_color=not args.plain)
     return args
 
 def base64_decode(string):

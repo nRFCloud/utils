@@ -10,6 +10,7 @@ import platform
 import os
 import csv
 import logging
+import coloredlogs
 
 MAX_CSV_ROWS = 1000
 
@@ -19,6 +20,39 @@ is_linux = platform.system() == 'Linux'
 full_encoding = 'mbcs' if is_windows else 'ascii'
 
 logger = logging.getLogger(__name__)
+
+def setup_logging(level='info', fmt='%(levelname)-8s %(message)s', use_color=True):
+    """
+    Configure colored logging with dark-terminal-friendly colors.
+    
+    Args:
+        level: logging level as string (debug, info, warning, error, critical)
+        fmt: log format string
+        use_color: whether to use colored output (False for --plain mode)
+    """
+    log_level = getattr(logging, level.upper(), logging.INFO)
+    
+    if use_color:
+        # Define colors for dark terminals with better contrast
+        level_styles = {
+            'debug': {'color': 'cyan'},
+            'info': {'color': 'green'},
+            'warning': {'color': 'yellow'},
+            'error': {'color': 'red'},
+            'critical': {'color': 'red', 'bold': True},
+        }
+        field_styles = {
+            'asctime': {'color': 'white'},
+            'levelname': {'color': 'white', 'bold': True},
+        }
+        coloredlogs.install(
+            level=log_level,
+            fmt=fmt,
+            level_styles=level_styles,
+            field_styles=field_styles
+        )
+    else:
+        logging.basicConfig(level=log_level, format=fmt)
 
 def write_file(pathname, filename, bytes):
     """
