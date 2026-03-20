@@ -6,8 +6,6 @@
 
 import argparse
 import sys
-from os import path
-from os import makedirs
 from cbor2 import loads
 import base64
 import hashlib

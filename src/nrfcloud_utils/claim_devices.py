@@ -9,7 +9,7 @@ import csv
 import argparse
 import logging
 from nrfcloud_utils import nrf_cloud_diap
-from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos, setup_logging
+from nrfcloud_utils.cli_helpers import setup_logging
 
 logger = logging.getLogger(__name__)
 
