@@ -3,8 +3,6 @@ Test for device_credentials_installer.py
 """
 
 from unittest.mock import patch, Mock
-from serial import Serial
-import pytest
 from nrfcloud_utils import device_credentials_installer
 from tempfile import TemporaryDirectory
 import os

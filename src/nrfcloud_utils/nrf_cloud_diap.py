@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import requests
-import coloredlogs, logging
+import logging
 from nrfcloud_utils import ca_certs
 
 DEV_STAGE_DICT = {'dev':     '.dev.',

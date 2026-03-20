@@ -8,8 +8,8 @@ import sys
 import csv
 import argparse
 from nrfcloud_utils import modem_credentials_parser
-from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos, setup_logging
-from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args
+from nrfcloud_utils.cli_helpers import setup_logging
+from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, parser_add_comms_args
 from nrfcredstore.comms import Comms
 from nrfcredstore.command_interface import ATCommandInterface
 from datetime import datetime, timezone

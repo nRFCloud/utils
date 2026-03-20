@@ -3,10 +3,7 @@ Test for claim_and_provision_device.py
 """
 
 from unittest.mock import patch, Mock
-from serial import Serial
-import pytest
 from nrfcloud_utils import claim_and_provision_device
-from tempfile import TemporaryDirectory
 from requests import Response
 from collections import namedtuple
 
@@ -46,7 +43,7 @@ class TestClaimAndProvisionDevice:
     def test_provisioning_tags(self, ser, select_device, diap):
         diap.claim_device = Mock(return_value=TEST_RESPONSE)
         diap.can_device_be_claimed = Mock(return_value=(True, ""))
-        args = f"--port /not/a/real/device --cmd-type at --api-key NOTAKEY --provisioning-tags nrf-cloud-onboarding".split()
+        args = "--port /not/a/real/device --cmd-type at --api-key NOTAKEY --provisioning-tags nrf-cloud-onboarding".split()
         # call DUT
         claim_and_provision_device.main(args)
         diap.claim_device.assert_called_once()

@@ -2,9 +2,7 @@
 Test for create_ca_cert.py
 """
 
-import pytest
 
-from unittest.mock import Mock
 from nrfcloud_utils import create_ca_cert
 from tempfile import TemporaryDirectory
 from cryptography.hazmat.primitives import serialization

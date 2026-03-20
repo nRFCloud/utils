@@ -12,7 +12,7 @@ import uuid
 import semver
 import logging
 from nrfcloud_utils import create_device_credentials, ca_certs, modem_credentials_parser
-from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, is_linux, is_windows, is_macos, full_encoding, setup_logging
+from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, full_encoding, setup_logging
 from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args
 from nrfcredstore.command_interface import ATCommandInterface, TLSCredShellInterface
 from nrfcredstore.comms import Comms
@@ -377,30 +377,30 @@ def main(in_args):
     # write CA cert(s) to device
     nrf_ca_cert_text = format_cred(ca_certs.get_ca_certs(args.coap, stage=args.stage))
 
-    logger.info(f'Writing CA cert(s) to device...')
+    logger.info('Writing CA cert(s) to device...')
     try:
         cred_if.write_credential(args.sectag, 0, nrf_ca_cert_text)
     except Exception as e:
-        logger.error(f'Failed to write CA certificate to device')
+        logger.error('Failed to write CA certificate to device')
         logger.debug(f'Error details: {e}')
         raise
 
     # write dev cert to device
-    logger.info(f'Writing dev cert to device...')
+    logger.info('Writing dev cert to device...')
     try:
         cred_if.write_credential(args.sectag, 1, dev_text)
     except Exception as e:
-        logger.error(f'Failed to write device certificate to device')
+        logger.error('Failed to write device certificate to device')
         logger.debug(f'Error details: {e}')
         raise
 
     # If the private key was locally generated, write it to the device
     if prv_text is not None:
-        logger.info(f'Writing private key to device...')
+        logger.info('Writing private key to device...')
         try:
             cred_if.write_credential(args.sectag, 2, prv_text)
         except Exception as e:
-            logger.error(f'Failed to write private key to device')
+            logger.error('Failed to write private key to device')
             logger.debug(f'Error details: {e}')
             raise
 

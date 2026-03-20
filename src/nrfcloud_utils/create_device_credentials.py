@@ -15,12 +15,7 @@ from cryptography.x509.oid import NameOID
 from cryptography import x509
 import uuid
 from cryptography.x509 import (
-    Name,
-    NameAttribute,
-    BasicConstraints,
     KeyUsage,
-    AuthorityKeyIdentifier,
-    SubjectKeyIdentifier,
 )
 
 from nrfcloud_utils.cli_helpers import write_file, save_onboarding_csv, setup_logging
