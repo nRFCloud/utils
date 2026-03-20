@@ -13,9 +13,7 @@ import json
 import os
 import io
 import logging
-from os import path
 from os import makedirs
-from ast import literal_eval
 from enum import Enum
 from nrfcloud_utils.cli_helpers import write_file, setup_logging
 
@@ -349,7 +347,7 @@ def check_file_path(file):
     if not os.path.exists(path):
         try:
             makedirs(path, exist_ok=True)
-        except OSError as e:
+        except OSError:
             logger.error("Error creating file path: " + path)
             return ''
 

@@ -15,8 +15,8 @@ from nrfcloud_utils import (
     nrf_cloud_diap,
     create_device_credentials
 )
-from nrfcloud_utils.cli_helpers import is_linux, is_windows, is_macos, setup_logging
-from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args
+from nrfcloud_utils.cli_helpers import setup_logging
+from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, parser_add_comms_args
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from nrfcredstore.comms import Comms
@@ -129,7 +129,7 @@ def main(in_args):
             error_exit(f'Device ID must not exceed {DEV_ID_MAX_LEN} characters')
 
     if 'CN=' in args.csr_attr:
-        error_exit(f'Do not include CN in --csr_attr. The device ID will be used as the CN')
+        error_exit('Do not include CN in --csr_attr. The device ID will be used as the CN')
 
     # load local CA cert and key if needed; assume not needed if using provisioning tags
     if args.provisioning_tags is None:
@@ -192,7 +192,7 @@ def main(in_args):
         logger.info(f'Unclaiming device {dev_uuid}...')
         api_res = nrf_cloud_diap.unclaim_device(args.api_key, dev_uuid)
         if api_res.status_code == 204:
-            logger.info(f'...success')
+            logger.info('...success')
         else:
             nrf_cloud_diap.print_api_result("Unclaim device response", api_res)
             logger.info("Device may not have been claimed before, continuing...")
