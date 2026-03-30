@@ -8,6 +8,7 @@ These Python scripts are designed to assist users in provisioning devices with t
 - [Create CA Cert](#create-ca-cert)
 - [Device Credentials Installer](#device-credentials-installer)
 - [nRF Cloud Device Onboarding](#nrf-cloud-device-onboarding)
+- [nRF93M1 Device Onboarding](#nrf93m1-device-onboarding)
 - [Modem Credentials Parser](#modem-credentials-parser)
 - [Create Device Credentials](#create-device-credentials)
 - [Claim and Provision Device](#claim-and-provision-device)
@@ -88,6 +89,17 @@ nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
 ```
 
 If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
+
+## nRF93M1 Device Onboarding
+
+The `nrf93_onboard` script onboards an nRF93M1 device to nRF Cloud using a registration token JWT generated directly on the device. It connects over serial, retrieves the device UUID and identity key via AT commands, fetches the tenant ID from the nRF Cloud account, and then calls `AT%REGJWT` on the device to produce the JWT used as the onboarding token.
+
+Your nRF Cloud REST API key is required and can be found on your [User Account page](https://app.nrfcloud.com/#/account).
+
+### Example
+```
+nrf93_onboard --port /dev/ttyACM0 --api-key $API_KEY
+```
 
 ## Modem Credentials Parser
 
