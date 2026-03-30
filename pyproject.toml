@@ -42,6 +42,7 @@ gather_attestation_tokens = "nrfcloud_utils.gather_attestation_tokens:run"
 modem_credentials_parser = "nrfcloud_utils.modem_credentials_parser:run"
 nrf_cloud_device_mgmt = "nrfcloud_utils.nrf_cloud_device_mgmt:run"
 nrf_cloud_onboard = "nrfcloud_utils.nrf_cloud_onboard:run"
+nrf93_onboard = "nrfcloud_utils.nrf93_onboard:run"
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
