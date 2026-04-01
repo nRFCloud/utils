@@ -192,7 +192,7 @@ def onboard_device(api_key, dev_id, sub_type, tags, fw_types, onboarding_token):
     req = api_url + "devices/" + dev_id
 
     payload = {
-        'onboarding_token': onboarding_token,
+        'onboardingToken': onboarding_token,
         'subType': sub_type,
         'tags': tags,
         'supportedFirmwareTypes': fw_types,
