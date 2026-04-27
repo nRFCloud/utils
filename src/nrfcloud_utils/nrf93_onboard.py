@@ -95,10 +95,11 @@ def get_nrf93m1_identity_key(cred_if):
     logger.error('Failed to parse identity key from response')
     return None
 
-def parse_args(in_args):
+def get_parser():
     parser = argparse.ArgumentParser(
         description="nRF93M1 - Onboard Device using Registration token JWT",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        add_help=False
     )
     parser.add_argument("--port", type=str, required=True,
                         help="Serial port for the nRF93M1 device (e.g., /dev/ttyACM0 or COM3)")
@@ -115,7 +116,11 @@ def parse_args(in_args):
                         metavar="TAG",
                         help="Tags to assign to the device on nRF Cloud. "
                              "Each tag must match /[a-zA-Z0-9_.,@\\/:#-]{0,799}/")
+    return parser
 
+def parse_args(in_args):
+    _p = get_parser()
+    parser = argparse.ArgumentParser(parents=[_p], description=_p.description, formatter_class=_p.formatter_class)
     args = parser.parse_args(in_args)
 
     # Setup logging

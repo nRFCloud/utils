@@ -27,8 +27,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def parse_args(in_args):
-    parser = argparse.ArgumentParser(description="Create CA Certificate")
+def get_parser():
+    parser = argparse.ArgumentParser(description="Create CA Certificate",
+                                     add_help=False)
     parser.add_argument("-c", type=str, help="2 character country code", default="NO")
     parser.add_argument("--st", type=str, help="State or Province", default="")
     parser.add_argument("-l", type=str, help="Locality", default="")
@@ -50,6 +51,11 @@ def parse_args(in_args):
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level'
     )
+    return parser
+
+def parse_args(in_args):
+    _p = get_parser()
+    parser = argparse.ArgumentParser(parents=[_p], description=_p.description, formatter_class=_p.formatter_class)
     args = parser.parse_args(in_args)
     setup_logging(level=args.log_level)
     return args

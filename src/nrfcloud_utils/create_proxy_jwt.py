@@ -14,9 +14,10 @@ from nrfcloud_utils.cli_helpers import setup_logging
 
 logger = logging.getLogger(__name__)
 
-def parse_args(in_args):
+def get_parser():
     parser = argparse.ArgumentParser(description="Create JWT for proxy (cloud-to-cloud) requests to nRF Cloud",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                     add_help=False)
 
     parser.add_argument("--key", type=str, required=True,
                         help="Required filepath to the ES256 private key PEM (Service Key) used for JWT signing. \
@@ -43,6 +44,11 @@ def parse_args(in_args):
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level'
     )
+    return parser
+
+def parse_args(in_args):
+    _p = get_parser()
+    parser = argparse.ArgumentParser(parents=[_p], description=_p.description, formatter_class=_p.formatter_class)
     args = parser.parse_args(in_args)
     setup_logging(level=args.log_level)
     return args

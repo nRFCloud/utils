@@ -1,11 +1,11 @@
 """
-Tests for nRF93_onboard.py
+Tests for nrf93_onboard.py
 """
 
 import pytest
 import sys
 from unittest.mock import patch, Mock, MagicMock
-from nrfcloud_utils import nRF93_onboard
+from nrfcloud_utils import nrf93_onboard
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -31,23 +31,23 @@ def make_cred_if(at_command_retval=True, expect_retval=True, expect_output=""):
 
 class TestSetDevStage:
     def test_prod(self):
-        url = nRF93_onboard.set_dev_stage('prod')
+        url = nrf93_onboard.set_dev_stage('prod')
         assert '.dev.' not in url
         assert 'nrfcloud.com' in url
 
     def test_dev(self):
-        url = nRF93_onboard.set_dev_stage('dev')
+        url = nrf93_onboard.set_dev_stage('dev')
         assert '.dev.' in url
 
     def test_invalid_stage_keeps_previous_url(self):
-        nRF93_onboard.set_dev_stage('prod')
-        url_before = nRF93_onboard.api_url
-        nRF93_onboard.set_dev_stage('invalid')
-        assert nRF93_onboard.api_url == url_before
+        nrf93_onboard.set_dev_stage('prod')
+        url_before = nrf93_onboard.api_url
+        nrf93_onboard.set_dev_stage('invalid')
+        assert nrf93_onboard.api_url == url_before
 
     def teardown_method(self):
         # restore to prod after each test
-        nRF93_onboard.set_dev_stage('prod')
+        nrf93_onboard.set_dev_stage('prod')
 
 
 # ---------------------------------------------------------------------------
@@ -58,27 +58,27 @@ class TestGetNrf93m1Uuid:
     def test_success(self):
         output = f"%DEVICEUUID: {TEST_UUID}\nOK\n"
         cred_if = make_cred_if(expect_output=output)
-        result = nRF93_onboard.get_nrf93m1_uuid(cred_if)
+        result = nrf93_onboard.get_nrf93m1_uuid(cred_if)
         assert result == TEST_UUID
 
     def test_at_command_fails(self):
         cred_if = make_cred_if(at_command_retval=False)
-        assert nRF93_onboard.get_nrf93m1_uuid(cred_if) is None
+        assert nrf93_onboard.get_nrf93m1_uuid(cred_if) is None
 
     def test_expect_response_fails(self):
         cred_if = make_cred_if(expect_retval=False, expect_output="")
-        assert nRF93_onboard.get_nrf93m1_uuid(cred_if) is None
+        assert nrf93_onboard.get_nrf93m1_uuid(cred_if) is None
 
     def test_creating_status_message_ignored(self):
         # Device responds with a "creating" status before the real UUID
         output = "%DEVICEUUID: creating device uuid...\n%DEVICEUUID: 988234bd-a066-a101-656e-684d6f5adad6\nOK\n"
         cred_if = make_cred_if(expect_output=output)
-        result = nRF93_onboard.get_nrf93m1_uuid(cred_if)
+        result = nrf93_onboard.get_nrf93m1_uuid(cred_if)
         assert result == TEST_UUID
 
     def test_uuid_not_in_response(self):
         cred_if = make_cred_if(expect_output="OK\n")
-        assert nRF93_onboard.get_nrf93m1_uuid(cred_if) is None
+        assert nrf93_onboard.get_nrf93m1_uuid(cred_if) is None
 
 
 # ---------------------------------------------------------------------------
@@ -89,25 +89,25 @@ class TestGetNrf93m1IdentityKey:
     def test_success(self):
         output = f"%CLOUDACCESSKEY: {TEST_IDENTITY_KEY}\nOK\n"
         cred_if = make_cred_if(expect_output=output)
-        result = nRF93_onboard.get_nrf93m1_identity_key(cred_if)
+        result = nrf93_onboard.get_nrf93m1_identity_key(cred_if)
         assert result == TEST_IDENTITY_KEY
 
     def test_at_command_fails(self):
         cred_if = make_cred_if(at_command_retval=False)
-        assert nRF93_onboard.get_nrf93m1_identity_key(cred_if) is None
+        assert nrf93_onboard.get_nrf93m1_identity_key(cred_if) is None
 
     def test_expect_response_fails(self):
         cred_if = make_cred_if(expect_retval=False, expect_output="")
-        assert nRF93_onboard.get_nrf93m1_identity_key(cred_if) is None
+        assert nrf93_onboard.get_nrf93m1_identity_key(cred_if) is None
 
     def test_key_too_short_rejected(self):
         output = "%CLOUDACCESSKEY: tooshort\nOK\n"
         cred_if = make_cred_if(expect_output=output)
-        assert nRF93_onboard.get_nrf93m1_identity_key(cred_if) is None
+        assert nrf93_onboard.get_nrf93m1_identity_key(cred_if) is None
 
     def test_key_not_in_response(self):
         cred_if = make_cred_if(expect_output="OK\n")
-        assert nRF93_onboard.get_nrf93m1_identity_key(cred_if) is None
+        assert nrf93_onboard.get_nrf93m1_identity_key(cred_if) is None
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +118,7 @@ class TestGenRegistrationJwt:
     def test_success(self):
         output = f"%REGJWT: {TEST_REGJWT}\nOK\n"
         cred_if = make_cred_if(expect_output=output)
-        result = nRF93_onboard.gen_registration_jwt(cred_if, TEST_TENANT_ID)
+        result = nrf93_onboard.gen_registration_jwt(cred_if, TEST_TENANT_ID)
         assert result == TEST_REGJWT
         cred_if.at_command.assert_called_once_with(
             f'AT%REGJWT="{TEST_TENANT_ID}"', wait_for_result=False
@@ -126,15 +126,15 @@ class TestGenRegistrationJwt:
 
     def test_at_command_fails(self):
         cred_if = make_cred_if(at_command_retval=False)
-        assert nRF93_onboard.gen_registration_jwt(cred_if, TEST_TENANT_ID) is None
+        assert nrf93_onboard.gen_registration_jwt(cred_if, TEST_TENANT_ID) is None
 
     def test_expect_response_fails(self):
         cred_if = make_cred_if(expect_retval=False, expect_output="")
-        assert nRF93_onboard.gen_registration_jwt(cred_if, TEST_TENANT_ID) is None
+        assert nrf93_onboard.gen_registration_jwt(cred_if, TEST_TENANT_ID) is None
 
     def test_jwt_not_in_response(self):
         cred_if = make_cred_if(expect_output="OK\n")
-        assert nRF93_onboard.gen_registration_jwt(cred_if, TEST_TENANT_ID) is None
+        assert nrf93_onboard.gen_registration_jwt(cred_if, TEST_TENANT_ID) is None
 
 
 # ---------------------------------------------------------------------------
@@ -143,23 +143,23 @@ class TestGenRegistrationJwt:
 
 class TestValidTag:
     def test_valid_tag(self):
-        assert nRF93_onboard._valid_tag("nRF93M1-EK") == "nRF93M1-EK"
+        assert nrf93_onboard._valid_tag("nRF93M1-EK") == "nRF93M1-EK"
 
     def test_valid_tag_all_allowed_chars(self):
-        assert nRF93_onboard._valid_tag("tag_.,@/:#-") == "tag_.,@/:#-"
+        assert nrf93_onboard._valid_tag("tag_.,@/:#-") == "tag_.,@/:#-"
 
     def test_empty_tag_is_valid(self):
-        assert nRF93_onboard._valid_tag("") == ""
+        assert nrf93_onboard._valid_tag("") == ""
 
     def test_invalid_tag_raises(self):
         import argparse
         with pytest.raises(argparse.ArgumentTypeError):
-            nRF93_onboard._valid_tag("invalid tag!")
+            nrf93_onboard._valid_tag("invalid tag!")
 
     def test_tag_too_long_raises(self):
         import argparse
         with pytest.raises(argparse.ArgumentTypeError):
-            nRF93_onboard._valid_tag("a" * 800)
+            nrf93_onboard._valid_tag("a" * 800)
 
 
 # ---------------------------------------------------------------------------
@@ -167,34 +167,34 @@ class TestValidTag:
 # ---------------------------------------------------------------------------
 
 class TestFetchTenantId:
-    @patch("nrfcloud_utils.nRF93_onboard.requests.get")
+    @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_success(self, mock_get):
         mock_get.return_value = Mock(ok=True, json=lambda: {"team": {"tenantId": TEST_TENANT_ID}})
-        result = nRF93_onboard.fetch_tenant_id("my-api-key")
+        result = nrf93_onboard.fetch_tenant_id("my-api-key")
         assert result == TEST_TENANT_ID
 
-    @patch("nrfcloud_utils.nRF93_onboard.requests.get")
+    @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_http_error(self, mock_get):
         mock_get.return_value = Mock(ok=False, status_code=401)
-        assert nRF93_onboard.fetch_tenant_id("bad-key") is None
+        assert nrf93_onboard.fetch_tenant_id("bad-key") is None
 
-    @patch("nrfcloud_utils.nRF93_onboard.requests.get")
+    @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_missing_tenant_id_in_response(self, mock_get):
         mock_get.return_value = Mock(ok=True, json=lambda: {"team": {}})
-        assert nRF93_onboard.fetch_tenant_id("my-api-key") is None
+        assert nrf93_onboard.fetch_tenant_id("my-api-key") is None
 
-    @patch("nrfcloud_utils.nRF93_onboard.requests.get")
+    @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_invalid_json(self, mock_get):
         mock_get.return_value = Mock(ok=True)
         mock_get.return_value.json.side_effect = ValueError("no JSON")
-        assert nRF93_onboard.fetch_tenant_id("my-api-key") is None
+        assert nrf93_onboard.fetch_tenant_id("my-api-key") is None
 
 
 # ---------------------------------------------------------------------------
 # main() — exit codes
 # ---------------------------------------------------------------------------
 
-MODULE = "nrfcloud_utils.nRF93_onboard"
+MODULE = "nrfcloud_utils.nrf93_onboard"
 
 
 def _base_patches():
@@ -214,7 +214,7 @@ def _run_main_with_patches(patches, extra_args=""):
     args = f"--port /dev/ttyACM0 --api-key test-key {extra_args}".split()
     with patch.multiple(MODULE, **patches):
         patches["ATCommandInterface"].return_value.at_command.return_value = True
-        nRF93_onboard.main(args)
+        nrf93_onboard.main(args)
 
 
 class TestMainExitCodes:
@@ -233,7 +233,7 @@ class TestMainExitCodes:
         patches["ATCommandInterface"].return_value.at_command.return_value = False
         with patch.multiple(MODULE, **patches):
             with pytest.raises(SystemExit) as exc:
-                nRF93_onboard.main("--port /dev/ttyACM0 --api-key test-key".split())
+                nrf93_onboard.main("--port /dev/ttyACM0 --api-key test-key".split())
         assert exc.value.code == 1
 
     def test_uuid_fails_exit_2(self):
