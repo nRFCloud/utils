@@ -49,9 +49,10 @@ DEV_LIST_ID_IDX = 0
 DEV_LIST_RES_IDX = 1
 BULK_OP_REQ_ID = "bulkOpsRequestId"
 
-def parse_args(in_args):
+def get_parser():
     parser = argparse.ArgumentParser(description="nRF Cloud Device Onboarding",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                     add_help=False)
     parser.add_argument("--api-key", type=str, required=True,
                         help="nRF Cloud API key", default="")
     parser.add_argument("--chk", action='store_true', default=False,
@@ -82,6 +83,11 @@ def parse_args(in_args):
     parser.add_argument("-P", "--plain",
                         help="bool: Plain output (no colors)",
                         action='store_true', default=False)
+    return parser
+
+def parse_args(in_args):
+    _p = get_parser()
+    parser = argparse.ArgumentParser(parents=[_p], description=_p.description, formatter_class=_p.formatter_class)
     args = parser.parse_args(in_args)
     setup_logging(level=args.log_level, use_color=not args.plain)
     return args

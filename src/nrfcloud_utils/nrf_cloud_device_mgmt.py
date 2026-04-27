@@ -182,9 +182,10 @@ class nRFCloudDevice:
 def url_encode(token):
     return urllib.parse.quote_plus(token)
 
-def parse_args(in_args):
+def get_parser():
     parser = argparse.ArgumentParser(description="nRF Cloud Manage FOTA Update Jobs",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                     add_help=False)
     parser.add_argument("--api-key",
                         help="nRF Cloud API key",
                         type=str, required=True, default="")
@@ -218,7 +219,11 @@ def parse_args(in_args):
     parser.add_argument("--desc",
                         help="The description of the created updated.",
                         type=str, required=False, default="")
+    return parser
 
+def parse_args(in_args):
+    _p = get_parser()
+    parser = argparse.ArgumentParser(parents=[_p], description=_p.description, formatter_class=_p.formatter_class)
     args = parser.parse_args(in_args)
     return args
 

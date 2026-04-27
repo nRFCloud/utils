@@ -24,8 +24,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def parse_args(in_args):
-    parser = argparse.ArgumentParser(description="Create Device Credentials")
+def get_parser():
+    parser = argparse.ArgumentParser(description="Create Device Credentials",
+                                     add_help=False)
     parser.add_argument("--ca", type=str, required=True, help="Filepath to your CA cert PEM", default="")
     parser.add_argument("--ca-key", type=str, required=True, help="Filepath to your CA's private key PEM", default="")
     parser.add_argument("-c", type=str, help="2 character country code; required if CSR is not provided", default="NO")
@@ -55,6 +56,11 @@ def parse_args(in_args):
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level'
     )
+    return parser
+
+def parse_args(in_args):
+    _p = get_parser()
+    parser = argparse.ArgumentParser(parents=[_p], description=_p.description, formatter_class=_p.formatter_class)
     args = parser.parse_args(in_args)
     setup_logging(level=args.log_level)
     if len(args.csr) == 0 and len(args.cn) == 0:
