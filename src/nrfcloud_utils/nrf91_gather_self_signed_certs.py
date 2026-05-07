@@ -14,6 +14,7 @@ import semver
 from nrfcloud_utils.cli_helpers import (
     setup_logging,
     parser_add_comms_args,
+    user_request_open_mode,
     CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL,
 )
 from nrfcloud_utils.device_credentials_installer import parse_mfw_ver
@@ -152,25 +153,6 @@ def check_if_device_exists_in_csv(csv_filename, dev_id, delete_duplicates):
     return duplicate_rows, row_count
 
 
-def user_request_open_mode(filename, append):
-    mode = "a" if append else "w"
-    exists = os.path.isfile(filename)
-    if not append and exists:
-        answer = " "
-        while answer not in "yan":
-            answer = input(
-                f"--- File {filename} exists; overwrite, append, or quit (y,a,n)? "
-            )
-        if answer == "n":
-            logger.info("File will not be overwritten")
-            return None
-        mode = "w" if answer == "y" else "a"
-    elif not exists and append:
-        mode = "w"
-        logger.warning("Append specified but file does not exist...")
-    return mode
-
-
 def save_csv(csv_filename, append, replace, dev_id, attestation):
     mode = user_request_open_mode(csv_filename, append)
     if mode is None:
@@ -239,19 +221,22 @@ def main(in_args):
     if not cred_if.go_offline():
         error_exit("Failed to switch modem to offline mode")
 
-    if args.clear_sectag:
-        logger.info(f"Clearing existing credentials in sectag {args.sectag}...")
-        cred_if.delete_credential(args.sectag, 1)
-        cred_if.delete_credential(args.sectag, 2)
+    try:
+        if args.clear_sectag:
+            logger.info(f"Clearing existing credentials in sectag {args.sectag}...")
+            cred_if.delete_credential(args.sectag, 1)
+            cred_if.delete_credential(args.sectag, 2)
 
-    logger.info(f"Generating self-signed certificate (sectag {args.sectag})...")
-    attestation = gen_self_signed_cert(cred_if, args.sectag)
-    if not attestation:
-        error_exit("Failed to generate self-signed certificate, use --clear-sectag if the slot is already occupied")
-
-    logger.info("Returning modem to online mode...")
-    if not cred_if.at_command("AT+CFUN=1", wait_for_result=True):
-        logger.warning("Failed to return modem to online mode")
+        logger.info(f"Generating self-signed certificate (sectag {args.sectag})...")
+        attestation = gen_self_signed_cert(cred_if, args.sectag)
+        if not attestation:
+            error_exit("Failed to generate self-signed certificate, use --clear-sectag if the slot is already occupied")
+    finally:
+        # Always try to return the modem to online mode, even if keygen failed,
+        # so the user isn't left with a modem stuck in CFUN=4.
+        logger.info("Returning modem to online mode...")
+        if not cred_if.at_command("AT+CFUN=1", wait_for_result=True):
+            logger.warning("Failed to return modem to online mode")
 
     print(f"{dev_id},{attestation}")
 

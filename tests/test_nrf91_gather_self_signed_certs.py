@@ -318,6 +318,20 @@ class TestMain:
             calls = [c.args[0] for c in ati.at_command.call_args_list]
             assert "AT+CFUN=1" in calls
 
+    def test_modem_returned_online_even_when_keygen_fails(self):
+        patches = _base_main_patches()
+        patches["gen_self_signed_cert"] = Mock(return_value=None)
+        with patch.multiple(MODULE, **patches):
+            ati = patches["ATCommandInterface"].return_value
+            ati.at_command.return_value = True
+            ati.go_offline.return_value = True
+            with pytest.raises(SystemExit):
+                dut.main("--port /dev/ttyACM0 --cmd-type at".split())
+            # Even though keygen failed and the script exited, AT+CFUN=1
+            # must still have been issued so the modem isn't stuck offline.
+            calls = [c.args[0] for c in ati.at_command.call_args_list]
+            assert "AT+CFUN=1" in calls
+
     def test_default_does_not_clear_sectag(self):
         patches = _base_main_patches()
         with patch.multiple(MODULE, **patches):
