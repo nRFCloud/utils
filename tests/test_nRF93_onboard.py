@@ -163,6 +163,41 @@ class TestValidTag:
 
 
 # ---------------------------------------------------------------------------
+# onboard_device
+# ---------------------------------------------------------------------------
+
+class TestOnboardDevice:
+    @patch("nrfcloud_utils.nrf93_onboard.requests.post")
+    def test_csv_payload_format(self, mock_post):
+        mock_post.return_value = Mock(status_code=202)
+        nrf93_onboard.onboard_device(
+            "my-api-key", TEST_UUID, "nRF93M1", ["tag1", "tag2"], ["MODEM"], TEST_REGJWT
+        )
+        _, kwargs = mock_post.call_args
+        body = kwargs["data"]
+        assert body == f"{TEST_UUID},nRF93M1,tag1|tag2,MODEM,,{TEST_REGJWT}\n"
+
+    @patch("nrfcloud_utils.nrf93_onboard.requests.post")
+    def test_endpoint_is_devices_not_devices_id(self, mock_post):
+        mock_post.return_value = Mock(status_code=202)
+        nrf93_onboard.onboard_device(
+            "my-api-key", TEST_UUID, "nRF93M1", ["nRF93M1-EK"], ["MODEM"], TEST_REGJWT
+        )
+        url = mock_post.call_args[0][0]
+        assert url.endswith("/devices")
+        assert TEST_UUID not in url
+
+    @patch("nrfcloud_utils.nrf93_onboard.requests.post")
+    def test_content_type_is_text_plain(self, mock_post):
+        mock_post.return_value = Mock(status_code=202)
+        nrf93_onboard.onboard_device(
+            "my-api-key", TEST_UUID, "nRF93M1", ["nRF93M1-EK"], ["MODEM"], TEST_REGJWT
+        )
+        headers = mock_post.call_args[1]["headers"]
+        assert headers["content-type"] == "text/plain"
+
+
+# ---------------------------------------------------------------------------
 # fetch_tenant_id
 # ---------------------------------------------------------------------------
 
@@ -199,6 +234,10 @@ MODULE = "nrfcloud_utils.nrf93_onboard"
 
 def _base_patches():
     """Return attribute-name keyed dict for use with patch.multiple(MODULE, ...)."""
+    onboard_resp = Mock(status_code=202)
+    onboard_resp.json.return_value = {'bulkOpsRequestId': 'test-bulk-id'}
+    wait_result = Mock()
+    wait_result.json.return_value = {'status': 'SUCCEEDED'}
     return {
         "Comms": MagicMock(),
         "ATCommandInterface": MagicMock(),
@@ -206,7 +245,8 @@ def _base_patches():
         "get_nrf93m1_identity_key": Mock(return_value=TEST_IDENTITY_KEY),
         "fetch_tenant_id": Mock(return_value=TEST_TENANT_ID),
         "gen_registration_jwt": Mock(return_value=TEST_REGJWT),
-        "onboard_device": Mock(return_value=Mock(ok=True)),
+        "onboard_device": Mock(return_value=onboard_resp),
+        "wait_for_onboarding_result": Mock(return_value=wait_result),
     }
 
 
@@ -266,7 +306,25 @@ class TestMainExitCodes:
 
     def test_onboard_http_error_exit_6(self):
         patches = _base_patches()
-        patches["onboard_device"] = Mock(return_value=Mock(ok=False, status_code=403, text="Forbidden"))
+        patches["onboard_device"] = Mock(return_value=Mock(status_code=400, text="Bad Request"))
+        with pytest.raises(SystemExit) as exc:
+            _run_main_with_patches(patches)
+        assert exc.value.code == 6
+
+    def test_onboard_no_bulk_id_exit_6(self):
+        patches = _base_patches()
+        resp = Mock(status_code=202)
+        resp.json.return_value = {}
+        patches["onboard_device"] = Mock(return_value=resp)
+        with pytest.raises(SystemExit) as exc:
+            _run_main_with_patches(patches)
+        assert exc.value.code == 6
+
+    def test_onboard_polling_failed_exit_6(self):
+        patches = _base_patches()
+        failed_result = Mock()
+        failed_result.json.return_value = {'status': 'FAILED'}
+        patches["wait_for_onboarding_result"] = Mock(return_value=failed_result)
         with pytest.raises(SystemExit) as exc:
             _run_main_with_patches(patches)
         assert exc.value.code == 6

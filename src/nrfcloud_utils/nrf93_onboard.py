@@ -7,6 +7,7 @@
 import argparse
 import re
 import sys
+import time
 import logging
 import requests
 import coloredlogs
@@ -188,22 +189,53 @@ def gen_registration_jwt(cred_if, tenant_id):
     logger.debug('Retrieved registration JWT from device')
     return jwt_str
 
+def get_bulk_ops_result(api_key, bulk_ops_req_id):
+    hdr = {'Authorization': 'Bearer ' + api_key}
+    req = api_url + "bulk-ops-requests/" + bulk_ops_req_id
+    return requests.get(req, headers=hdr)
+
+
+def wait_for_onboarding_result(api_key, bulk_ops_req_id, max_attempts=12):
+    logger.info(f'Waiting for onboarding to complete (bulkOpsRequestId: {bulk_ops_req_id})')
+    for _ in range(max_attempts):
+        time.sleep(5)
+        result = get_bulk_ops_result(api_key, bulk_ops_req_id)
+        if result.status_code != 200:
+            logger.error('Failed to fetch onboarding result')
+            return None
+        result_json = result.json()
+        status = result_json.get('status', 'UNKNOWN')
+        logger.info(f'Onboarding status: {status}')
+        if status in ('IN_PROGRESS', 'PENDING'):
+            continue
+        if status == 'SUCCEEDED':
+            return result
+        if status == 'FAILED':
+            if 'errorSummaryUrl' in result_json:
+                error_resp = requests.get(result_json['errorSummaryUrl'])
+                if error_resp.status_code == 200:
+                    logger.error(f'Error details: {error_resp.text}')
+            return result
+        return result
+    logger.error('Timeout waiting for onboarding result')
+    return None
+
+
 def onboard_device(api_key, dev_id, sub_type, tags, fw_types, onboarding_token):
     hdr = {
         'Authorization': 'Bearer ' + api_key,
-        'Accept': 'application/json',
+        'content-type': 'text/plain',
     }
 
-    req = api_url + "devices/" + dev_id
+    req = api_url + "devices"
 
-    payload = {
-        'onboardingToken': onboarding_token,
-        'subType': sub_type,
-        'tags': tags,
-        'supportedFirmwareTypes': fw_types,
-    }
+    tags_str = '|'.join(tags) if isinstance(tags, list) else tags
+    fw_str = '|'.join(fw_types) if isinstance(fw_types, list) else fw_types
+    # CSV format: deviceId,subType,tags,supportedFirmwareTypes,certificate,onboardingToken
+    # certificate left empty; onboardingToken used instead
+    payload = f'{dev_id},{sub_type},{tags_str},{fw_str},,{onboarding_token}\n'
 
-    return requests.post(req, json=payload, headers=hdr)
+    return requests.post(req, data=payload, headers=hdr)
 
 def main(in_args):
     args = parse_args(in_args)
@@ -273,8 +305,19 @@ def main(in_args):
         sub_type = "nRF93M1"
         fw_types = ["MODEM"]
         onboard_response = onboard_device(args.api_key, dev_id, sub_type, args.tags, fw_types, registration_jwt)
-        if not onboard_response.ok:
+        if onboard_response.status_code != 202:
             logger.error(f'Failed to onboard device: HTTP {onboard_response.status_code} - {onboard_response.text}')
+            sys.exit(6)
+
+        bulk_req_id = onboard_response.json().get('bulkOpsRequestId')
+        if not bulk_req_id:
+            logger.error('No bulkOpsRequestId in onboarding response')
+            sys.exit(6)
+
+        final_result = wait_for_onboarding_result(args.api_key, bulk_req_id)
+        if final_result is None or final_result.json().get('status') != 'SUCCEEDED':
+            status = final_result.json().get('status', 'UNKNOWN') if final_result else 'TIMEOUT'
+            logger.error(f'Onboarding did not succeed: {status}')
             sys.exit(6)
         logger.info('[OK] Device onboarded successfully')
 
