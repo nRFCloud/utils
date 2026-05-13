@@ -9,6 +9,7 @@ These Python scripts are designed to assist users in provisioning devices with t
 - [Device Credentials Installer](#device-credentials-installer)
 - [nRF Cloud Device Onboarding](#nrf-cloud-device-onboarding)
 - [nRF93M1 Device Onboarding](#nrf93m1-device-onboarding)
+- [nRF91x1 Self-Signed Certificate Onboarding](#nrf91x1-self-signed-certificate-onboarding)
 - [Modem Credentials Parser](#modem-credentials-parser)
 - [Create Device Credentials](#create-device-credentials)
 - [Claim and Provision Device](#claim-and-provision-device)
@@ -99,6 +100,49 @@ Your nRF Cloud REST API key is required and can be found on your [User Account p
 ### Example
 ```
 nrf93_onboard --port /dev/ttyACM0 --api-key $API_KEY
+```
+
+## nRF91x1 Self-Signed Certificate Onboarding
+
+The `nrf91_gather_self_signed_certs` script generates a self-signed device certificate directly on an nRF91x1 device and produces an onboarding CSV row that nRF Cloud can use to register the device. Compared to the [Device Credentials Installer](#device-credentials-installer) flow, this approach does not require a local CA certificate or private key, and the device private key never leaves the modem.
+
+The script:
+
+1. Connects to the device over serial (or RTT) and verifies that the modem firmware is supported.
+2. Reads the device UUID via `AT%DEVICEUUID`.
+3. Switches the modem to offline mode (`AT+CFUN=4`).
+4. Optionally clears the target security tag.
+5. Runs `AT%KEYGEN=<sectag>,14,2` to generate a self-signed certificate and its attestation.
+6. Returns the modem to online mode (`AT+CFUN=1`).
+7. Prints `<deviceId>,<attestation>` to stdout and, if `--csv` is provided, appends the same pair to an onboarding CSV with headers `deviceId,selfSignedCertificateAttestation`.
+
+The resulting CSV is intended for upload to the Memfault side of nRF Cloud through the web frontend. **Note**: the frontend upload flow for self-signed certificate attestations is not yet released, so the CSV cannot be onboarded today. It is **not** compatible with the [`nrf_cloud_onboard`](#nrf-cloud-device-onboarding) script.
+
+### Limitations
+
+- Only supported on **nRF91x1** devices (nRF9151 / nRF9161). nRF9160 is not supported.
+- Requires modem firmware **>= 2.0.2**.
+- The device must be configured to use its **internal UUID** as the nRF Cloud client ID (`CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y`). The script emits the UUID read from `AT%DEVICEUUID` as the `deviceId`; if the device connects to nRF Cloud under a different ID (for example, `nrf-<IMEI>`), the onboarded entry will not match the device and the connection will be refused.
+- Requires AT command support (AT Host or AT Shell). The TLS Credentials Shell mode (`--cmd-type tls_cred_shell`) is not supported, since the flow issues raw AT commands.
+- If the security tag is already populated, generation fails — re-run with `-c`/`--clear-sectag` to delete the existing credentials first.
+
+### Examples
+
+#### Gather a single device, print to stdout
+```
+nrf91_gather_self_signed_certs --port /dev/ttyACM0
+```
+
+#### Append the result to an onboarding CSV
+```
+nrf91_gather_self_signed_certs --port /dev/ttyACM0 --csv onboard.csv
+```
+
+Run the command again for each device to accumulate rows. Use `-o`/`--overwrite` to start a new file instead of appending, or `--keep` to preserve existing rows when a device ID is already present.
+
+#### Use a non-default security tag and clear it first
+```
+nrf91_gather_self_signed_certs --port /dev/ttyACM0 --sectag 12345 -c
 ```
 
 ## Modem Credentials Parser
