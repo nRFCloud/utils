@@ -217,6 +217,7 @@ CMD_TERM_DICT = {'NULL': '\0',
 CMD_TYPE_AT = "at"
 CMD_TYPE_AT_SHELL = "at_shell"
 CMD_TYPE_TLS_SHELL = "tls_cred_shell"
+CMD_TYPE_NRF_CLOUD_CRED_SHELL = "nrf_cloud_cred_shell"
 CMD_TYPE_AUTO = "auto"
 
 def parser_add_comms_args(parser):
@@ -244,8 +245,8 @@ def parser_add_comms_args(parser):
     parser.add_argument("--rtt",
                         help="Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay",
                         action='store_true', default=False)
-    parser.add_argument("--cmd-type", default=CMD_TYPE_AUTO, choices=[CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL], type=str.lower,
-                    help=f"Specify the device command line type. '{CMD_TYPE_AT}' will use AT commands, '{CMD_TYPE_AT_SHELL}' will prefix AT commands with 'at ', and '{CMD_TYPE_TLS_SHELL}' will use TLS Credentials Shell commands.")
+    parser.add_argument("--cmd-type", default=CMD_TYPE_AUTO, choices=[CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, CMD_TYPE_NRF_CLOUD_CRED_SHELL], type=str.lower,
+                    help=f"Specify the device command line type. '{CMD_TYPE_AT}' will use AT commands, '{CMD_TYPE_AT_SHELL}' will prefix AT commands with 'at ', '{CMD_TYPE_TLS_SHELL}' will use TLS Credentials Shell commands, and '{CMD_TYPE_NRF_CLOUD_CRED_SHELL}' will use the nrf_cloud_cred shell commands to generate the device key and CSR on-device.")
     parser.add_argument("--term", type=str,
                         help="AT command termination",choices=list(CMD_TERM_DICT.keys()),
                         default='CRLF')
