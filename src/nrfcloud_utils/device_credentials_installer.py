@@ -9,12 +9,13 @@ import re
 import os
 import sys
 import uuid
+import base64
 import semver
 import logging
 from nrfcloud_utils import create_device_credentials, ca_certs, modem_credentials_parser
 from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, full_encoding, setup_logging
-from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, parser_add_comms_args
-from nrfcredstore.command_interface import ATCommandInterface, TLSCredShellInterface
+from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, CMD_TYPE_NRF_CLOUD_CRED_SHELL, parser_add_comms_args
+from nrfcredstore.command_interface import ATCommandInterface, TLSCredShellInterface, NrfCloudCredShellInterface
 from nrfcredstore.comms import Comms
 
 from cryptography import x509
@@ -172,8 +173,13 @@ def get_csr(cred_if, custom_dev_id = "", sectag = 0, local = False):
             logger.error('Failed to obtain CSR from device')
             sys.exit(9)
 
-        csr_bytes, _, _, _ = modem_credentials_parser.parse_keygen_output(csr_blob)
-        csr = x509.load_pem_x509_csr(csr_bytes)
+        if isinstance(cred_if, NrfCloudCredShellInterface):
+            # The nrf_cloud_cred shell returns a plain Base64-encoded DER CSR,
+            # not the modem's "body.cose" format.
+            csr = x509.load_der_x509_csr(base64.b64decode(csr_blob))
+        else:
+            csr_bytes, _, _, _ = modem_credentials_parser.parse_keygen_output(csr_blob)
+            csr = x509.load_pem_x509_csr(csr_bytes)
 
     return csr, local_priv_key
 
@@ -217,7 +223,7 @@ def main(in_args):
         logger.error(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file")
         sys.exit(1)
 
-    if args.cmd_type == CMD_TYPE_TLS_SHELL and id_len == 0:
+    if args.cmd_type in (CMD_TYPE_TLS_SHELL, CMD_TYPE_NRF_CLOUD_CRED_SHELL) and id_len == 0:
         args.id_str = str(uuid.uuid4())
 
     cmd_type_has_at = args.cmd_type in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_AUTO)
@@ -248,6 +254,10 @@ def main(in_args):
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
         cred_if = TLSCredShellInterface(serial_interface)
+        has_shell = True
+
+    if args.cmd_type == CMD_TYPE_NRF_CLOUD_CRED_SHELL:
+        cred_if = NrfCloudCredShellInterface(serial_interface)
         has_shell = True
 
     # prepare modem so we can interact with security keys
