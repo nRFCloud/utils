@@ -223,6 +223,13 @@ def main(in_args):
         logger.error(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file")
         sys.exit(1)
 
+    if args.cmd_type == CMD_TYPE_NRF_CLOUD_CRED_SHELL and (args.local_cert or args.local_cert_file):
+        # The key and CSR are generated on-device; generating a key on the host
+        # would defeat the purpose and is almost certainly a mistake.
+        logger.error(f"cmd_type '{CMD_TYPE_NRF_CLOUD_CRED_SHELL}' generates the key on-device; "
+                     "do not use --local-cert or --local-cert-file")
+        sys.exit(1)
+
     if args.cmd_type in (CMD_TYPE_TLS_SHELL, CMD_TYPE_NRF_CLOUD_CRED_SHELL) and id_len == 0:
         args.id_str = str(uuid.uuid4())
 
@@ -453,6 +460,27 @@ def main(in_args):
     if args.devinfo:
         save_devinfo_csv(args.devinfo, args.devinfo_append, args.replace, dev_id, mfw_ver, imei)
 
+def verify_on_device_key(cred_if, sec_tag, client_cert):
+    # The on-device private key is non-exportable, so it cannot be verified by
+    # hash. Instead, confirm that the device public key matches the public key
+    # in the installed device certificate.
+    logger.info('Verifying Private Key')
+    dev_pub = cred_if.get_pubkey(sec_tag)
+    if not dev_pub:
+        logger.error('...Failed to read device public key')
+        return False
+
+    cert = x509.load_pem_x509_certificate(client_cert.encode())
+    cert_pub = cert.public_key().public_bytes(
+        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+
+    if dev_pub != cert_pub:
+        logger.error('...Device public key does not match the device certificate')
+        return False
+
+    logger.info('...Private Key matches device certificate')
+    return True
+
 def verify_credentials(cred_if, sec_tag, ca_cert, client_cert, client_prv=None, check_sha=False):
     # verify the CA cert
     if not verify_credential(cred_if, sec_tag, 0, ca_cert, verify_hash = check_sha):
@@ -461,6 +489,11 @@ def verify_credentials(cred_if, sec_tag, ca_cert, client_cert, client_prv=None, 
     # verify client cert
     if not verify_credential(cred_if, sec_tag, 1, client_cert, verify_hash = check_sha):
         return False
+
+    # The on-device key is opaque (held in PSA); verify it by matching the
+    # device public key to the certificate instead of by hash.
+    if isinstance(cred_if, NrfCloudCredShellInterface):
+        return verify_on_device_key(cred_if, sec_tag, client_cert)
 
     if not verify_credential(cred_if, sec_tag, 2, client_prv, get_hash = check_sha,
                              verify_hash = (client_prv is not None) and check_sha):
