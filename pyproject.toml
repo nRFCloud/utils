@@ -21,7 +21,7 @@ dependencies = [
     "semver>=3.0.0",
     "pyjwt>=2.3.0",
     "inquirer>=3.4.0",
-    "nrfcredstore>=2.0.9",
+    "nrfcredstore>=2.1.0",
 ]
 
 [project.urls]
