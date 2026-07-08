@@ -10,6 +10,7 @@ from cbor2 import loads
 import base64
 import hashlib
 import logging
+import textwrap
 from cryptography.hazmat.primitives import serialization
 from cryptography import x509
 from nrfcloud_utils.cli_helpers import write_file, setup_logging
@@ -70,9 +71,123 @@ def base64_decode(string):
     """
     add padding before decoding.
     """
-    padding = 4 - (len(string) % 4)
+    # Base64url data can omit padding; only add what is required.
+    padding = (-len(string)) % 4
     string = string + ("=" * padding)
     return base64.urlsafe_b64decode(string)
+
+def _decode_tlv_length(data, offset):
+    """Decode DER length and return (value_length, header_length)."""
+    first = data[offset]
+    if first < 0x80:
+        return first, 1
+
+    nbytes = first & 0x7F
+    if nbytes == 0:
+        raise ValueError("Indefinite DER length is not supported")
+
+    value_len = 0
+    for i in range(nbytes):
+        value_len = (value_len << 8) | data[offset + 1 + i]
+    return value_len, 1 + nbytes
+
+def _encode_tlv_length(value_len):
+    """Encode DER length bytes for value_len."""
+    if value_len < 0x80:
+        return bytes([value_len])
+
+    out = []
+    value = value_len
+    while value > 0:
+        out.append(value & 0xFF)
+        value >>= 8
+    out.reverse()
+    return bytes([0x80 | len(out), *out])
+
+def _normalize_ecdsa_csr_der(der_bytes):
+    """
+    Normalize CSR DER that encodes ecdsa-with-SHA256 with NULL params.
+
+    Older modem output may include signatureAlgorithm = SEQUENCE(OID, NULL).
+    For ECDSA-with-SHA* this must be encoded without parameters.
+    """
+    # ecdsa-with-SHA256 OID (1.2.840.10045.4.3.2)
+    ecdsa_sha256_oid_tlv = b"\x06\x08\x2A\x86\x48\xCE\x3D\x04\x03\x02"
+
+    if len(der_bytes) < 8 or der_bytes[0] != 0x30:
+        return None
+
+    try:
+        outer_len, outer_len_hdr = _decode_tlv_length(der_bytes, 1)
+    except (IndexError, ValueError):
+        return None
+
+    outer_start = 1 + outer_len_hdr
+    outer_end = outer_start + outer_len
+    if outer_end != len(der_bytes):
+        return None
+
+    # certificationRequestInfo
+    cri_tag_idx = outer_start
+    if der_bytes[cri_tag_idx] != 0x30:
+        return None
+    try:
+        cri_len, cri_len_hdr = _decode_tlv_length(der_bytes, cri_tag_idx + 1)
+    except (IndexError, ValueError):
+        return None
+    cri_start = cri_tag_idx
+    cri_value_start = cri_tag_idx + 1 + cri_len_hdr
+    cri_end = cri_value_start + cri_len
+
+    # signatureAlgorithm
+    sig_alg_tag_idx = cri_end
+    if sig_alg_tag_idx >= outer_end or der_bytes[sig_alg_tag_idx] != 0x30:
+        return None
+    try:
+        sig_alg_len, sig_alg_len_hdr = _decode_tlv_length(der_bytes, sig_alg_tag_idx + 1)
+    except (IndexError, ValueError):
+        return None
+    sig_alg_value_start = sig_alg_tag_idx + 1 + sig_alg_len_hdr
+    sig_alg_end = sig_alg_value_start + sig_alg_len
+    if sig_alg_end > outer_end:
+        return None
+
+    sig_alg_value = der_bytes[sig_alg_value_start:sig_alg_end]
+    # Only normalize the exact legacy ECDSA+NULL form.
+    if not (sig_alg_value.startswith(ecdsa_sha256_oid_tlv) and sig_alg_value.endswith(b"\x05\x00")):
+        return None
+    if len(sig_alg_value) != len(ecdsa_sha256_oid_tlv) + 2:
+        return None
+
+    # signature BIT STRING (keep as-is)
+    sig_tag_idx = sig_alg_end
+    if sig_tag_idx >= outer_end or der_bytes[sig_tag_idx] != 0x03:
+        return None
+    try:
+        sig_len, sig_len_hdr = _decode_tlv_length(der_bytes, sig_tag_idx + 1)
+    except (IndexError, ValueError):
+        return None
+    sig_value_start = sig_tag_idx + 1 + sig_len_hdr
+    sig_end = sig_value_start + sig_len
+    if sig_end != outer_end:
+        return None
+
+    cri_tlv = der_bytes[cri_start:cri_end]
+    normalized_sig_alg = b"\x30" + _encode_tlv_length(len(ecdsa_sha256_oid_tlv)) + ecdsa_sha256_oid_tlv
+    sig_tlv = der_bytes[sig_tag_idx:sig_end]
+
+    new_outer_value = cri_tlv + normalized_sig_alg + sig_tlv
+    return b"\x30" + _encode_tlv_length(len(new_outer_value)) + new_outer_value
+
+def _csr_der_to_pem(der_bytes):
+    """Convert CSR DER bytes to PEM without changing the original DER payload."""
+    b64 = base64.b64encode(der_bytes).decode("ascii")
+    wrapped = "\n".join(textwrap.wrap(b64, 64))
+    return (
+        "-----BEGIN CERTIFICATE REQUEST-----\n"
+        + wrapped
+        + "\n-----END CERTIFICATE REQUEST-----\n"
+    ).encode("ascii")
 
 def format_uuid(hex_str):
     return '{0}-{1}-{2}-{3}-{4}'.format(hex_str[:8],    hex_str[8:12],
@@ -179,30 +294,26 @@ def parse_keygen_output(keygen_str):
     body = body_cose[0]
 
     # Decode base64url to binary
-    body_bytes = base64_decode(body)
+    payload_body_bytes = base64_decode(body)
+    body_bytes = payload_body_bytes
 
-    # This can be either a CSR or device public key
     try:
-        # Try to load CSR, if it fails, assume public key
         csr = x509.load_der_x509_csr(body_bytes)
+    except:
+        logger.warning("normalizing CSR")
+        normalized = _normalize_ecdsa_csr_der(body_bytes)
+        logger.warning(f"keygen_str: {keygen_str}, normalized: {base64.urlsafe_b64encode(normalized)}")
+        csr = x509.load_der_x509_csr(normalized)
 
-    except ValueError:
-        # Handle public key only
-        pub_key = serialization.load_der_public_key(body_bytes)
-        pub_key_bytes = pub_key.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+    csr_pem_bytes = csr.public_bytes(serialization.Encoding.PEM)
+    logger.info(csr_pem_bytes.decode().replace('\n', '\\n'))
 
-    else:
-        # CSR loaded, logger.info it
-        csr_pem_bytes = csr.public_bytes(serialization.Encoding.PEM)
-        csr_pem_list = str(csr_pem_bytes.decode()).split('\n')
-        logger.info(csr_pem_bytes.decode().replace('\n', '\\n'))
-
-        # Extract public key
-        pub_key_bytes = csr.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+    # Extract public key
+    pub_key_bytes = csr.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
     logger.info("Device public key: {}".format(pub_key_bytes.decode().replace('\n', '\\n')))
 
-    payload_digest = hashlib.sha256(body_bytes).hexdigest()
+    payload_digest = hashlib.sha256(payload_body_bytes).hexdigest()
     logger.info(f"SHA256 Digest: {payload_digest}")
 
     # Get optional cose
