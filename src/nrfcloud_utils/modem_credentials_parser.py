@@ -300,9 +300,9 @@ def parse_keygen_output(keygen_str):
     try:
         csr = x509.load_der_x509_csr(body_bytes)
     except:
-        logger.warning("normalizing CSR")
+        logger.info("normalizing CSR")
         normalized = _normalize_ecdsa_csr_der(body_bytes)
-        logger.warning(f"keygen_str: {keygen_str}, normalized: {base64.urlsafe_b64encode(normalized)}")
+        logger.debug(f"keygen_str: {keygen_str}, normalized: {base64.urlsafe_b64encode(normalized)}")
         csr = x509.load_der_x509_csr(normalized)
 
     csr_pem_bytes = csr.public_bytes(serialization.Encoding.PEM)
