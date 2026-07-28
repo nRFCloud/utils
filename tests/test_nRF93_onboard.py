@@ -6,6 +6,7 @@ import pytest
 import sys
 from unittest.mock import patch, Mock, MagicMock
 from nrfcloud_utils import nrf93_onboard
+from nrfcloud_utils.cli_helpers import USER_AGENT
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -174,6 +175,12 @@ class TestFetchTenantId:
         assert result == TEST_TENANT_ID
 
     @patch("nrfcloud_utils.nrf93_onboard.requests.get")
+    def test_sends_user_agent_header(self, mock_get):
+        mock_get.return_value = Mock(ok=True, json=lambda: {"team": {"tenantId": TEST_TENANT_ID}})
+        nrf93_onboard.fetch_tenant_id("my-api-key")
+        assert mock_get.call_args.kwargs["headers"]["User-Agent"] == USER_AGENT
+
+    @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_http_error(self, mock_get):
         mock_get.return_value = Mock(ok=False, status_code=401)
         assert nrf93_onboard.fetch_tenant_id("bad-key") is None
@@ -188,6 +195,20 @@ class TestFetchTenantId:
         mock_get.return_value = Mock(ok=True)
         mock_get.return_value.json.side_effect = ValueError("no JSON")
         assert nrf93_onboard.fetch_tenant_id("my-api-key") is None
+
+
+# ---------------------------------------------------------------------------
+# onboard_device
+# ---------------------------------------------------------------------------
+
+class TestOnboardDevice:
+    @patch("nrfcloud_utils.nrf93_onboard.requests.post")
+    def test_sends_user_agent_header(self, mock_post):
+        mock_post.return_value = Mock(ok=True)
+        nrf93_onboard.onboard_device(
+            "my-api-key", TEST_UUID, "sub-type", "tags", "fw-types", "onboarding-token"
+        )
+        assert mock_post.call_args.kwargs["headers"]["User-Agent"] == USER_AGENT
 
 
 # ---------------------------------------------------------------------------
