@@ -6,6 +6,7 @@
 
 from os import path
 from os import makedirs
+from importlib.metadata import version, PackageNotFoundError
 import platform
 import os
 import csv
@@ -20,6 +21,16 @@ is_linux = platform.system() == 'Linux'
 full_encoding = 'mbcs' if is_windows else 'ascii'
 
 logger = logging.getLogger(__name__)
+
+try:
+    _package_version = version('nrfcloud-utils')
+except PackageNotFoundError:
+    _package_version = 'unknown'
+
+USER_AGENT = (
+    f'nrfcloud-utils/{_package_version} '
+    f'({platform.system()} {platform.release()}; Python {platform.python_version()})'
+)
 
 def setup_logging(level='info', fmt='%(levelname)-8s %(message)s', use_color=True):
     """

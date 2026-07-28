@@ -15,7 +15,7 @@ import io
 import logging
 from os import makedirs
 from enum import Enum
-from nrfcloud_utils.cli_helpers import write_file, setup_logging
+from nrfcloud_utils.cli_helpers import write_file, setup_logging, USER_AGENT
 
 logger = logging.getLogger(__name__)
 
@@ -105,22 +105,22 @@ def set_dev_stage(stage = ''):
     return api_url
 
 def get_bulk_ops_result(api_key, bulk_ops_req_id):
-    hdr = {'Authorization': 'Bearer ' + api_key}
+    hdr = {'Authorization': 'Bearer ' + api_key, 'User-Agent': USER_AGENT}
     req = api_url + "bulk-ops-requests/" + bulk_ops_req_id
     return requests.get(req, headers=hdr)
 
 def update_device_shadow(api_key, device_id, json_payload):
-    hdr = {'Authorization': 'Bearer ' + api_key}
+    hdr = {'Authorization': 'Bearer ' + api_key, 'User-Agent': USER_AGENT}
     req = api_url + "devices/" + device_id + "/state"
     return requests.patch(req, json=json_payload, headers=hdr)
 
 def fetch_device(api_key, device_id):
-    hdr = {'Authorization': 'Bearer ' + api_key}
+    hdr = {'Authorization': 'Bearer ' + api_key, 'User-Agent': USER_AGENT}
     req = api_url + "devices/" + device_id
     return requests.get(req, headers=hdr)
 
 def update_device_name(api_key, device_id, name):
-    hdr = {'Authorization': 'Bearer ' + api_key}
+    hdr = {'Authorization': 'Bearer ' + api_key, 'User-Agent': USER_AGENT}
     req = api_url + "devices/" + device_id + "/name"
     json_payload = [name]
     return requests.put(req, json=json_payload, headers=hdr)
@@ -128,7 +128,8 @@ def update_device_name(api_key, device_id, name):
 def onboard_device(api_key, dev_id, sub_type, tags, fw_types, cert_pem_str):
     hdr = {'Authorization': 'Bearer ' + api_key,
            'content-type' : 'text/plain',
-           'Accept-Encoding' : '*'}
+           'Accept-Encoding' : '*',
+           'User-Agent': USER_AGENT}
 
     req = api_url + "devices"
 
@@ -139,7 +140,8 @@ def onboard_device(api_key, dev_id, sub_type, tags, fw_types, cert_pem_str):
 def onboard_devices(api_key, csv_filepath):
     hdr = {'Authorization': 'Bearer ' + api_key,
            'content-type' : 'text/csv',
-           'Accept-Encoding' : '*'}
+           'Accept-Encoding' : '*',
+           'User-Agent': USER_AGENT}
 
     req = api_url + "devices"
 

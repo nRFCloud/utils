@@ -7,6 +7,7 @@
 import requests
 import logging
 from nrfcloud_utils import ca_certs
+from nrfcloud_utils.cli_helpers import USER_AGENT
 
 DEV_STAGE_DICT = {'dev':     '.dev.',
                   'beta':    '.beta.',
@@ -44,7 +45,7 @@ def set_dev_stage(stage = ''):
 def get_auth_header(api_key):
     if not api_key:
         return None
-    return  { AUTH : BEARER + api_key}
+    return { AUTH : BEARER + api_key, 'User-Agent': USER_AGENT }
 
 def claim_device(api_key, claim_token, tags = None):
     global api_url
