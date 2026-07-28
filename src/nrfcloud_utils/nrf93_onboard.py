@@ -12,6 +12,7 @@ import requests
 import coloredlogs
 from nrfcredstore.comms import Comms
 from nrfcredstore.command_interface import ATCommandInterface
+from nrfcloud_utils.cli_helpers import USER_AGENT
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ def set_dev_stage(stage = ''):
     return api_url
 
 def fetch_tenant_id(api_key):
-    hdr = {'Authorization': 'Bearer ' + api_key}
+    hdr = {'Authorization': 'Bearer ' + api_key, 'User-Agent': USER_AGENT}
     req = api_url + "account"
     response = requests.get(req, headers=hdr)
     if not response.ok:
@@ -192,6 +193,7 @@ def onboard_device(api_key, dev_id, sub_type, tags, fw_types, onboarding_token):
     hdr = {
         'Authorization': 'Bearer ' + api_key,
         'Accept': 'application/json',
+        'User-Agent': USER_AGENT,
     }
 
     req = api_url + "devices/" + dev_id

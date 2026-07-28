@@ -12,6 +12,7 @@ import urllib
 from urllib.parse import quote_plus as url_encode
 from datetime import datetime
 from enum import Enum
+from nrfcloud_utils.cli_helpers import USER_AGENT
 
 API_URL = "https://api.nrfcloud.com/v1/"
 
@@ -229,7 +230,7 @@ def parse_args(in_args):
 
 def get_bundle_list(api_key, modem_only):
 
-    hdr = {'Authorization': 'Bearer ' + api_key}
+    hdr = {'Authorization': 'Bearer ' + api_key, 'User-Agent': USER_AGENT}
     req_base = f'{GET_BUNDLES_BASE}?pageLimit={GET_BUNDLES_PAGE_LIMIT}'
 
     if modem_only:
@@ -273,7 +274,7 @@ def get_requested_bundles(api_key, fota_type):
     return [i for i in bundles if i.type == fota_type.name]
 
 def get_device_list(api_key, fota_types_list, device_id):
-    hdr = {'Authorization': 'Bearer ' + api_key}
+    hdr = {'Authorization': 'Bearer ' + api_key, 'User-Agent': USER_AGENT}
     req_base = GET_DEVICES_BASE + f'&pageLimit={GET_DEVICES_PAGE_LIMIT}'
 
     if fota_types_list:
@@ -321,7 +322,7 @@ def print_api_result(custom_text, api_result, print_response_txt):
 
 def create_fota_job(api_key, json_payload_obj):
     jobId = None
-    hdr = {'Authorization': f'Bearer {api_key}'}
+    hdr = {'Authorization': f'Bearer {api_key}', 'User-Agent': USER_AGENT}
     req = FOTA_JOBS_BASE
 
     api_res = requests.post(req, json=json_payload_obj, headers=hdr)
