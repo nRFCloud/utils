@@ -13,11 +13,11 @@ authors = [
     { name = "Nordic Semiconductor ASA" }
 ]
 dependencies = [
-    "cbor2>=5.6.5",
+    "cbor2>=5.9.0",
     "cryptography>=49.0.0",
     "cffi>=2.0.0",
     "requests>=2.34.2",
-    "idna>=3.10",
+    "idna>=3.15",
     "urllib3>=2.7.0",
     "semver>=3.0.0",
     "pyjwt>=2.13.0",
