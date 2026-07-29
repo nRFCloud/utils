@@ -149,7 +149,9 @@ def check_mfw_version(cred_if):
     # check for required version
     parsed_ver = parse_mfw_ver(ver)
 
-    if parsed_ver is None:
+    if "ntn" in ver:
+        pass
+    elif parsed_ver is None:
         logger.error('Unexpected modem FW version format... continuing')
     elif semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER) < 0:
         logger.error(f'Modem FW version must be >= {MIN_REQD_MFW_VER}')
@@ -433,10 +435,11 @@ def main(in_args):
 
         # AT-command-based SHA check has a modem firmware version requirement
         if (cmd_type_has_at):
-            parsed_ver = parse_mfw_ver(mfw_ver)
-            if parsed_ver and semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER_FOR_VERIFY) < 0:
-                logger.error(f'Skipping SHA verification, modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}')
-                check_sha = False
+            if "ntn" not in mfw_ver:
+                parsed_ver = parse_mfw_ver(mfw_ver)
+                if parsed_ver and semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER_FOR_VERIFY) < 0:
+                    logger.error(f'Skipping SHA verification, modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}')
+                    check_sha = False
 
         verify_res = verify_credentials(cred_if, args.sectag, nrf_ca_cert_text, dev_text, prv_text,
                                         check_sha=check_sha)
@@ -536,7 +539,7 @@ def verify_credential(cred_if, sec_tag, cred_type, cred = None, get_hash = False
             logger.error(f'...Failed to calculate hash for {cred_type_name}')
             logger.debug(f'Error details: {e}')
             return False
-            
+
         if hash != expected_hash:
                 logger.error(f'{cred_type_name} - SHA mismatch:')
                 logger.error(f'\tDevice    : {hash}')
