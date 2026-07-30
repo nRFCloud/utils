@@ -14,7 +14,10 @@ authors = [
 ]
 dependencies = [
     "cbor2>=5.9.0",
-    "cryptography>=49.0.0",
+    # Keep the lower bound at 46.0.5 so the package can coexist with spsdk,
+    # which caps cryptography at <47. The code only uses long-stable APIs, so it
+    # works with any cryptography >= 46.0.5.
+    "cryptography>=46.0.5",
     "cffi>=2.0.0",
     "requests>=2.34.2",
     "idna>=3.15",
