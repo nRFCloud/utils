@@ -33,12 +33,7 @@ Run the following command to use this package as a dependency:
 
 * **For basic device registration:** Enable the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html). Refer to the [AT Client sample](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/samples/cellular/at_client/README.html) in the nRF Connect SDK for an implementation example.
 
-* **For using the Provisioning Service:** Enable the [Provisioning Service library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/networking/nrf_provisioning.html). You can find more documentation about the [Provisioning Service here](https://docs.nordicsemi.com/bundle/nrf-cloud/page/SecurityServices/ProvisioningService/ProvisioningOverview.html). The nRF Connect SDK provides these illustrative samples:
-
-    * **nRF Cloud Multi Service Sample:** Demonstrates onboarding alongside other cloud interactions.
-        * [https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_multi_service](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_multi_service)
-    * **nRF Provisioning Sample:** Provides a focused look at the provisioning steps.
-        * [https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning)
+* **For using the Provisioning Service:** Enable the [Provisioning Service library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/networking/nrf_provisioning.html). You can find more documentation about the [Provisioning Service here](https://docs.nordicsemi.com/bundle/nrf-cloud/page/SecurityServices/ProvisioningService/ProvisioningOverview.html). The nRF Connect SDK provides a [sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_device_provisioning) with a focused look at provisioning steps on cellular devices.
 
 4. When compiling with the nRF Cloud Libraries, make sure your project has the next Kconfig options:
 
