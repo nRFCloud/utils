@@ -80,7 +80,7 @@ device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-i
 ## nRF Cloud Device Onboarding
 
 The `nrf_cloud_onboard` script performs device onboarding with nRF Cloud.
-Your nRF Cloud REST API key is a required parameter and can be found on your [User Account page](https://app.nrfcloud.com/#/account).
+Your legacy nRF Cloud REST API key is a required parameter and can be found on your [legacy nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
 Also required is a CSV file compatible with the [onboarding endpoint](https://api.nrfcloud.com/v1/#operation/ProvisionDevices). You can use the onboarding CSV file produced by `device_credentials_installer`.
 
 ### Example
@@ -94,7 +94,7 @@ If the `--res` parameter is used, the onboarding result information will be save
 
 The `nrf93_onboard` script onboards an nRF93M1 device to nRF Cloud using a registration token JWT generated directly on the device. It connects over serial, retrieves the device UUID and identity key via AT commands, fetches the tenant ID from the nRF Cloud account, and then calls `AT%REGJWT` on the device to produce the JWT used as the onboarding token.
 
-Your nRF Cloud REST API key is required and can be found on your [User Account page](https://app.nrfcloud.com/#/account).
+Your legacy nRF Cloud REST API key is required and can be found on your [legacy nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
 
 ### Example
 ```
@@ -324,7 +324,7 @@ The target device must have the Provisioning feature enabled. A good reference o
 When not using provisioning tags (with the `--provisioning-tags` argument), this script creates device credentials for use with nRF Cloud and so requires a CA certificate and the associated private key as an input.
 
 Use the `create_ca_cert` script to create a self-signed CA certificate and keys.
-Your nRF Cloud REST API key is also a required parameter. It can be found on your [User Account page](https://app.nrfcloud.com/#/account).
+Your legacy nRF Cloud REST API key is also a required parameter. It can be found on your [legacy nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
 Use `--help` for additional parameter information.
 
 ### Examples
@@ -399,7 +399,7 @@ Use the `nrf_cloud_device_mgmt` script to create FOTA (Firmware Over-The-Air) up
 
 * On boarded device to nRF Cloud. Follow the steps outlined in the [Device Credentials Installer](#device-credentials-installer) and [nRF Cloud Device Onboarding](#nrf-cloud-device-onboarding) sections, which include generating device credentials, programming them to the device, and completing the onboarding process.
 * Enable FOTA in your project by referring to the following design examples: [nRF Cloud REST FOTA Sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_rest_fota) and [nRF Cloud Multi-Service Sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_multi_service).
-* An **nRF Cloud API key** is required. You can find your API key on your [nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
+* A **legacy nRF Cloud API key** is required. You can find it on your [legacy nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
 
 ### Execution Modes
 

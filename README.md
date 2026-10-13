@@ -28,7 +28,12 @@ Run the following command to use this package as a dependency:
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. Retrieve your API key. You can find it in your [nRF Cloud User Account page](https://app.nrfcloud.com/#/account). Note that if you are part of multiple teams on nRF Cloud, the API key will be different for each one.
+2. Retrieve your **legacy nRF Cloud API key**. Open the legacy nRF Cloud app (the **Legacy App** link at the bottom of the nRF Cloud side navigation, or [app.nrfcloud.com](https://app.nrfcloud.com/#/account) directly), then go to **User Account** > **Current Team Details**. If you are part of multiple teams, each team has its own API key.
+
+    :warning:**The User API key shown under My Profile in the new nRF Cloud app is a different key. These scripts reject it with `401 Unauthorized`.**
+
+    > [!NOTE]
+    > The scripts in this repository use the legacy nRF Cloud APIs. For nRF9151 and nRF9161 devices, the recommended path is [Secure Device Onboarding](https://docs.nrfcloud.com/docs/nrfcloud/secure-device-onboarding) in the new nRF Cloud app, which needs no local CA and no legacy API key. If you can't open the legacy app or its User Account page, contact [Nordic support](https://devzone.nordicsemi.com).
 3. Depending on your goal, you'll need to configure your nRF Connect SDK project with the following libraries:
 
 * **For basic device registration:** Enable the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html). Refer to the [AT Client sample](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/samples/cellular/at_client/README.html) in the nRF Connect SDK for an implementation example.
