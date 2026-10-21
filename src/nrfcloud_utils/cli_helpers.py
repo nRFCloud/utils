@@ -121,7 +121,8 @@ def save_onboarding_csv(csv_filename, append, replace, dev_id, sub_type, tags, f
 
     row_count = 0
 
-    row = [dev_id, sub_type, tags, fw_types, str(dev, encoding=full_encoding)]
+    dev_text = dev if isinstance(dev, str) else str(dev, encoding=full_encoding)
+    row = [dev_id, sub_type, tags, fw_types, dev_text]
 
     if mode == 'a':
         do_not_write = False

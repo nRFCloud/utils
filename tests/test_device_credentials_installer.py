@@ -94,6 +94,35 @@ class TestDeviceCredentialsInstaller:
             assert cert_pem.startswith("-----BEGIN CERTIFICATE-----")
             assert cert_pem.endswith("-----END CERTIFICATE-----")
 
+    @patch("nrfcredstore.comms.select_device", return_value=(FakeSerialPort("/not/a/real/device"), "TEST_DEVICE"))
+    @patch("nrfcredstore.comms.serial.Serial", return_value=FakeSerial())
+    def test_existing_credentials_onboarding_csv(self, ser, select_device):
+        dev_id = "50363953-3234-4723-80b9-1503d88271bf"
+        with TemporaryDirectory() as tmp_dir:
+            base = f"--port /not/a/real/device --log-level debug --cmd-type at --ca {TEST_CA_FILE} --ca-key {TEST_CA_KEY_FILE} --term CRLF --sectag 52"
+            # first run: generate a certificate and save it to disk
+            device_credentials_installer.main(f"{base} --save --path {tmp_dir}{os.sep} --csv {os.path.join(tmp_dir, 'first.csv')}".split())
+            assert os.path.exists(os.path.join(tmp_dir, dev_id + "_crt.pem"))
+            # the key stays on the device with AT keygen, so provide one on disk
+            prv_key = ec.generate_private_key(ec.SECP256R1())
+            with open(os.path.join(tmp_dir, dev_id + "_prv.pem"), "wb") as f:
+                f.write(prv_key.private_bytes(serialization.Encoding.PEM,
+                                              serialization.PrivateFormat.PKCS8,
+                                              serialization.NoEncryption()))
+
+            # second run: reuse the saved credentials (read as str) and write the onboarding CSV
+            csv_file = os.path.join(tmp_dir, "onboard.csv")
+            device_credentials_installer.main(
+                f"{base} --id-str {dev_id} --path {tmp_dir}{os.sep} --csv {csv_file}".split())
+
+            with open(csv_file, "r") as f:
+                content = f.read().strip()
+            device_id, sub_type, tags, fw_types, cert_pem = content.split(",")
+            cert_pem = cert_pem.replace("\"", "").strip()
+            assert device_id == dev_id
+            assert cert_pem.startswith("-----BEGIN CERTIFICATE-----")
+            assert cert_pem.endswith("-----END CERTIFICATE-----")
+
 
 # --- nrf_cloud_cred_shell command type ---------------------------------------
 #
