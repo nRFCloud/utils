@@ -15,7 +15,7 @@ import logging
 from nrfcloud_utils import create_device_credentials, ca_certs, modem_credentials_parser
 from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, full_encoding, setup_logging
 from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, CMD_TYPE_NRF_CLOUD_CRED_SHELL, parser_add_comms_args
-from nrfcredstore.command_interface import ATCommandInterface, TLSCredShellInterface, NrfCloudCredShellInterface
+from nrfcredstore.command_interface import ATCommandInterface, TLSCredShellInterface, TLSCredKeygenShellInterface, NrfCloudCredShellInterface
 from nrfcredstore.comms import Comms
 
 from cryptography import x509
@@ -175,8 +175,8 @@ def get_csr(cred_if, custom_dev_id = "", sectag = 0, local = False):
             logger.error('Failed to obtain CSR from device')
             sys.exit(9)
 
-        if isinstance(cred_if, NrfCloudCredShellInterface):
-            # The nrf_cloud_cred shell returns a plain Base64-encoded DER CSR,
+        if isinstance(cred_if, TLSCredKeygenShellInterface):
+            # The key generation shell commands return a plain Base64-encoded DER CSR,
             # not the modem's "body.cose" format.
             csr = x509.load_der_x509_csr(base64.b64decode(csr_blob))
         else:
@@ -220,11 +220,6 @@ def main(in_args):
         logger.error('Device ID must not exceed {} characters'.format(DEV_ID_MAX_LEN))
         sys.exit(1)
 
-    if args.cmd_type == CMD_TYPE_TLS_SHELL and not (args.local_cert or args.local_cert_file):
-        # This check can be removed once the TLS Credential Shell supports CSR generation.
-        logger.error(f"cmd_type '{CMD_TYPE_TLS_SHELL}' currently requires --local_cert or --local_cert_file")
-        sys.exit(1)
-
     if args.cmd_type == CMD_TYPE_NRF_CLOUD_CRED_SHELL and (args.local_cert or args.local_cert_file):
         # The key and CSR are generated on-device; generating a key on the host
         # would defeat the purpose and is almost certainly a mistake.
@@ -262,7 +257,11 @@ def main(in_args):
         has_shell = cred_if.shell
 
     if args.cmd_type == CMD_TYPE_TLS_SHELL:
-        cred_if = TLSCredShellInterface(serial_interface)
+        if args.local_cert or args.local_cert_file:
+            cred_if = TLSCredShellInterface(serial_interface)
+        else:
+            # Generate the key and the CSR on the device with the TLS credentials shell.
+            cred_if = TLSCredKeygenShellInterface(serial_interface)
         has_shell = True
 
     if args.cmd_type == CMD_TYPE_NRF_CLOUD_CRED_SHELL:
@@ -474,8 +473,14 @@ def verify_on_device_key(cred_if, sec_tag, client_cert):
         return False
 
     cert = x509.load_pem_x509_certificate(client_cert.encode())
-    cert_pub = cert.public_key().public_bytes(
-        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    if dev_pub[0] == 0x04:
+        # Raw SEC1 point, printed by the nrf_cloud_cred shell of older firmware.
+        cert_pub = cert.public_key().public_bytes(
+            serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    else:
+        # DER SubjectPublicKeyInfo, printed by the TLS Credentials Shell.
+        cert_pub = cert.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
 
     if dev_pub != cert_pub:
         logger.error('...Device public key does not match the device certificate')
@@ -495,7 +500,7 @@ def verify_credentials(cred_if, sec_tag, ca_cert, client_cert, client_prv=None, 
 
     # The on-device key is opaque (held in PSA); verify it by matching the
     # device public key to the certificate instead of by hash.
-    if isinstance(cred_if, NrfCloudCredShellInterface):
+    if isinstance(cred_if, TLSCredKeygenShellInterface):
         return verify_on_device_key(cred_if, sec_tag, client_cert)
 
     if not verify_credential(cred_if, sec_tag, 2, client_prv, get_hash = check_sha,
