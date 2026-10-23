@@ -265,6 +265,8 @@ def main(in_args):
         has_shell = True
 
     if args.cmd_type == CMD_TYPE_NRF_CLOUD_CRED_SHELL:
+        logger.warning(f"'{CMD_TYPE_NRF_CLOUD_CRED_SHELL}' is deprecated and will be removed. "
+                       f"Use '{CMD_TYPE_TLS_SHELL}' with newer firmware.")
         cred_if = NrfCloudCredShellInterface(serial_interface)
         has_shell = True
 

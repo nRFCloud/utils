@@ -228,7 +228,7 @@ class TestNrfCloudCredShell:
     @patch("nrfcredstore.comms.select_device",
            return_value=(FakeSerialPortShell("/not/a/real/device"), "TEST_DEVICE"))
     @patch("nrfcredstore.comms.serial.Serial", return_value=FakeShellSerial())
-    def test_on_device_keygen_and_csr(self, ser, select_device):
+    def test_on_device_keygen_and_csr(self, ser, select_device, caplog):
         # Generates the key/CSR on-device, decodes the Base64 DER CSR, creates
         # and writes the device cert, and writes the onboarding CSV. No private
         # key is written to the device.
@@ -236,6 +236,9 @@ class TestNrfCloudCredShell:
             csv_file = os.path.join(tmp_dir, "onboard.csv")
             device_credentials_installer.main(self._base_args(csv_file))
             self._assert_onboard_csv(csv_file)
+        # Only the nrf_cloud_cred shell is deprecated.
+        deprecated = "'nrf_cloud_cred_shell' is deprecated" in caplog.text
+        assert deprecated == (self.CMD_TYPE == "nrf_cloud_cred_shell")
 
     @patch("nrfcredstore.comms.select_device",
            return_value=(FakeSerialPortShell("/not/a/real/device"), "TEST_DEVICE"))
