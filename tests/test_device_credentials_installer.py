@@ -139,9 +139,10 @@ NRF_CLOUD_CRED_SECTAG = 52
 def _make_device_key_and_csr(cn):
     """Build an on-device-style EC P-256 key + CSR the way the device would.
 
-    Returns (base64 DER CSR, base64 SEC1-uncompressed public key). The CSR is
-    what 'nrf_cloud_cred csr' prints; the public key is what
-    'nrf_cloud_cred pubkey' prints. Because the device certificate is created
+    Returns (base64 DER CSR, base64 SEC1-uncompressed public key, base64 DER
+    SubjectPublicKeyInfo). The CSR is what the csr commands print; the raw
+    point is what 'nrf_cloud_cred pubkey' prints, and the SubjectPublicKeyInfo
+    is what 'cred pubkey' prints. Because the device certificate is created
     from this CSR, its public key equals this key's public key, so the
     public-key verification matches.
     """
@@ -152,19 +153,27 @@ def _make_device_key_and_csr(cn):
         .sign(key, hashes.SHA256())
     )
     csr_der_b64 = base64.b64encode(csr.public_bytes(serialization.Encoding.DER)).decode()
-    pub_sec1 = key.public_key().public_bytes(
-        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
-    return csr_der_b64, base64.b64encode(pub_sec1).decode()
+    return csr_der_b64, _pub_b64(key, raw=True), _pub_b64(key, raw=False)
 
 
-DEV_CSR_DER_B64, DEV_PUBKEY_B64 = _make_device_key_and_csr(NRF_CLOUD_CRED_CN)
+def _pub_b64(key, raw):
+    if raw:
+        pub = key.public_key().public_bytes(
+            serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    else:
+        pub = key.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+    return base64.b64encode(pub).decode()
+
+
+DEV_CSR_DER_B64, DEV_PUBKEY_B64, DEV_PUBKEY_SPKI_B64 = _make_device_key_and_csr(NRF_CLOUD_CRED_CN)
 
 
 class FakeShellSerial(Mock):
     """A stateful fake device speaking the Zephyr shell protocol.
 
-    It answers the 'nrf_cloud_cred' keygen/csr/pubkey commands and the TLS
-    Credentials Shell 'cred' commands. For 'cred add' it reassembles the
+    It answers the keygen/csr/pubkey commands of 'nrf_cloud_cred' and of the
+    TLS Credentials Shell, and the other TLS Credentials Shell 'cred' commands. For 'cred add' it reassembles the
     base64 chunks, and for 'cred list' it returns the SHA-256 hash the
     installer expects, so --verify passes end-to-end against real crypto.
     """
@@ -182,12 +191,14 @@ class FakeShellSerial(Mock):
         cmd = data.decode("utf-8", errors="replace").strip()
         parts = cmd.split()
 
-        if cmd.startswith("nrf_cloud_cred keygen"):
+        if cmd.startswith(("nrf_cloud_cred keygen", "cred keygen")):
             self._queue(f"Generated device key in sec tag {parts[-1]}")
-        elif cmd.startswith("nrf_cloud_cred csr"):
+        elif cmd.startswith(("nrf_cloud_cred csr", "cred csr")):
             self._queue(f"CSR: {DEV_CSR_DER_B64}", "CSR generation complete")
         elif cmd.startswith("nrf_cloud_cred pubkey"):
             self._queue(f"PUBKEY: {DEV_PUBKEY_B64}", "Public key export complete")
+        elif cmd.startswith("cred pubkey"):
+            self._queue(f"PUBKEY: {DEV_PUBKEY_SPKI_B64}", "Public key export complete")
         elif cmd == "cred buf clear":
             self._buf = ""            # no response expected after clear
         elif cmd.startswith("cred buf "):
@@ -219,10 +230,14 @@ FakeSerialPortShell = namedtuple("FakeSerialPortShell", ["device"])
 
 
 class TestNrfCloudCredShell:
+    CMD_TYPE = "nrf_cloud_cred_shell"
+    PUBKEY_CMD = "nrf_cloud_cred pubkey"
+    PUBKEY_RAW = True
+
     def _base_args(self, csv_file, extra=""):
         return (
             f"--port /not/a/real/device --log-level debug "
-            f"--cmd-type nrf_cloud_cred_shell "
+            f"--cmd-type {self.CMD_TYPE} "
             f"--ca {TEST_CA_FILE} --ca-key {TEST_CA_KEY_FILE} "
             f"--csv {csv_file} --term CRLF --sectag {NRF_CLOUD_CRED_SECTAG} "
             f"--id-str {NRF_CLOUD_CRED_CN} {extra}"
@@ -242,7 +257,7 @@ class TestNrfCloudCredShell:
     @patch("nrfcredstore.comms.select_device",
            return_value=(FakeSerialPortShell("/not/a/real/device"), "TEST_DEVICE"))
     @patch("nrfcredstore.comms.serial.Serial", return_value=FakeShellSerial())
-    def test_on_device_keygen_and_csr(self, ser, select_device):
+    def test_on_device_keygen_and_csr(self, ser, select_device, caplog):
         # Generates the key/CSR on-device, decodes the Base64 DER CSR, creates
         # and writes the device cert, and writes the onboarding CSV. No private
         # key is written to the device.
@@ -250,6 +265,9 @@ class TestNrfCloudCredShell:
             csv_file = os.path.join(tmp_dir, "onboard.csv")
             device_credentials_installer.main(self._base_args(csv_file))
             self._assert_onboard_csv(csv_file)
+        # Only the nrf_cloud_cred shell is deprecated.
+        deprecated = "'nrf_cloud_cred_shell' is deprecated" in caplog.text
+        assert deprecated == (self.CMD_TYPE == "nrf_cloud_cred_shell")
 
     @patch("nrfcredstore.comms.select_device",
            return_value=(FakeSerialPortShell("/not/a/real/device"), "TEST_DEVICE"))
@@ -271,9 +289,7 @@ class TestNrfCloudCredShell:
         # If the device reports a public key that does not match the device
         # certificate, verification must fail (exit code 12).
         other_key = ec.generate_private_key(ec.SECP256R1())
-        wrong_pub = base64.b64encode(other_key.public_key().public_bytes(
-            serialization.Encoding.X962,
-            serialization.PublicFormat.UncompressedPoint)).decode()
+        wrong_pub = _pub_b64(other_key, raw=self.PUBKEY_RAW)
 
         with TemporaryDirectory() as tmp_dir:
             csv_file = os.path.join(tmp_dir, "onboard.csv")
@@ -282,7 +298,7 @@ class TestNrfCloudCredShell:
 
             def write_wrong_pubkey(data):
                 cmd = data.decode("utf-8", errors="replace").strip()
-                if cmd.startswith("nrf_cloud_cred pubkey"):
+                if cmd.startswith(self.PUBKEY_CMD):
                     fake._queue(f"PUBKEY: {wrong_pub}", "Public key export complete")
                     return
                 orig_write(data)
@@ -296,10 +312,20 @@ class TestNrfCloudCredShell:
         # The key is generated on-device, so --local-cert is a mistake and must
         # be rejected before any device interaction.
         args = (
-            f"--port /not/a/real/device --cmd-type nrf_cloud_cred_shell "
+            f"--port /not/a/real/device --cmd-type {self.CMD_TYPE} "
             f"--local-cert --ca {TEST_CA_FILE} --ca-key {TEST_CA_KEY_FILE} "
             f"--sectag {NRF_CLOUD_CRED_SECTAG}"
         ).split()
         with pytest.raises(SystemExit) as e:
             device_credentials_installer.main(args)
         assert e.value.code == 1
+
+
+class TestTLSCredShellKeygen(TestNrfCloudCredShell):
+    """The same flow with the key generation commands of the TLS Credentials Shell."""
+    CMD_TYPE = "tls_cred_shell"
+    PUBKEY_CMD = "cred pubkey"
+    PUBKEY_RAW = False
+
+    # With a local certificate, the TLS Credentials Shell installs a host key instead.
+    test_rejects_local_cert = None
