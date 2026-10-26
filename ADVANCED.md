@@ -65,6 +65,11 @@ If your device uses CoAP, add the `coap` option to also install the nRF Cloud Co
 **Note**: the device ID options must match those used to build the device firmware, or else the device will fail to connect to nRF Cloud.
 See: [Configuration options for device ID](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/networking/nrf_cloud.html#configuration_options_for_device_id).
 
+The script also writes an onboarding CSV file (`onboard.csv` by default, set with `--csv`) for [onboarding](#nrf-cloud-device-onboarding).
+If the file already exists, the script asks whether to overwrite it, append to it, or skip saving.
+To provision several devices into the same file, use `--append`, which adds a row for each device without asking.
+A file can hold up to 1000 devices, and a device ID that is already in the file is rejected unless you also pass `--replace`.
+
 ### Examples
 
 #### UUID device ID with verification enabled
@@ -79,16 +84,15 @@ device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-i
 
 ## nRF Cloud Device Onboarding
 
-The `nrf_cloud_onboard` script performs device onboarding with nRF Cloud.
-Your legacy nRF Cloud REST API key is a required parameter and can be found on your [legacy nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
-Also required is a CSV file compatible with the [onboarding endpoint](https://api.nrfcloud.com/v1/#operation/ProvisionDevices). You can use the onboarding CSV file produced by `device_credentials_installer`.
+To onboard devices to nRF Cloud, use the onboarding CSV file produced by `device_credentials_installer` or `create_device_credentials`, as described in the [device onboarding quickstart](https://docs.nrfcloud.com/docs/best-practices/device-onboarding-quickstart#manually-provisioning-a-device-certificate).
 
-### Example
+The CSV file has one row per device, in the following format:
 ```
-nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
+<device_id>,<subtype>,<tags>,<fw_types>,"<device_cert_pem>"
 ```
-
-If the `--res` parameter is used, the onboarding result information will be saved to the specified file instead of printed to the output.
+Only the device ID and the device certificate are required, for example `my-device-id,,,,"-----BEGIN CERTIFICATE-----..."`.
+To onboard several devices at once, use a file with one row per device (see `--append` in [Device Credentials Installer](#device-credentials-installer)).
+You can also upload the same CSV file in the nRF Cloud portal, from **Devices** > **Add devices**.
 
 ## nRF93M1 Device Onboarding
 

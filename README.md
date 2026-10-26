@@ -28,7 +28,7 @@ Run the following command to use this package as a dependency:
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. Retrieve your **legacy nRF Cloud API key**. Open the legacy nRF Cloud app (the **Legacy App** link at the bottom of the nRF Cloud side navigation, or [app.nrfcloud.com](https://app.nrfcloud.com/#/account) directly), then go to **User Account** > **Current Team Details**. If you are part of multiple teams, each team has its own API key.
+2. For the scripts that use the legacy nRF Cloud API (`claim_devices`, `claim_and_provision_device`, `nrf93_onboard`, and `nrf_cloud_device_mgmt`), retrieve your **legacy nRF Cloud API key**. Open the legacy nRF Cloud app (the **Legacy App** link at the bottom of the nRF Cloud side navigation, or [app.nrfcloud.com](https://app.nrfcloud.com/#/account) directly), then go to **User Account** > **Current Team Details**. If you are part of multiple teams, each team has its own API key.
 
     :warning:**The User API key shown under My Profile in the new nRF Cloud app is a different key. These scripts reject it with `401 Unauthorized`.**
 
@@ -75,11 +75,9 @@ device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-i
 Upon success, you can find an `onboard.csv` file with information about your device. This file is needed to register the certificate with your account.
 If you encounter a `No device found` error, you might need to specify the serial port using the `--port` option.
 
-Onboard the device to your account using the `nrf_cloud_onboard` script as follows:
+Onboard the device to your account with `onboard.csv`, as described in the [device onboarding quickstart](https://docs.nrfcloud.com/docs/best-practices/device-onboarding-quickstart#manually-provisioning-a-device-certificate).
 
-    nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
-
-It is possible to install credentials on many devices in a row using the `--append` option and add the bulk `onboard.csv` to your account with the same command.
+It is possible to install credentials on many devices in a row using the `--append` option and onboard them all at once with the resulting `onboard.csv`.
 
 Congratulations! You have successfully registered your device to nRF Cloud, you should be able to visualize it on the [Devices panel](https://app.nrfcloud.com/#/devices).
 
