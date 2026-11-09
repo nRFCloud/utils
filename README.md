@@ -10,12 +10,12 @@ The scripts in this repository mainly use endpoints in the [nRF Cloud API](https
 
 See also the official [nRF Cloud documentation](https://docs.nordicsemi.com/bundle/nrf-cloud/page/index.html).
 
-## Table of Contents
+## Table of contents
 
 * [Install](#install)
 * [Requirements](#requirements)
-* [How-To: Registering devices quickly](#how-to-registering-devices-quickly)
-* [Advanced Usage](#advanced-usage)
+* [Registering devices quickly](#registering-devices-quickly)
+* [Advanced usage](#advanced-usage)
 * [Development installation](#development-installation)
 * [Test](#test)
 
@@ -28,7 +28,7 @@ Run the following command to use this package as a dependency:
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. Retrieve your **legacy nRF Cloud API key**. Open the legacy nRF Cloud app (the **Legacy App** link at the bottom of the nRF Cloud side navigation, or [app.nrfcloud.com](https://app.nrfcloud.com/#/account) directly), then go to **User Account** > **Current Team Details**. If you are part of multiple teams, each team has its own API key.
+2. For the scripts that use the legacy nRF Cloud API (`claim_devices`, `claim_and_provision_device`, `nrf93_onboard`, and `nrf_cloud_device_mgmt`), retrieve your **legacy nRF Cloud API key**. Open the legacy nRF Cloud app (the **Legacy App** link at the bottom of the nRF Cloud side navigation, or [app.nrfcloud.com](https://app.nrfcloud.com/#/account) directly), then go to **User Account** > **Current Team Details**. If you are part of multiple teams, each team has its own API key.
 
     :warning:**The User API key shown under My Profile in the new nRF Cloud app is a different key. These scripts reject it with `401 Unauthorized`.**
 
@@ -40,18 +40,15 @@ Run the following command to use this package as a dependency:
 
 * **For using the Provisioning Service:** Enable the [Provisioning Service library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/networking/nrf_provisioning.html). You can find more documentation about the [Provisioning Service here](https://docs.nordicsemi.com/bundle/nrf-cloud/page/SecurityServices/ProvisioningService/ProvisioningOverview.html). The nRF Connect SDK provides a [sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_device_provisioning) with a focused look at provisioning steps on cellular devices.
 
-4. When compiling with the nRF Cloud Libraries, make sure your project has the next Kconfig options:
+4. For devices with a Nordic cellular modem, the device ID that the firmware uses must match the modem UUID that the scripts use by default.
+   This is the default of the nRF Cloud library since the nRF Connect SDK v3.4.0.
+   With older versions, set the `CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID` Kconfig option to `y` (which enables `CONFIG_MODEM_JWT`).
 
-    ```Kconfig
-    # Enable modem-based JSON Web Token (JWT) generation required for nRF Cloud authentication
-    CONFIG_MODEM_JWT=y
+:warning:**A device ID mismatch will prevent the device from connecting to nRF Cloud.**
 
-    # Configure the nRF Cloud library to use the device's internal UUID
-    CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
-    ```
-:warning:**Failure to include these settings will prevent the device from connecting to nRF Cloud.**
+For devices without a modem, such as nRF71 Series and nRF70 Series Wi-Fi devices, see [Devices without a modem](https://github.com/nRFCloud/utils/blob/main/ADVANCED.md#devices-without-a-modem) instead.
 
-## How-To: Registering devices quickly
+## Registering devices quickly
 
 Start by creating a local certificate authority (CA). Its contents won't be checked, but you need one to make certificates for your devices. Optionally, pass options to the script to specify owner information.
 
@@ -70,20 +67,28 @@ device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap
 ```
 device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-imei --id-str nrf- --coap
 ```
+
+#### Device without a modem, key generated on the device (for example, nRF71 Series or nRF70 Series with Wi-Fi)
+
+For a device without a modem, pass the device ID that the firmware uses and let the device generate its key, using the following command:
+
+```
+device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap --cmd-type nrf_cloud_cred_shell --id-str <device_id>
+```
+See [Devices without a modem](https://github.com/nRFCloud/utils/blob/main/ADVANCED.md#devices-without-a-modem) for the firmware requirements.
+
 :warning:**Failure to select the correct device ID will result in a connection refused from nRF Cloud.**
 
 Upon success, you can find an `onboard.csv` file with information about your device. This file is needed to register the certificate with your account.
 If you encounter a `No device found` error, you might need to specify the serial port using the `--port` option.
 
-Onboard the device to your account using the `nrf_cloud_onboard` script as follows:
+Onboard the device to your account with `onboard.csv`, as described in the [device onboarding quickstart](https://docs.nrfcloud.com/docs/best-practices/device-onboarding-quickstart#manually-provisioning-a-device-certificate).
 
-    nrf_cloud_onboard --api-key $API_KEY --csv onboard.csv
-
-It is possible to install credentials on many devices in a row using the `--append` option and add the bulk `onboard.csv` to your account with the same command.
+It is possible to install credentials on many devices in a row using the `--append` option and onboard them all at once with the resulting `onboard.csv`.
 
 Congratulations! You have successfully registered your device to nRF Cloud, you should be able to visualize it on the [Devices panel](https://app.nrfcloud.com/#/devices).
 
-## Advanced Usage
+## Advanced usage
 
 For a more detailed overview of the scripts and their capabilities, refer to the [Advanced Usage Guide](https://github.com/nRFCloud/utils/blob/main/ADVANCED.md). This guide provides in-depth instructions on leveraging advanced features, including the use of the Provisioning Service for remote provisioning of devices, as an alternative to local provisioning.
 
