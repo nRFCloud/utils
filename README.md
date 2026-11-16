@@ -28,7 +28,9 @@ Run the following command to use this package as a dependency:
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. For the scripts that use the legacy nRF Cloud API (`claim_devices`, `claim_and_provision_device`, `nrf93_onboard`, and `nrf_cloud_device_mgmt`), retrieve your **legacy nRF Cloud API key**. Open the legacy nRF Cloud app (the **Legacy App** link at the bottom of the nRF Cloud side navigation, or [app.nrfcloud.com](https://app.nrfcloud.com/#/account) directly), then go to **User Account** > **Current Team Details**. If you are part of multiple teams, each team has its own API key.
+2. For the scripts that use the legacy nRF Cloud API (`claim_devices`, `claim_and_provision_device`, and `nrf_cloud_device_mgmt`), retrieve your **legacy nRF Cloud API key**. Open the legacy nRF Cloud app (the **Legacy App** link at the bottom of the nRF Cloud side navigation, or [app.nrfcloud.com](https://app.nrfcloud.com/#/account) directly), then go to **User Account** > **Current Team Details**. If you are part of multiple teams, each team has its own API key.
+
+    The `nrf93_onboard` script uses an organization auth token (OAT) instead. See [nRF93M1 device onboarding](ADVANCED.md#nrf93m1-device-onboarding).
 
     :warning:**The User API key shown under My Profile in the new nRF Cloud app is a different key. These scripts reject it with `401 Unauthorized`.**
 

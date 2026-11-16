@@ -130,13 +130,22 @@ You can also upload the same CSV file in the nRF Cloud portal, from **Devices** 
 
 ## nRF93M1 device onboarding
 
-The `nrf93_onboard` script onboards an nRF93M1 device to nRF Cloud using a registration token JWT generated directly on the device. It connects over serial, retrieves the device UUID and identity key via AT commands, fetches the tenant ID from the nRF Cloud account, and then calls `AT%REGJWT` on the device to produce the JWT used as the onboarding token.
+The `nrf93_onboard` script onboards an nRF93M1 device to nRF Cloud using a registration token JWT generated directly on the device. It connects over serial, retrieves the device UUID and identity key via AT commands, fetches the nRF Cloud tenant ID of your organization, calls `AT%REGJWT` on the device to produce the JWT, and registers the device with the nRF Cloud API.
 
-Your legacy nRF Cloud REST API key is required and can be found on your [legacy nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
+The script authenticates with an organization auth token (OAT) that has the `device:write` permission, not with the legacy nRF Cloud API key. It needs the OAT and your organization slug, plus a project slug that defaults to `nrf-project`. Each can be given as an option or as an environment variable:
+
+| Option | Environment variable |
+| --- | --- |
+| `--org-token` | `MEMFAULT_ORG_TOKEN` |
+| `--org` | `MEMFAULT_ORG` |
+| `--project` | `MEMFAULT_PROJECT` (defaults to `nrf-project`) |
+
+Devices are onboarded without tags or a subtype and start in the default cohort.
 
 ### Example
 ```
-nrf93_onboard --port /dev/ttyACM0 --api-key $API_KEY
+export MEMFAULT_ORG_TOKEN=<your OAT>
+nrf93_onboard --port /dev/ttyACM0 --org my-org
 ```
 
 ## Modem credentials parser

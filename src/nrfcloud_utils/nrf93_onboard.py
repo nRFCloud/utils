@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-import re
+import os
 import sys
 import logging
 import requests
@@ -16,23 +16,8 @@ from nrfcloud_utils.cli_helpers import USER_AGENT
 
 logger = logging.getLogger(__name__)
 
-_TAG_PATTERN = re.compile(r'^[a-zA-Z0-9_.,@\/:#-]{0,799}$')
-
-def _valid_tag(value):
-    if not _TAG_PATTERN.match(value):
-        raise argparse.ArgumentTypeError(
-            f"Invalid tag {value!r}. Must match /[a-zA-Z0-9_.,@\\/:#-]{{0,799}}/"
-        )
-    return value
-
-DEV_STAGE_DICT = {'dev':     '.dev.',
-                  'prod':    '.',
-                  '':        '.'}
-dev_stage_key = 'prod'
-
-API_URL_START = 'https://api'
-API_URL_END = 'nrfcloud.com/v1/'
-api_url = API_URL_START + DEV_STAGE_DICT[dev_stage_key] + API_URL_END
+API_URL = 'https://api.nrfcloud.com/v1/'
+MEMFAULT_API_URL = 'https://api.memfault.com/api/v0/'
 
 def get_nrf93m1_uuid(cred_if):
     """Get or create device UUID for nRF93M1."""
@@ -105,24 +90,27 @@ def get_parser():
     parser.add_argument("--port", type=str, required=True,
                         help="Serial port for the nRF93M1 device (e.g., /dev/ttyACM0 or COM3)")
     parser.add_argument("--baudrate", type=int, help="Serial baudrate", default=115200)
-    parser.add_argument("--api-key", type=str, required=True,
-                        help="nRF Cloud API key", default="")
+    parser.add_argument("--org-token", type=str,
+                        default=os.environ.get("MEMFAULT_ORG_TOKEN"),
+                        help="Organization auth token (OAT) with device:write permission "
+                             "[env: MEMFAULT_ORG_TOKEN]")
+    parser.add_argument("--org", type=str, default=os.environ.get("MEMFAULT_ORG"),
+                        help="Organization slug [env: MEMFAULT_ORG]")
+    parser.add_argument("--project", type=str, default=os.environ.get("MEMFAULT_PROJECT", "nrf-project"),
+                        help="Project slug [env: MEMFAULT_PROJECT]")
     parser.add_argument('--log-level', default='info',
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level')
-    parser.add_argument("--stage", type=str,
-                        choices=['prod', 'dev'],
-                        help="For internal (Nordic) use only", default="")
-    parser.add_argument("--tags", type=_valid_tag, nargs="+", default=["nRF93M1-EK"],
-                        metavar="TAG",
-                        help="Tags to assign to the device on nRF Cloud. "
-                             "Each tag must match /[a-zA-Z0-9_.,@\\/:#-]{0,799}/")
     return parser
 
 def parse_args(in_args):
     _p = get_parser()
     parser = argparse.ArgumentParser(parents=[_p], description=_p.description, formatter_class=_p.formatter_class)
     args = parser.parse_args(in_args)
+    missing = [n for n, v in (('--org-token', args.org_token), ('--org', args.org),
+                              ('--project', args.project)) if not v]
+    if missing:
+        parser.error('missing required argument(s): ' + ', '.join(missing))
 
     # Setup logging
     if hasattr(args, 'log_level'):
@@ -132,35 +120,23 @@ def parse_args(in_args):
 
     return args
 
-def set_dev_stage(stage = ''):
-    global api_url
-    global dev_stage_key
-
-    if stage in DEV_STAGE_DICT.keys():
-        dev_stage_key = stage
-        api_url = '{}{}{}'.format(API_URL_START, DEV_STAGE_DICT[dev_stage_key], API_URL_END)
-    else:
-        logger.error('Invalid stage')
-
-    return api_url
-
-def fetch_tenant_id(api_key):
-    hdr = {'Authorization': 'Bearer ' + api_key, 'User-Agent': USER_AGENT}
-    req = api_url + "account"
+def fetch_tenant_id(org_token, org):
+    hdr = {'Authorization': 'Bearer ' + org_token, 'User-Agent': USER_AGENT}
+    req = MEMFAULT_API_URL + "organizations/" + org
     response = requests.get(req, headers=hdr)
     if not response.ok:
         logger.error(f'Failed to fetch tenant ID: HTTP {response.status_code}')
         return None
 
     try:
-        account_info = response.json()
+        org_info = response.json()
     except ValueError:
-        logger.error('Failed to parse account response JSON')
+        logger.error('Failed to parse organization response JSON')
         return None
 
-    tenant_id = account_info.get('team', {}).get('tenantId')
+    tenant_id = (org_info.get('data') or {}).get('nrfcloud_team_id')
     if not tenant_id:
-        logger.error('tenantId not found in account response')
+        logger.error('nrfcloud_team_id not found in organization response')
         return None
 
     return tenant_id
@@ -189,29 +165,23 @@ def gen_registration_jwt(cred_if, tenant_id):
     logger.debug('Retrieved registration JWT from device')
     return jwt_str
 
-def onboard_device(api_key, dev_id, sub_type, tags, fw_types, onboarding_token):
+def onboard_device(org_token, org, project, onboarding_token):
     hdr = {
-        'Authorization': 'Bearer ' + api_key,
+        'Authorization': 'Bearer ' + org_token,
         'Accept': 'application/json',
         'User-Agent': USER_AGENT,
     }
 
-    req = api_url + "devices/" + dev_id
+    req = f"{API_URL}organizations/{org}/projects/{project}/long-range/devices"
 
-    payload = {
-        'onboardingToken': onboarding_token,
-        'subType': sub_type,
-        'tags': tags,
-        'supportedFirmwareTypes': fw_types,
-    }
+    # The API rejects any other field (subType, tags, ...) with 422.
+    # deviceId is optional; nRF Cloud reads it from the token.
+    payload = {'onboardingToken': onboarding_token}
 
     return requests.post(req, json=payload, headers=hdr)
 
 def main(in_args):
     args = parse_args(in_args)
-
-    if args.stage:
-        set_dev_stage(args.stage)
 
     logger.info('nRF93M1 - Onboard Device using Registration token JWT')
     logger.info(f'Connecting to device on {args.port}...')
@@ -254,9 +224,9 @@ def main(in_args):
             sys.exit(3)
         logger.info('[OK] Device identity key')
 
-        # Based on the stage specified, we query the tenantID from nRF Cloud using the user's API key.
-        logger.info('Retrieving tenant ID from nRF Cloud account...')
-        tenant_id = fetch_tenant_id(args.api_key)
+        # Query the tenant ID (nRF Cloud team ID) of the organization using the OAT.
+        logger.info('Retrieving tenant ID from organization...')
+        tenant_id = fetch_tenant_id(args.org_token, args.org)
         if not tenant_id:
             logger.error('[Failed] Tenant ID')
             sys.exit(4)
@@ -272,9 +242,8 @@ def main(in_args):
 
         # Onboard the device
         logger.info('Onboarding device to nRF Cloud...')
-        sub_type = "nRF93M1"
-        fw_types = ["MODEM"]
-        onboard_response = onboard_device(args.api_key, dev_id, sub_type, args.tags, fw_types, registration_jwt)
+        onboard_response = onboard_device(args.org_token, args.org, args.project,
+                                          registration_jwt)
         if not onboard_response.ok:
             logger.error(f'Failed to onboard device: HTTP {onboard_response.status_code} - {onboard_response.text}')
             sys.exit(6)
