@@ -27,31 +27,6 @@ def make_cred_if(at_command_retval=True, expect_retval=True, expect_output=""):
 
 
 # ---------------------------------------------------------------------------
-# set_dev_stage
-# ---------------------------------------------------------------------------
-
-class TestSetDevStage:
-    def test_prod(self):
-        url = nrf93_onboard.set_dev_stage('prod')
-        assert '.dev.' not in url
-        assert 'nrfcloud.com' in url
-
-    def test_dev(self):
-        url = nrf93_onboard.set_dev_stage('dev')
-        assert '.dev.' in url
-
-    def test_invalid_stage_keeps_previous_url(self):
-        nrf93_onboard.set_dev_stage('prod')
-        url_before = nrf93_onboard.api_url
-        nrf93_onboard.set_dev_stage('invalid')
-        assert nrf93_onboard.api_url == url_before
-
-    def teardown_method(self):
-        # restore to prod after each test
-        nrf93_onboard.set_dev_stage('prod')
-
-
-# ---------------------------------------------------------------------------
 # get_nrf93m1_uuid
 # ---------------------------------------------------------------------------
 
@@ -139,62 +114,39 @@ class TestGenRegistrationJwt:
 
 
 # ---------------------------------------------------------------------------
-# _valid_tag
-# ---------------------------------------------------------------------------
-
-class TestValidTag:
-    def test_valid_tag(self):
-        assert nrf93_onboard._valid_tag("nRF93M1-EK") == "nRF93M1-EK"
-
-    def test_valid_tag_all_allowed_chars(self):
-        assert nrf93_onboard._valid_tag("tag_.,@/:#-") == "tag_.,@/:#-"
-
-    def test_empty_tag_is_valid(self):
-        assert nrf93_onboard._valid_tag("") == ""
-
-    def test_invalid_tag_raises(self):
-        import argparse
-        with pytest.raises(argparse.ArgumentTypeError):
-            nrf93_onboard._valid_tag("invalid tag!")
-
-    def test_tag_too_long_raises(self):
-        import argparse
-        with pytest.raises(argparse.ArgumentTypeError):
-            nrf93_onboard._valid_tag("a" * 800)
-
-
-# ---------------------------------------------------------------------------
 # fetch_tenant_id
 # ---------------------------------------------------------------------------
 
 class TestFetchTenantId:
     @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_success(self, mock_get):
-        mock_get.return_value = Mock(ok=True, json=lambda: {"team": {"tenantId": TEST_TENANT_ID}})
-        result = nrf93_onboard.fetch_tenant_id("my-api-key")
+        mock_get.return_value = Mock(ok=True, json=lambda: {"data": {"nrfcloud_team_id": TEST_TENANT_ID}})
+        result = nrf93_onboard.fetch_tenant_id("my-oat", "my-org")
         assert result == TEST_TENANT_ID
+        assert mock_get.call_args.args[0] == "https://api.memfault.com/api/v0/organizations/my-org"
+        assert mock_get.call_args.kwargs["headers"]["Authorization"] == "Bearer my-oat"
 
     @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_sends_user_agent_header(self, mock_get):
-        mock_get.return_value = Mock(ok=True, json=lambda: {"team": {"tenantId": TEST_TENANT_ID}})
-        nrf93_onboard.fetch_tenant_id("my-api-key")
+        mock_get.return_value = Mock(ok=True, json=lambda: {"data": {"nrfcloud_team_id": TEST_TENANT_ID}})
+        nrf93_onboard.fetch_tenant_id("my-oat", "my-org")
         assert mock_get.call_args.kwargs["headers"]["User-Agent"] == USER_AGENT
 
     @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_http_error(self, mock_get):
         mock_get.return_value = Mock(ok=False, status_code=401)
-        assert nrf93_onboard.fetch_tenant_id("bad-key") is None
+        assert nrf93_onboard.fetch_tenant_id("bad-oat", "my-org") is None
 
     @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_missing_tenant_id_in_response(self, mock_get):
-        mock_get.return_value = Mock(ok=True, json=lambda: {"team": {}})
-        assert nrf93_onboard.fetch_tenant_id("my-api-key") is None
+        mock_get.return_value = Mock(ok=True, json=lambda: {"data": {}})
+        assert nrf93_onboard.fetch_tenant_id("my-oat", "my-org") is None
 
     @patch("nrfcloud_utils.nrf93_onboard.requests.get")
     def test_invalid_json(self, mock_get):
         mock_get.return_value = Mock(ok=True)
         mock_get.return_value.json.side_effect = ValueError("no JSON")
-        assert nrf93_onboard.fetch_tenant_id("my-api-key") is None
+        assert nrf93_onboard.fetch_tenant_id("my-oat", "my-org") is None
 
 
 # ---------------------------------------------------------------------------
@@ -203,12 +155,15 @@ class TestFetchTenantId:
 
 class TestOnboardDevice:
     @patch("nrfcloud_utils.nrf93_onboard.requests.post")
-    def test_sends_user_agent_header(self, mock_post):
+    def test_request_shape(self, mock_post):
         mock_post.return_value = Mock(ok=True)
-        nrf93_onboard.onboard_device(
-            "my-api-key", TEST_UUID, "sub-type", "tags", "fw-types", "onboarding-token"
-        )
-        assert mock_post.call_args.kwargs["headers"]["User-Agent"] == USER_AGENT
+        nrf93_onboard.onboard_device("my-oat", "my-org", "my-proj", "jwt")
+        assert mock_post.call_args.args[0] == (
+            "https://api.nrfcloud.com/v1/organizations/my-org/projects/my-proj/long-range/devices")
+        assert mock_post.call_args.kwargs["json"] == {"onboardingToken": "jwt"}
+        headers = mock_post.call_args.kwargs["headers"]
+        assert headers["Authorization"] == "Bearer my-oat"
+        assert headers["User-Agent"] == USER_AGENT
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +187,7 @@ def _base_patches():
 
 
 def _run_main_with_patches(patches, extra_args=""):
-    args = f"--port /dev/ttyACM0 --api-key test-key {extra_args}".split()
+    args = f"--port /dev/ttyACM0 --org-token test-oat --org my-org --project my-proj {extra_args}".split()
     with patch.multiple(MODULE, **patches):
         patches["ATCommandInterface"].return_value.at_command.return_value = True
         nrf93_onboard.main(args)
@@ -254,7 +209,7 @@ class TestMainExitCodes:
         patches["ATCommandInterface"].return_value.at_command.return_value = False
         with patch.multiple(MODULE, **patches):
             with pytest.raises(SystemExit) as exc:
-                nrf93_onboard.main("--port /dev/ttyACM0 --api-key test-key".split())
+                nrf93_onboard.main("--port /dev/ttyACM0 --org-token test-oat --org my-org --project my-proj".split())
         assert exc.value.code == 1
 
     def test_uuid_fails_exit_2(self):
@@ -292,21 +247,24 @@ class TestMainExitCodes:
             _run_main_with_patches(patches)
         assert exc.value.code == 6
 
-    def test_default_tags_passed_to_onboard(self):
+    def test_onboard_called_with_org_project(self):
         patches = _base_patches()
         _run_main_with_patches(patches)
-        # signature: onboard_device(api_key, dev_id, sub_type, tags, fw_types, onboardingToken)
-        tags = patches["onboard_device"].call_args[0][3]
-        assert tags == ["nRF93M1-EK"]
+        patches["onboard_device"].assert_called_once_with(
+            "test-oat", "my-org", "my-proj", TEST_REGJWT)
 
-    def test_custom_tags_passed_to_onboard(self):
-        patches = _base_patches()
-        _run_main_with_patches(patches, extra_args="--tags my-tag another-tag")
-        tags = patches["onboard_device"].call_args[0][3]
-        assert tags == ["my-tag", "another-tag"]
-
-    def test_invalid_tag_exits_with_error(self):
-        patches = _base_patches()
+    def test_missing_org_token_exits_with_error(self, monkeypatch):
+        for v in ("MEMFAULT_ORG_TOKEN", "MEMFAULT_ORG", "MEMFAULT_PROJECT"):
+            monkeypatch.delenv(v, raising=False)
         with pytest.raises(SystemExit) as exc:
-            _run_main_with_patches(patches, extra_args="--tags invalid!")
+            nrf93_onboard.main("--port /dev/ttyACM0".split())
         assert exc.value.code != 0
+
+    def test_project_defaults_to_nrf_project(self, monkeypatch):
+        monkeypatch.delenv("MEMFAULT_PROJECT", raising=False)
+        patches = _base_patches()
+        args = "--port /dev/ttyACM0 --org-token test-oat --org my-org".split()
+        with patch.multiple(MODULE, **patches):
+            patches["ATCommandInterface"].return_value.at_command.return_value = True
+            nrf93_onboard.main(args)
+        assert patches["onboard_device"].call_args[0][2] == "nrf-project"
