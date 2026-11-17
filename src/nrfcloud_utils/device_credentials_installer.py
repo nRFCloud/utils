@@ -151,6 +151,8 @@ def check_mfw_version(cred_if):
 
     if "ntn" in ver:
         pass
+    elif "nrf92" in ver:
+        pass
     elif parsed_ver is None:
         logger.error('Unexpected modem FW version format... continuing')
     elif semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER) < 0:
@@ -435,7 +437,11 @@ def main(in_args):
 
         # AT-command-based SHA check has a modem firmware version requirement
         if (cmd_type_has_at):
-            if "ntn" not in mfw_ver:
+            if "ntn" in mfw_ver:
+                pass
+            elif "nrf92" in mfw_ver:
+                pass
+            else:
                 parsed_ver = parse_mfw_ver(mfw_ver)
                 if parsed_ver and semver.Version.parse(parsed_ver).compare(MIN_REQD_MFW_VER_FOR_VERIFY) < 0:
                     logger.error(f'Skipping SHA verification, modem FW version must be >= {MIN_REQD_MFW_VER_FOR_VERIFY}')
