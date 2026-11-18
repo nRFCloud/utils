@@ -29,9 +29,6 @@ def get_parser():
     parser.add_argument("-o", "--overwrite",
                         help="When saving attestation token CSV file, overwrite it",
                         action='store_true', default=False)
-    parser.add_argument("--keep",
-                        help="When appending to CSV files: if UUID exists in file, keep old data not current",
-                        action='store_true', default=False)
     parser.add_argument("-P", "--plain",
                         help="bool: Plain output (no colors)",
                         action='store_true', default=False)
@@ -73,7 +70,7 @@ def user_request_open_mode(filename, append):
 
     return mode
 
-def save_attestation_csv(csv_filename, append, replace, uuid, attestation_token):
+def save_attestation_csv(csv_filename, append, uuid, attestation_token):
     """Save the device UUID and its attestation token to a CSV for `nrfcloud device create`."""
     mode = user_request_open_mode(csv_filename, append)
 
@@ -81,7 +78,7 @@ def save_attestation_csv(csv_filename, append, replace, uuid, attestation_token)
         return True
 
     return save_device_create_csv(csv_filename, 'attestationToken', uuid, attestation_token,
-                                  replace=replace, overwrite=(mode == 'w'))
+                                  overwrite=(mode == 'w'))
 
 def error_exit(err_msg):
     if err_msg:
@@ -147,8 +144,7 @@ def main(in_args):
     logger.debug('Device UUID: ' + dev_uuid)
 
     if len(args.csv) > 0:
-        if not save_attestation_csv(args.csv, not args.overwrite, not args.keep,
-                                    dev_uuid, attest_tok):
+        if not save_attestation_csv(args.csv, not args.overwrite, dev_uuid, attest_tok):
             error_exit('Attestation token was not saved')
 
     logger.debug('Done.')

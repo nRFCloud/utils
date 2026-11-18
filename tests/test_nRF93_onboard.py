@@ -128,13 +128,23 @@ class TestSaveRegistrationJwtCsv:
         assert csv_file.read_text() == (
             f"deviceId,onboardingToken\n{TEST_UUID},jwt-1\n{OTHER_UUID},jwt-2\n")
 
-    def test_replaces_token_of_known_device(self, tmp_path):
+    def test_appends_to_existing_file(self, tmp_path):
         csv_file = tmp_path / "devices.csv"
         # as edited by hand: no newline at the end of the file
-        csv_file.write_text(f"deviceId,onboardingToken\n{TEST_UUID},old\n{OTHER_UUID},jwt-2")
+        content = f"deviceId,onboardingToken\n{TEST_UUID},old\n{OTHER_UUID},jwt-2"
+        csv_file.write_text(content)
+        # a device that is already in the file gets another row
         assert nrf93_onboard.save_registration_jwt_csv(str(csv_file), TEST_UUID, "new")
-        assert csv_file.read_text() == (
-            f"deviceId,onboardingToken\n{OTHER_UUID},jwt-2\n{TEST_UUID},new\n")
+        assert csv_file.read_text() == content + f"\n{TEST_UUID},new\n"
+
+    def test_failed_write_keeps_collected_devices(self, tmp_path):
+        csv_file = tmp_path / "devices.csv"
+        content = f"deviceId,onboardingToken\n{OTHER_UUID},jwt-2\n"
+        csv_file.write_text(content)
+        with patch("nrfcloud_utils.cli_helpers.csv.writer") as mock_writer:
+            mock_writer.return_value.writerow.side_effect = OSError("No space left on device")
+            assert not nrf93_onboard.save_registration_jwt_csv(str(csv_file), TEST_UUID, "jwt-1")
+        assert csv_file.read_text() == content
 
     def test_rejects_other_csv(self, tmp_path):
         csv_file = tmp_path / "onboard.csv"
@@ -149,9 +159,7 @@ class TestSaveRegistrationJwtCsv:
         csv_file.write_text(content)
         with patch("nrfcloud_utils.cli_helpers.MAX_CSV_ROWS", 1):
             assert not nrf93_onboard.save_registration_jwt_csv(str(csv_file), TEST_UUID, "jwt-1")
-            # a device that is already in the file can still get a new token
-            assert nrf93_onboard.save_registration_jwt_csv(str(csv_file), OTHER_UUID, "new")
-        assert csv_file.read_text() == f"deviceId,onboardingToken\n{OTHER_UUID},new\n"
+        assert csv_file.read_text() == content
 
 
 # ---------------------------------------------------------------------------

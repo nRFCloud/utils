@@ -197,7 +197,7 @@ def gen_registration_jwt(cred_if, tenant_id):
     return jwt_str
 
 def save_registration_jwt_csv(csv_filename, dev_id, registration_jwt):
-    """Add the device to a CSV for `nrfcloud device create`, replacing its row if it has one."""
+    """Append the device to a CSV for `nrfcloud device create`."""
     return save_device_create_csv(csv_filename, 'onboardingToken', dev_id, registration_jwt)
 
 def onboard_device(org_token, org, project, onboarding_token):
