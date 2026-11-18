@@ -1145,14 +1145,14 @@ files = [
 
 [[package]]
 name = "nrfcredstore"
-version = "3.0.0"
+version = "3.1.0"
 description = "Manage credentials stored in Nordic Semiconductor modems."
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "nrfcredstore-3.0.0-py3-none-any.whl", hash = "sha256:bb5e5cb90a8a88fc98e235c786f5ed549b0d9bfcddaf908abb1bb3fe5d6280b2"},
-    {file = "nrfcredstore-3.0.0.tar.gz", hash = "sha256:922af17c27287d58c1e36b7ee17b58116b9234b5a95f337bf753df6970c93716"},
+    {file = "nrfcredstore-3.1.0-py3-none-any.whl", hash = "sha256:57de29aacc9b6f99abfff275b734dcbeac648536c91ac9d3964e57fd42061682"},
+    {file = "nrfcredstore-3.1.0.tar.gz", hash = "sha256:fcee49123820afd0a081a80f84b5f2fcc66f2b57e5ba4a7e5db655d05d4463f0"},
 ]
 
 [package.dependencies]
@@ -2072,4 +2072,4 @@ rtt = ["nrfcredstore"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "faa7bd3dc393f2cb256cfe14dfbe0a2ad7c0dd155533e9ea09274780da0864b9"
+content-hash = "aae7afb28f915180d82b660108ffe52dc79e8e153518821324d2f9a628252d32"

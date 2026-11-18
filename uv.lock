@@ -1067,7 +1067,7 @@ requires-dist = [
     { name = "cffi", specifier = ">=2.0.0" },
     { name = "cryptography", specifier = ">=49.0.0" },
     { name = "idna", specifier = ">=3.15" },
-    { name = "nrfcredstore", specifier = ">=3.0.0" },
+    { name = "nrfcredstore", specifier = ">=3.1.0" },
     { name = "nrfcredstore", extras = ["rtt"], marker = "extra == 'rtt'", specifier = ">=3.0.0" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "semver", specifier = ">=3.0.0" },
@@ -1087,16 +1087,16 @@ dev = [
 
 [[package]]
 name = "nrfcredstore"
-version = "3.0.0"
+version = "3.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coloredlogs" },
     { name = "inquirer" },
     { name = "pyserial" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1a/27/8d9a1881c69e562066c912a5833ee50788ebe2604805f31d6a2bbfe7e7ad/nrfcredstore-3.0.0.tar.gz", hash = "sha256:922af17c27287d58c1e36b7ee17b58116b9234b5a95f337bf753df6970c93716", size = 18171, upload-time = "2026-11-18T11:22:40.091Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/dc/1c5f85d7db12a606fc72cef4a27a4e327ad56e3aaa07a804ebf8cfaeaa92/nrfcredstore-3.1.0.tar.gz", hash = "sha256:fcee49123820afd0a081a80f84b5f2fcc66f2b57e5ba4a7e5db655d05d4463f0", size = 18186, upload-time = "2026-11-18T13:04:18.409Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/a5/8a8b952a53749a5e76e60fe08c864a587dec200c8265289f18336d0208d7/nrfcredstore-3.0.0-py3-none-any.whl", hash = "sha256:bb5e5cb90a8a88fc98e235c786f5ed549b0d9bfcddaf908abb1bb3fe5d6280b2", size = 19505, upload-time = "2026-11-18T11:22:39.015Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/18/b885e32ec051b0fe535eb9c954eef03a8f841806688c27236026aaaaff18/nrfcredstore-3.1.0-py3-none-any.whl", hash = "sha256:57de29aacc9b6f99abfff275b734dcbeac648536c91ac9d3964e57fd42061682", size = 19519, upload-time = "2026-11-18T13:04:17.327Z" },
 ]
 
 [package.optional-dependencies]
