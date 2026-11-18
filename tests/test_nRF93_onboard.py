@@ -301,6 +301,15 @@ class TestMainExitCodes:
             _run_main_with_patches(patches)
         assert exc.value.code == 1
 
+    def test_port_is_optional(self):
+        # without --port, Comms selects the connected board
+        patches = _base_patches()
+        with patch.multiple(MODULE, **patches):
+            patches["ATCommandInterface"].return_value.at_command.return_value = True
+            nrf93_onboard.main("--org-token test-oat --org my-org".split())
+        assert patches["Comms"].call_args.kwargs["port"] is None
+        patches["onboard_device"].assert_called_once()
+
     def test_device_not_responsive_exit_1(self):
         patches = _base_patches()
         patches["ATCommandInterface"].return_value.at_command.return_value = False

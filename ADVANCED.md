@@ -174,17 +174,19 @@ The script authenticates with an organization auth token (OAT) that has the `dev
 
 Devices are onboarded without tags or a subtype and start in the default cohort.
 
+The script finds a connected nRF93M1 DK and its AT command port automatically. If several Nordic boards are connected, it asks which one to use. Use the `--port` option to select the serial port yourself, for example `--port /dev/ttyACM0`. This is required for custom hardware that is not detected as a Nordic board.
+
 ### Example
 ```
 export MEMFAULT_ORG_TOKEN=<your OAT>
-nrf93_onboard --port /dev/ttyACM0 --org my-org
+nrf93_onboard --org my-org
 ```
 
 ### Setting a nickname
 
 Use the `--nickname` option to give the device a nickname of at most 128 characters once it is onboarded:
 ```
-nrf93_onboard --port /dev/ttyACM0 --org my-org --nickname "Lab bench 3"
+nrf93_onboard --org my-org --nickname "Lab bench 3"
 ```
 The script waits up to 30 seconds for the new device to appear in the project. If setting the nickname fails, the device is still onboarded and the script exits with status 8.
 
@@ -201,13 +203,13 @@ Run the script once for each device with the same file to collect up to 1000 dev
 
 The registration JWT is generated for the nRF Cloud tenant ID (team ID) of your organization. Pass it with `--tenant-id` to collect registration JWTs offline, without an OAT:
 ```
-nrf93_onboard --port /dev/ttyACM0 --csv devices.csv --tenant-id <tenant_id>
+nrf93_onboard --csv devices.csv --tenant-id <tenant_id>
 ```
 The tenant ID is part of the `AT%REGJWT` command that the **Add devices** wizard in nRF Cloud shows for the nRF93M1. A registration JWT generated with the wrong tenant ID is only rejected when the device is onboarded.
 
 Without `--tenant-id`, the script looks the tenant ID up, which requires network access, the OAT and the organization slug:
 ```
-nrf93_onboard --port /dev/ttyACM0 --org my-org --csv devices.csv
+nrf93_onboard --org my-org --csv devices.csv
 ```
 
 Then onboard all collected devices as described in [nRF Cloud device onboarding](#nrf-cloud-device-onboarding):
