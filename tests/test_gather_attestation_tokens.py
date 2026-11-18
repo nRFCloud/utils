@@ -53,18 +53,12 @@ class TestGatherAttestationTokens:
         _gather(csv_file)
         assert csv_file.read_text() == CSV_HEADER + f"{TEST_UUID},{TEST_TOKEN}\n"
 
-    def test_replaces_token_of_known_device(self, tmp_path):
+    def test_appends_to_existing_file(self, tmp_path):
         csv_file = tmp_path / "tokens.csv"
-        csv_file.write_text(CSV_HEADER + f"{TEST_UUID},old-token\n" + OTHER_ROW)
-        _gather(csv_file)
-        assert csv_file.read_text() == CSV_HEADER + OTHER_ROW + f"{TEST_UUID},{TEST_TOKEN}\n"
-
-    def test_keep(self, tmp_path):
-        csv_file = tmp_path / "tokens.csv"
-        content = CSV_HEADER + f"{TEST_UUID},old-token\n" + OTHER_ROW
+        content = CSV_HEADER + OTHER_ROW
         csv_file.write_text(content)
-        _gather(csv_file, "--keep")
-        assert csv_file.read_text() == content
+        _gather(csv_file)
+        assert csv_file.read_text() == content + f"{TEST_UUID},{TEST_TOKEN}\n"
 
     def test_rejects_file_from_earlier_version(self, tmp_path):
         # earlier versions wrote imei,uuid,token,timestamp rows without a header row

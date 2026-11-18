@@ -197,7 +197,7 @@ With the `--csv` option, the script does not onboard the device. Instead, it sav
 deviceId,onboardingToken
 <device_uuid>,<registration_jwt>
 ```
-Run the script once for each device with the same file to collect up to 1000 devices. A device that is already in the file gets its row replaced with the new registration JWT.
+Run the script once for each device with the same file to collect up to 1000 devices. Each run appends a row and leaves the existing rows as they are. The script does not check whether the device is already in the file: running it again for the same device adds a second row, so remove the older row before onboarding.
 
 The registration JWT is generated for the nRF Cloud tenant ID (team ID) of your organization. Pass it with `--tenant-id` to collect registration JWTs offline, without an OAT:
 ```
@@ -445,10 +445,7 @@ The collected data is saved to a CSV file that `nrfcloud device create` accepts:
 deviceId,attestationToken
 <device_uuid>,<attestation_token>
 ```
-By default, the file is named `attestation_tokens.csv`. If the file already exists, the script will:
-
-- Append new entries if the UUID is not already present.
-- Replace the row with updated information if the UUID is already in the file. Use the `--keep` option to keep the existing row instead.
+By default, the file is named `attestation_tokens.csv`. If the file already exists, the script appends a row and leaves the existing rows as they are. It does not check whether the UUID is already in the file: running it again for the same device adds a second row, so remove the older row before onboarding. Use the `--overwrite` option to start a new file instead.
 
 A file holds up to 1000 devices, the most that `nrfcloud device create` accepts at once.
 
