@@ -7,30 +7,20 @@ import argparse
 import sys
 
 from nrfcloud_utils import (
-    claim_and_provision_device,
-    claim_devices,
     create_ca_cert,
     create_device_credentials,
-    create_proxy_jwt,
     device_credentials_installer,
     gather_attestation_tokens,
     modem_credentials_parser,
-    nrf_cloud_device_mgmt,
-    nrf_cloud_onboard,
     nrf93_onboard,
 )
 
 _MODULES = {
-    "claim_and_provision_device": claim_and_provision_device,
-    "claim_devices": claim_devices,
     "create_ca_cert": create_ca_cert,
     "create_device_credentials": create_device_credentials,
-    "create_proxy_jwt": create_proxy_jwt,
     "device_credentials_installer": device_credentials_installer,
     "gather_attestation_tokens": gather_attestation_tokens,
     "modem_credentials_parser": modem_credentials_parser,
-    "nrf_cloud_device_mgmt": nrf_cloud_device_mgmt,
-    "nrf_cloud_onboard": nrf_cloud_onboard,
     "nrf93_onboard": nrf93_onboard,
 }
 

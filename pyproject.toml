@@ -20,8 +20,6 @@ dependencies = [
     "idna>=3.15",
     "urllib3>=2.7.0",
     "semver>=3.0.0",
-    "pyjwt>=2.13.0",
-    "inquirer>=3.4.0",
     "nrfcredstore>=2.1.0",
 ]
 
@@ -30,16 +28,11 @@ repository = "https://github.com/nRFCloud/utils"
 
 [project.scripts]
 nrfcloud-utils = "nrfcloud_utils.cli:run"
-claim_and_provision_device = "nrfcloud_utils.claim_and_provision_device:run"
-claim_devices = "nrfcloud_utils.claim_devices:run"
 create_ca_cert = "nrfcloud_utils.create_ca_cert:run"
 create_device_credentials = "nrfcloud_utils.create_device_credentials:run"
-create_proxy_jwt = "nrfcloud_utils.create_proxy_jwt:run"
 device_credentials_installer = "nrfcloud_utils.device_credentials_installer:run"
 gather_attestation_tokens = "nrfcloud_utils.gather_attestation_tokens:run"
 modem_credentials_parser = "nrfcloud_utils.modem_credentials_parser:run"
-nrf_cloud_device_mgmt = "nrfcloud_utils.nrf_cloud_device_mgmt:run"
-nrf_cloud_onboard = "nrfcloud_utils.nrf_cloud_onboard:run"
 nrf93_onboard = "nrfcloud_utils.nrf93_onboard:run"
 
 [dependency-groups]
