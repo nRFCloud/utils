@@ -14,6 +14,7 @@ from nrfcloud_utils import (
     modem_credentials_parser,
     nrf93_onboard,
 )
+from nrfcloud_utils.removed import REMOVED_COMMANDS
 
 _MODULES = {
     "create_ca_cert": create_ca_cert,
@@ -31,7 +32,7 @@ def _build_parser():
         description="Scripts and utilities for working with nRF Cloud",
     )
     subparsers = parser.add_subparsers(dest="command", metavar="command", required=False)
-    for name, mod in _MODULES.items():
+    for name, mod in {**_MODULES, **REMOVED_COMMANDS}.items():
         _p = mod.get_parser()
         subparsers.add_parser(
             name,
@@ -44,6 +45,11 @@ def _build_parser():
 
 
 def run():
+    # Removed commands print what to use instead. Handle them before parsing, so that the
+    # arguments they used to take don't cause a usage error.
+    if len(sys.argv) > 1 and sys.argv[1] in REMOVED_COMMANDS:
+        REMOVED_COMMANDS[sys.argv[1]].main(sys.argv[2:])
+
     parser = _build_parser()
     # parse_args() handles --help at both levels and validates the subcommand name
     # and its args (using each module's get_parser() for the subparser definition).
