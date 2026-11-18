@@ -21,9 +21,9 @@ See also the official [nRF Cloud documentation](https://docs.nordicsemi.com/bund
 
 ## Install
 
-Run the following command to use this package as a dependency:
+Run the following command to use this package. Install memfault-cli too, as it is needed for most onboarding operations.
 
-    pip3 install nrfcloud-utils
+    pip3 install nrfcloud-utils memfault-cli
 
 To use the `--rtt` option of `device_credentials_installer` and `gather_attestation_tokens`, install the `rtt` extra, which adds `pynrfjprog`:
 
@@ -32,7 +32,7 @@ To use the `--rtt` option of `device_credentials_installer` and `gather_attestat
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. To onboard devices, install the [Memfault CLI](https://pypi.org/project/memfault-cli/) (`pip3 install memfault-cli`, version 1.12.0 or later) and create an **organization auth token (OAT)** with the `device:write` permission, under **Admin** > **Organization Auth Tokens** in the nRF Cloud app. See [nRF Cloud device onboarding](ADVANCED.md#nrf-cloud-device-onboarding).
+2. To onboard devices, create an **organization auth token (OAT)** with the `device:write` permission, under **Admin** > **Organization Auth Tokens** in the nRF Cloud app. See [nRF Cloud device onboarding](ADVANCED.md#nrf-cloud-device-onboarding).
 
     The `nrf93_onboard` script uses an OAT too. See [nRF93M1 device onboarding](ADVANCED.md#nrf93m1-device-onboarding).
 
@@ -65,11 +65,6 @@ To get your device registered, use the `device_credentials_installer` script. Be
 #### UUID
 ```
 device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap
-```
-
-#### nrf-\<IMEI\>
-```
-device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-imei --id-str nrf- --coap
 ```
 
 #### Device without a modem, key generated on the device (for example, nRF71 Series or nRF70 Series with Wi-Fi)
