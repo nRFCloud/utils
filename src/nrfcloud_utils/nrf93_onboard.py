@@ -126,8 +126,10 @@ def parse_args(in_args):
         required.append(('--project', args.project))
     missing = [n for n, v in required if not v]
     if missing:
-        hint = ' (not needed with --tenant-id)' if args.csv else ''
-        parser.error('missing required argument(s): ' + ', '.join(missing) + hint)
+        message = 'missing required argument(s): ' + ', '.join(missing)
+        if args.csv:
+            message += '; they are required to look up the tenant ID unless you pass --tenant-id'
+        parser.error(message)
 
     # Setup logging
     if hasattr(args, 'log_level'):
