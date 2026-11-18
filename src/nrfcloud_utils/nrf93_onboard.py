@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-import csv
 import os
 import sys
 import logging
@@ -13,14 +12,12 @@ import requests
 import coloredlogs
 from nrfcredstore.comms import Comms
 from nrfcredstore.command_interface import ATCommandInterface
-from nrfcloud_utils.cli_helpers import USER_AGENT, MAX_CSV_ROWS
+from nrfcloud_utils.cli_helpers import USER_AGENT, save_device_create_csv
 
 logger = logging.getLogger(__name__)
 
 API_URL = 'https://api.nrfcloud.com/v1/'
 MEMFAULT_API_URL = 'https://api.memfault.com/api/v0/'
-# Header row of the CSV that `nrfcloud device create` accepts for registration JWTs
-CSV_HEADER = ['deviceId', 'onboardingToken']
 
 def get_nrf93m1_uuid(cred_if):
     """Get or create device UUID for nRF93M1."""
@@ -186,44 +183,7 @@ def gen_registration_jwt(cred_if, tenant_id):
 
 def save_registration_jwt_csv(csv_filename, dev_id, registration_jwt):
     """Add the device to a CSV for `nrfcloud device create`, replacing its row if it has one."""
-    rows = []
-    if os.path.isfile(csv_filename):
-        try:
-            with open(csv_filename, newline='', encoding='utf-8-sig') as csvfile:
-                rows = [row for row in csv.reader(csvfile) if any(cell.strip() for cell in row)]
-        except OSError as e:
-            logger.error(f'Error reading file {csv_filename}: {e}')
-            return False
-
-    if rows:
-        if [cell.strip() for cell in rows[0]] != CSV_HEADER:
-            logger.error(f'{csv_filename} does not start with the header row {",".join(CSV_HEADER)}')
-            return False
-
-        devices = [row for row in rows[1:] if row[0].strip() != dev_id]
-        if len(devices) < len(rows) - 1:
-            logger.warning(f'Replacing the registration JWT of device {dev_id} in {csv_filename}')
-    else:
-        devices = []
-
-    if len(devices) >= MAX_CSV_ROWS:
-        logger.error(f'{csv_filename} is full; `nrfcloud device create` accepts '
-                     f'at most {MAX_CSV_ROWS} devices per file')
-        return False
-
-    devices.append([dev_id, registration_jwt])
-
-    try:
-        with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
-            csv_writer = csv.writer(csvfile, lineterminator='\n')
-            csv_writer.writerow(CSV_HEADER)
-            csv_writer.writerows(devices)
-    except OSError as e:
-        logger.error(f'Error writing file {csv_filename}: {e}')
-        return False
-
-    logger.info(f'Registration JWT CSV file {csv_filename} saved, device count: {len(devices)}')
-    return True
+    return save_device_create_csv(csv_filename, 'onboardingToken', dev_id, registration_jwt)
 
 def onboard_device(org_token, org, project, onboarding_token):
     hdr = {

@@ -67,8 +67,8 @@ REMOVED_COMMANDS = {
             message=_ONBOARD_INSTEAD
             + """
 
-`gather_attestation_tokens` writes rows without a header. Add a `deviceId,attestationToken`
-header row before passing the file to `device create`; the guide above shows how.""",
+`gather_attestation_tokens` writes a CSV in this format, with the device UUID as the device ID. Pass
+`--csv attestation_tokens.csv` to `device create` instead of `onboard.csv`.""",
         ),
         RemovedCommand(
             name="claim_and_provision_device",
