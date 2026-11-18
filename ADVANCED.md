@@ -180,6 +180,16 @@ export MEMFAULT_ORG_TOKEN=<your OAT>
 nrf93_onboard --port /dev/ttyACM0 --org my-org
 ```
 
+### Setting a nickname
+
+Use the `--nickname` option to give the device a nickname of at most 128 characters once it is onboarded:
+```
+nrf93_onboard --port /dev/ttyACM0 --org my-org --nickname "Lab bench 3"
+```
+The script waits up to 30 seconds for the new device to appear in the project. If setting the nickname fails, the device is still onboarded and the script exits with status 8.
+
+`--nickname` cannot be combined with `--csv`, because that option does not onboard the device.
+
 ### Collecting registration JWTs for bulk onboarding
 
 With the `--csv` option, the script does not onboard the device. Instead, it saves the device UUID and the registration JWT to a CSV file that `nrfcloud device create` accepts:
