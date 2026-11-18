@@ -143,7 +143,7 @@ The `subType`, `tags` and `fwTypes` columns of `onboard.csv` have no equivalent 
 | --- | --- |
 | `certificate` | Device certificate PEM |
 | `attestationToken` | Identity attestation token (nRF9151, nRF9161) |
-| `onboardingToken` | Onboarding token |
+| `onboardingToken` | Onboarding token, such as the registration JWT of an nRF93M1 (see [nRF93M1 device onboarding](#nrf93m1-device-onboarding)) |
 
 `gather_attestation_tokens` writes rows of `imei,uuid,attestation_token,timestamp` without a header row. Convert them before onboarding, using the column that matches the device ID your firmware uses (the UUID here):
 ```
@@ -177,6 +177,31 @@ Devices are onboarded without tags or a subtype and start in the default cohort.
 ```
 export MEMFAULT_ORG_TOKEN=<your OAT>
 nrf93_onboard --port /dev/ttyACM0 --org my-org
+```
+
+### Collecting registration JWTs for bulk onboarding
+
+With the `--csv` option, the script does not onboard the device. Instead, it saves the device UUID and the registration JWT to a CSV file that `nrfcloud device create` accepts:
+```
+deviceId,onboardingToken
+<device_uuid>,<registration_jwt>
+```
+Run the script once for each device with the same file to collect up to 1000 devices. A device that is already in the file gets its row replaced with the new registration JWT.
+
+The registration JWT is generated for the nRF Cloud tenant ID (team ID) of your organization. Pass it with `--tenant-id` to collect registration JWTs offline, without an OAT:
+```
+nrf93_onboard --port /dev/ttyACM0 --csv devices.csv --tenant-id <tenant_id>
+```
+The tenant ID is part of the `AT%REGJWT` command that the **Add devices** wizard in nRF Cloud shows for the nRF93M1. A registration JWT generated with the wrong tenant ID is only rejected when the device is onboarded.
+
+Without `--tenant-id`, the script looks the tenant ID up, which requires network access, the OAT and the organization slug:
+```
+nrf93_onboard --port /dev/ttyACM0 --org my-org --csv devices.csv
+```
+
+Then onboard all collected devices as described in [nRF Cloud device onboarding](#nrf-cloud-device-onboarding):
+```
+nrfcloud --org-token $OAT --org <org> --project <project> device create --csv devices.csv
 ```
 
 ## Modem credentials parser

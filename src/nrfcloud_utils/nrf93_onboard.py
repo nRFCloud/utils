@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+import csv
 import os
 import sys
 import logging
@@ -12,12 +13,14 @@ import requests
 import coloredlogs
 from nrfcredstore.comms import Comms
 from nrfcredstore.command_interface import ATCommandInterface
-from nrfcloud_utils.cli_helpers import USER_AGENT
+from nrfcloud_utils.cli_helpers import USER_AGENT, MAX_CSV_ROWS
 
 logger = logging.getLogger(__name__)
 
 API_URL = 'https://api.nrfcloud.com/v1/'
 MEMFAULT_API_URL = 'https://api.memfault.com/api/v0/'
+# Header row of the CSV that `nrfcloud device create` accepts for registration JWTs
+CSV_HEADER = ['deviceId', 'onboardingToken']
 
 def get_nrf93m1_uuid(cred_if):
     """Get or create device UUID for nRF93M1."""
@@ -98,6 +101,14 @@ def get_parser():
                         help="Organization slug [env: MEMFAULT_ORG]")
     parser.add_argument("--project", type=str, default=os.environ.get("MEMFAULT_PROJECT", "nrf-project"),
                         help="Project slug [env: MEMFAULT_PROJECT]")
+    parser.add_argument("--csv", type=str, default=None,
+                        help="Instead of onboarding the device, save its device ID and registration JWT "
+                             "to this CSV file for `nrfcloud device create`. The device is added to "
+                             "an existing file")
+    parser.add_argument("--tenant-id", type=str, default=None,
+                        help="nRF Cloud tenant ID (team ID) of your organization, to use instead of "
+                             "looking it up with the OAT. With --csv, the script then works offline "
+                             "and needs no OAT")
     parser.add_argument('--log-level', default='info',
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level')
@@ -107,10 +118,16 @@ def parse_args(in_args):
     _p = get_parser()
     parser = argparse.ArgumentParser(parents=[_p], description=_p.description, formatter_class=_p.formatter_class)
     args = parser.parse_args(in_args)
-    missing = [n for n, v in (('--org-token', args.org_token), ('--org', args.org),
-                              ('--project', args.project)) if not v]
+    # The OAT is used to look up the tenant ID and to onboard the device
+    required = []
+    if not (args.csv and args.tenant_id):
+        required += [('--org-token', args.org_token), ('--org', args.org)]
+    if not args.csv:
+        required.append(('--project', args.project))
+    missing = [n for n, v in required if not v]
     if missing:
-        parser.error('missing required argument(s): ' + ', '.join(missing))
+        hint = ' (not needed with --tenant-id)' if args.csv else ''
+        parser.error('missing required argument(s): ' + ', '.join(missing) + hint)
 
     # Setup logging
     if hasattr(args, 'log_level'):
@@ -164,6 +181,47 @@ def gen_registration_jwt(cred_if, tenant_id):
 
     logger.debug('Retrieved registration JWT from device')
     return jwt_str
+
+def save_registration_jwt_csv(csv_filename, dev_id, registration_jwt):
+    """Add the device to a CSV for `nrfcloud device create`, replacing its row if it has one."""
+    rows = []
+    if os.path.isfile(csv_filename):
+        try:
+            with open(csv_filename, newline='', encoding='utf-8-sig') as csvfile:
+                rows = [row for row in csv.reader(csvfile) if any(cell.strip() for cell in row)]
+        except OSError as e:
+            logger.error(f'Error reading file {csv_filename}: {e}')
+            return False
+
+    if rows:
+        if [cell.strip() for cell in rows[0]] != CSV_HEADER:
+            logger.error(f'{csv_filename} does not start with the header row {",".join(CSV_HEADER)}')
+            return False
+
+        devices = [row for row in rows[1:] if row[0].strip() != dev_id]
+        if len(devices) < len(rows) - 1:
+            logger.warning(f'Replacing the registration JWT of device {dev_id} in {csv_filename}')
+    else:
+        devices = []
+
+    if len(devices) >= MAX_CSV_ROWS:
+        logger.error(f'{csv_filename} is full; `nrfcloud device create` accepts '
+                     f'at most {MAX_CSV_ROWS} devices per file')
+        return False
+
+    devices.append([dev_id, registration_jwt])
+
+    try:
+        with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+            csv_writer = csv.writer(csvfile, lineterminator='\n')
+            csv_writer.writerow(CSV_HEADER)
+            csv_writer.writerows(devices)
+    except OSError as e:
+        logger.error(f'Error writing file {csv_filename}: {e}')
+        return False
+
+    logger.info(f'Registration JWT CSV file {csv_filename} saved, device count: {len(devices)}')
+    return True
 
 def onboard_device(org_token, org, project, onboarding_token):
     hdr = {
@@ -224,13 +282,16 @@ def main(in_args):
             sys.exit(3)
         logger.info('[OK] Device identity key')
 
-        # Query the tenant ID (nRF Cloud team ID) of the organization using the OAT.
-        logger.info('Retrieving tenant ID from organization...')
-        tenant_id = fetch_tenant_id(args.org_token, args.org)
-        if not tenant_id:
-            logger.error('[Failed] Tenant ID')
-            sys.exit(4)
-        logger.info(f'[OK] Tenant ID')
+        if args.tenant_id:
+            tenant_id = args.tenant_id
+        else:
+            # Query the tenant ID (nRF Cloud team ID) of the organization using the OAT.
+            logger.info('Retrieving tenant ID from organization...')
+            tenant_id = fetch_tenant_id(args.org_token, args.org)
+            if not tenant_id:
+                logger.error('[Failed] Tenant ID')
+                sys.exit(4)
+            logger.info(f'[OK] Tenant ID')
 
         # Generate the registration JWT on the device using the tenantId
         logger.info('Generating registration JWT...')
@@ -239,6 +300,15 @@ def main(in_args):
             logger.error('[Failed] Registration JWT')
             sys.exit(5)
         logger.info('[OK] Registration JWT')
+
+        if args.csv:
+            # Collect the registration JWT; the devices are onboarded later, in bulk
+            logger.info('Saving registration JWT...')
+            if not save_registration_jwt_csv(args.csv, dev_id, registration_jwt):
+                logger.error('[Failed] Registration JWT CSV')
+                sys.exit(7)
+            logger.info(f'[OK] Device not onboarded yet; run `nrfcloud device create --csv {args.csv}`')
+            return
 
         # Onboard the device
         logger.info('Onboarding device to nRF Cloud...')
