@@ -93,8 +93,9 @@ def get_parser():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=False
     )
-    parser.add_argument("--port", type=str, required=True,
-                        help="Serial port for the nRF93M1 device (e.g., /dev/ttyACM0 or COM3)")
+    parser.add_argument("--port", type=str, default=None,
+                        help="Serial port for the nRF93M1 device (e.g., /dev/ttyACM0 or COM3). "
+                             "If not given, a connected nRF93M1 DK is detected automatically")
     parser.add_argument("--baudrate", type=int, help="Serial baudrate", default=115200)
     parser.add_argument("--org-token", type=str,
                         default=os.environ.get("MEMFAULT_ORG_TOKEN"),
@@ -242,9 +243,12 @@ def main(in_args):
     args = parse_args(in_args)
 
     logger.info('nRF93M1 - Onboard Device using Registration token JWT')
-    logger.info(f'Connecting to device on {args.port}...')
+    if args.port:
+        logger.info(f'Connecting to device on {args.port}...')
+    else:
+        logger.info('Detecting device...')
 
-    # Initialize serial communication
+    # Initialize serial communication; without a port, a connected Nordic board is selected
     try:
         serial_interface = Comms(
             port=args.port,
@@ -252,7 +256,12 @@ def main(in_args):
         )
     except Exception as e:
         logger.error(f'Failed to open serial port: {e}')
+        if not args.port:
+            logger.error('Connect an nRF93M1 DK, or specify the serial port with --port')
         sys.exit(1)
+
+    if not args.port:
+        logger.info(f'Using device on {serial_interface.serial_api.port}')
 
     # Create AT command interface
     cred_if = ATCommandInterface(serial_interface)
