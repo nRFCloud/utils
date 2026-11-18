@@ -9,8 +9,9 @@ import csv
 import argparse
 from nrfcloud_utils import modem_credentials_parser
 from nrfcloud_utils.cli_helpers import setup_logging
-from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, parser_add_comms_args
+from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, RTT_UNAVAILABLE_MSG, parser_add_comms_args
 from nrfcredstore.comms import Comms
+from nrfcredstore.exceptions import RTTUnavailableError
 from nrfcredstore.command_interface import ATCommandInterface
 from datetime import datetime, timezone
 import logging
@@ -156,17 +157,20 @@ def main(in_args):
         logger.error('Attestation tokens are only supported on devices with AT command support')
         sys.exit(1)
 
-    serial_interface = Comms(
-        port=args.port,
-        serial=args.serial_number,
-        baudrate=args.baud,
-        xonxoff=args.xonxoff,
-        rtscts=not args.rtscts_off,
-        dsrdtr=args.dsrdtr,
-        line_ending=CMD_TERM_DICT[args.term],
-        list_all=args.all,
-        rtt=args.rtt,
-    )
+    try:
+        serial_interface = Comms(
+            port=args.port,
+            serial=args.serial_number,
+            baudrate=args.baud,
+            xonxoff=args.xonxoff,
+            rtscts=not args.rtscts_off,
+            dsrdtr=args.dsrdtr,
+            line_ending=CMD_TERM_DICT[args.term],
+            list_all=args.all,
+            rtt=args.rtt,
+        )
+    except RTTUnavailableError:
+        error_exit(RTT_UNAVAILABLE_MSG)
 
     cred_if = None
     cred_if = ATCommandInterface(serial_interface)

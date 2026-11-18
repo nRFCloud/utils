@@ -6,7 +6,9 @@ from unittest.mock import patch, Mock
 from nrfcloud_utils import gather_attestation_tokens
 from tempfile import TemporaryDirectory
 import os
+import sys
 import datetime
+import pytest
 from collections import namedtuple
 
 TEST_ATTESTTOKEN = [b"OK\r\n", b"%ATTESTTOKEN: \"2dn3hQFQUDYxVDkxRPCAIhIbZAFifQNQGv86y_GmR2SiY0wmRsHGVFDT791_BPH8YOWFiyCHND1q.0oRDoQEmoQRBIfZYQGuXwJliinHc6xDPruiyjsaXyXZbZVpUuOhHG9YS8L05VuglCcJhMN4EUhWVGpaHgNnHHno6ahi-d5tOeZmAcNY\"\r\n"]
@@ -55,6 +57,13 @@ class TestGatherAttestationTokens:
                 assert imei == "355025930000000"
                 assert uuid == "50363154-3931-44f0-8022-121b6401627d"
                 assert datetime.datetime.fromisoformat(readout_time).date() == datetime.datetime.now().date()
+
+    def test_rtt_without_pynrfjprog(self, caplog):
+        # pynrfjprog is only installed with the 'rtt' extra
+        with patch.dict(sys.modules, {"pynrfjprog": None}), pytest.raises(SystemExit) as e:
+            gather_attestation_tokens.main("--rtt --cmd-type at".split())
+        assert e.value.code == 1
+        assert 'pip install "nrfcloud-utils[rtt]"' in caplog.text
 
 
 

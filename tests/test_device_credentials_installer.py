@@ -6,6 +6,7 @@ from unittest.mock import patch, Mock
 from nrfcloud_utils import device_credentials_installer
 from tempfile import TemporaryDirectory
 import os
+import sys
 import base64
 import hashlib
 import pytest
@@ -122,6 +123,14 @@ class TestDeviceCredentialsInstaller:
             assert device_id == dev_id
             assert cert_pem.startswith("-----BEGIN CERTIFICATE-----")
             assert cert_pem.endswith("-----END CERTIFICATE-----")
+
+
+def test_rtt_without_pynrfjprog(caplog):
+    # pynrfjprog is only installed with the 'rtt' extra
+    with patch.dict(sys.modules, {"pynrfjprog": None}), pytest.raises(SystemExit) as e:
+        device_credentials_installer.main("--rtt --cmd-type at".split())
+    assert e.value.code == 1
+    assert 'pip install "nrfcloud-utils[rtt]"' in caplog.text
 
 
 # --- nrf_cloud_cred_shell command type ---------------------------------------

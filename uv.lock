@@ -1046,6 +1046,11 @@ dependencies = [
     { name = "urllib3" },
 ]
 
+[package.optional-dependencies]
+rtt = [
+    { name = "nrfcredstore", extra = ["rtt"] },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "dulwich" },
@@ -1062,11 +1067,13 @@ requires-dist = [
     { name = "cffi", specifier = ">=2.0.0" },
     { name = "cryptography", specifier = ">=49.0.0" },
     { name = "idna", specifier = ">=3.15" },
-    { name = "nrfcredstore", specifier = ">=2.1.0" },
+    { name = "nrfcredstore", specifier = ">=3.0.0" },
+    { name = "nrfcredstore", extras = ["rtt"], marker = "extra == 'rtt'", specifier = ">=3.0.0" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "semver", specifier = ">=3.0.0" },
     { name = "urllib3", specifier = ">=2.7.0" },
 ]
+provides-extras = ["rtt"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1080,17 +1087,21 @@ dev = [
 
 [[package]]
 name = "nrfcredstore"
-version = "2.1.0"
+version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coloredlogs" },
     { name = "inquirer" },
-    { name = "pynrfjprog" },
     { name = "pyserial" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/a6/afffe11422dd395ec6e9e21987998a8e84bb7400e45ae664f16a57787c3a/nrfcredstore-2.1.0.tar.gz", hash = "sha256:4b5c72117b096dbff9c33798ef3a2e5d4046f32d2dd07cc631eb49bf00dd672b", size = 15969, upload-time = "2026-07-08T11:40:07.797Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1a/27/8d9a1881c69e562066c912a5833ee50788ebe2604805f31d6a2bbfe7e7ad/nrfcredstore-3.0.0.tar.gz", hash = "sha256:922af17c27287d58c1e36b7ee17b58116b9234b5a95f337bf753df6970c93716", size = 18171, upload-time = "2026-11-18T11:22:40.091Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/86/4e/01ded4c64344b20063a0e10be69906e310fa5d9247eac55a9b0fcbea7540/nrfcredstore-2.1.0-py3-none-any.whl", hash = "sha256:fe0fc755f3fc8fc4c731ebd25324cb8577716cce63e021ef06318ae3883ae62a", size = 17554, upload-time = "2026-07-08T11:40:06.856Z" },
+    { url = "https://files.pythonhosted.org/packages/51/a5/8a8b952a53749a5e76e60fe08c864a587dec200c8265289f18336d0208d7/nrfcredstore-3.0.0-py3-none-any.whl", hash = "sha256:bb5e5cb90a8a88fc98e235c786f5ed549b0d9bfcddaf908abb1bb3fe5d6280b2", size = 19505, upload-time = "2026-11-18T11:22:39.015Z" },
+]
+
+[package.optional-dependencies]
+rtt = [
+    { name = "pynrfjprog" },
 ]
 
 [[package]]

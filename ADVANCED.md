@@ -55,6 +55,7 @@ Depending on your device hardware and firmware application, you may need to use 
 **Note**: if only a single supported device is detected on a serial port, it will be automatically selected and used. Otherwise, the script displays a list of detected devices and gives the user a choice of which to use. By default, the scripts filter for Nordic devices. You can use the `--all` option to disable that.
 
 If the `rtt` option is specified, communication will be performed using [SEGGER's RTT](https://www.segger.com/products/debug-probes/j-link/technology/about-real-time-transfer/) interface.
+RTT support is not part of the default installation. Install it with `pip3 install "nrfcloud-utils[rtt]"`.
 To use RTT, the device must be running the [Modem Shell](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/modem_shell) sample application [built with the RTT overlay](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/samples/cellular/modem_shell/README.html#segger-rtt-support).
 
 In addition to the device specific credentials, this script will install the CA certificate(s) necessary for connecting to nRF Cloud.

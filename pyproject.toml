@@ -23,6 +23,9 @@ dependencies = [
     "nrfcredstore>=3.0.0",
 ]
 
+[project.optional-dependencies]
+rtt = ["nrfcredstore[rtt]>=3.0.0"]
+
 [project.urls]
 repository = "https://github.com/nRFCloud/utils"
 
