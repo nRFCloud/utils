@@ -225,12 +225,18 @@ def set_device_nickname(org_token, org, project, dev_id, nickname):
     req = f"{MEMFAULT_API_URL}organizations/{org}/projects/{project}/devices/{quote(dev_id, safe='')}"
 
     deadline = time.monotonic() + NICKNAME_TIMEOUT_SECS
+    response = None
     while True:
-        response = requests.patch(req, json={'nickname': nickname}, headers=hdr)
-        if response.status_code != 404 or time.monotonic() >= deadline:
+        remaining = deadline - time.monotonic()
+        if response is not None and remaining <= 0:
+            return response
+        response = requests.patch(req, json={'nickname': nickname}, headers=hdr,
+                                  timeout=max(remaining, 0.001))
+        remaining = deadline - time.monotonic()
+        if response.status_code != 404 or remaining <= 0:
             return response
         logger.debug('Device not found yet, retrying...')
-        time.sleep(NICKNAME_RETRY_SECS)
+        time.sleep(min(NICKNAME_RETRY_SECS, remaining))
 
 def main(in_args):
     args = parse_args(in_args)
@@ -315,8 +321,12 @@ def main(in_args):
 
         if args.nickname is not None:
             logger.info('Setting device nickname...')
-            nickname_response = set_device_nickname(args.org_token, args.org, args.project,
-                                                    dev_id, args.nickname)
+            try:
+                nickname_response = set_device_nickname(args.org_token, args.org, args.project,
+                                                        dev_id, args.nickname)
+            except requests.RequestException as e:
+                logger.error(f'Device is onboarded, but setting its nickname failed: {e}')
+                sys.exit(8)
             if not nickname_response.ok:
                 logger.error(f'Device is onboarded, but setting its nickname failed: '
                              f'HTTP {nickname_response.status_code} - {nickname_response.text}')

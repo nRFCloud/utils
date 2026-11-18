@@ -231,6 +231,7 @@ class TestSetDeviceNickname:
         headers = mock_patch.call_args.kwargs["headers"]
         assert headers["Authorization"] == "Bearer my-oat"
         assert headers["User-Agent"] == USER_AGENT
+        assert 0 < mock_patch.call_args.kwargs["timeout"] <= nrf93_onboard.NICKNAME_TIMEOUT_SECS
 
     @patch("nrfcloud_utils.nrf93_onboard.time.sleep")
     @patch("nrfcloud_utils.nrf93_onboard.requests.patch")
@@ -420,6 +421,14 @@ class TestMainExitCodes:
     def test_nickname_fails_exit_8(self):
         patches = _base_patches()
         patches["set_device_nickname"] = Mock(return_value=Mock(ok=False, status_code=404, text="Not found"))
+        with pytest.raises(SystemExit) as exc:
+            _run_main_with_patches(patches, ["--nickname", "my device"])
+        assert exc.value.code == 8
+
+    def test_nickname_request_error_exits_8(self):
+        patches = _base_patches()
+        patches["set_device_nickname"] = Mock(
+            side_effect=nrf93_onboard.requests.ConnectionError("Connection failed"))
         with pytest.raises(SystemExit) as exc:
             _run_main_with_patches(patches, ["--nickname", "my device"])
         assert exc.value.code == 8
