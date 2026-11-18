@@ -760,6 +760,19 @@ packaging = ">=20"
 platformdirs = ">=4.3.6"
 
 [[package]]
+name = "future"
+version = "1.0.0"
+description = "Clean single-source support for Python 3 and 2"
+optional = true
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+groups = ["main"]
+markers = "extra == \"rtt\""
+files = [
+    {file = "future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216"},
+    {file = "future-1.0.0.tar.gz", hash = "sha256:bd2968309307861edae1458a4f8a4f3598c03be43b97521076aebf5d94c07b05"},
+]
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
@@ -1145,6 +1158,7 @@ files = [
 [package.dependencies]
 coloredlogs = ">=15.0.1,<16.0.0"
 inquirer = ">=3.4.0,<4.0.0"
+pynrfjprog = {version = ">=10.23.0,<11.0.0", optional = true, markers = "extra == \"rtt\""}
 pyserial = ">=3.5,<4.0"
 
 [package.extras]
@@ -1301,6 +1315,22 @@ files = [
 
 [package.extras]
 windows-terminal = ["colorama (>=0.4.6)"]
+
+[[package]]
+name = "pynrfjprog"
+version = "10.24.2"
+description = "A simple Python interface for the nrfjprog functionality"
+optional = true
+python-versions = ">=3.7"
+groups = ["main"]
+markers = "extra == \"rtt\""
+files = [
+    {file = "pynrfjprog-10.24.2.tar.gz", hash = "sha256:0ae6d69d1a1620208422b0eb750d565c6ed7d6ed9b484000c2af0b54c9dac60e"},
+]
+
+[package.dependencies]
+future = "*"
+tomli-w = "*"
 
 [[package]]
 name = "pyproject-hooks"
@@ -1683,6 +1713,19 @@ files = [
 ]
 
 [[package]]
+name = "tomli-w"
+version = "1.2.0"
+description = "A lil' TOML writer"
+optional = true
+python-versions = ">=3.9"
+groups = ["main"]
+markers = "extra == \"rtt\""
+files = [
+    {file = "tomli_w-1.2.0-py3-none-any.whl", hash = "sha256:188306098d013b691fcadc011abd66727d3c414c571bb01b1a174ba8c983cf90"},
+    {file = "tomli_w-1.2.0.tar.gz", hash = "sha256:2dd14fac5a47c27be9cd4c976af5a12d87fb1f0b4512f81d69cce3b35ae25021"},
+]
+
+[[package]]
 name = "tomlkit"
 version = "0.14.0"
 description = "Style preserving TOML library"
@@ -2023,7 +2066,10 @@ files = [
 [package.extras]
 cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and python_version < \"3.14\"", "cffi (>=2.0.0b0) ; platform_python_implementation != \"PyPy\" and python_version >= \"3.14\""]
 
+[extras]
+rtt = ["nrfcredstore"]
+
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "9f0184b77cf25423127bd9f540eb90055a06f26b4b7480d661261c73d51cfa4f"
+content-hash = "faa7bd3dc393f2cb256cfe14dfbe0a2ad7c0dd155533e9ea09274780da0864b9"

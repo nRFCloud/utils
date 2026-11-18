@@ -25,6 +25,10 @@ Run the following command to use this package as a dependency:
 
     pip3 install nrfcloud-utils
 
+To use the `--rtt` option of `device_credentials_installer` and `gather_attestation_tokens`, install the `rtt` extra, which adds `pynrfjprog`:
+
+    pip3 install "nrfcloud-utils[rtt]"
+
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
@@ -115,6 +119,8 @@ Make sure `poetry` is in your PATH. If you're using `bash`:
 Install package dependencies, development dependencies, and the nrfcloud-utils into poetry's internal virtual environment:
 
     poetry install
+
+To include RTT support in the development environment, run `poetry install -E rtt`.
 
 ## Test
 

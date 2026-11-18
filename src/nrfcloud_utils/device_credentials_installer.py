@@ -14,9 +14,10 @@ import semver
 import logging
 from nrfcloud_utils import create_device_credentials, ca_certs, modem_credentials_parser
 from nrfcloud_utils.cli_helpers import write_file, save_devinfo_csv, save_onboarding_csv, full_encoding, setup_logging
-from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, CMD_TYPE_NRF_CLOUD_CRED_SHELL, parser_add_comms_args
+from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, CMD_TYPE_NRF_CLOUD_CRED_SHELL, RTT_UNAVAILABLE_MSG, parser_add_comms_args
 from nrfcredstore.command_interface import ATCommandInterface, TLSCredShellInterface, TLSCredKeygenShellInterface, NrfCloudCredShellInterface
 from nrfcredstore.comms import Comms
+from nrfcredstore.exceptions import RTTUnavailableError
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
@@ -234,17 +235,21 @@ def main(in_args):
 
     cmd_type_has_at = args.cmd_type in (CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_AUTO)
 
-    serial_interface = Comms(
-        port=args.port,
-        serial=args.serial_number,
-        baudrate=args.baud,
-        xonxoff=args.xonxoff,
-        rtscts=not args.rtscts_off,
-        dsrdtr=args.dsrdtr,
-        line_ending=CMD_TERM_DICT[args.term],
-        list_all=args.all,
-        rtt=args.rtt,
-    )
+    try:
+        serial_interface = Comms(
+            port=args.port,
+            serial=args.serial_number,
+            baudrate=args.baud,
+            xonxoff=args.xonxoff,
+            rtscts=not args.rtscts_off,
+            dsrdtr=args.dsrdtr,
+            line_ending=CMD_TERM_DICT[args.term],
+            list_all=args.all,
+            rtt=args.rtt,
+        )
+    except RTTUnavailableError:
+        logger.error(RTT_UNAVAILABLE_MSG)
+        sys.exit(1)
 
     cred_if = None
     if cmd_type_has_at:

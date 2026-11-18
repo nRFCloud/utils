@@ -232,6 +232,8 @@ CMD_TYPE_TLS_SHELL = "tls_cred_shell"
 CMD_TYPE_NRF_CLOUD_CRED_SHELL = "nrf_cloud_cred_shell"
 CMD_TYPE_AUTO = "auto"
 
+RTT_UNAVAILABLE_MSG = 'RTT support requires pynrfjprog. Install it with: pip install "nrfcloud-utils[rtt]"'
+
 def parser_add_comms_args(parser):
     parser.add_argument("-A", "--all",
                         help="List ports of all types, not just Nordic devices",
@@ -255,7 +257,8 @@ def parser_add_comms_args(parser):
                         help="Enable hardware (DSR/DTR) flow control for serial connection",
                         action='store_true', default=False)
     parser.add_argument("--rtt",
-                        help="Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay",
+                        help="Use RTT instead of serial. Requires device run Modem Shell sample application configured with RTT overlay, "
+                             "and the 'rtt' extra: pip install \"nrfcloud-utils[rtt]\"",
                         action='store_true', default=False)
     parser.add_argument("--cmd-type", default=CMD_TYPE_AUTO, choices=[CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, CMD_TYPE_TLS_SHELL, CMD_TYPE_NRF_CLOUD_CRED_SHELL], type=str.lower,
                     help=f"Specify the device command line type. '{CMD_TYPE_AT}' will use AT commands, '{CMD_TYPE_AT_SHELL}' will prefix AT commands with 'at ', '{CMD_TYPE_TLS_SHELL}' will use TLS Credentials Shell commands and generate the device key and CSR on-device unless a local certificate is used, and '{CMD_TYPE_NRF_CLOUD_CRED_SHELL}' (deprecated) will use the nrf_cloud_cred shell commands to generate the device key and CSR on-device.")
