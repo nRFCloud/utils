@@ -7,9 +7,11 @@
 import argparse
 import os
 import sys
+import time
 import logging
 import requests
 import coloredlogs
+from urllib.parse import quote
 from nrfcredstore.comms import Comms
 from nrfcredstore.command_interface import ATCommandInterface
 from nrfcloud_utils.cli_helpers import USER_AGENT, save_device_create_csv
@@ -18,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 API_URL = 'https://api.nrfcloud.com/v1/'
 MEMFAULT_API_URL = 'https://api.memfault.com/api/v0/'
+NICKNAME_MAX_LEN = 128
+# A newly onboarded device takes a few seconds to appear in the project
+NICKNAME_TIMEOUT_SECS = 30
+NICKNAME_RETRY_SECS = 2
 
 def get_nrf93m1_uuid(cred_if):
     """Get or create device UUID for nRF93M1."""
@@ -106,6 +112,9 @@ def get_parser():
                         help="nRF Cloud tenant ID (team ID) of your organization, to use instead of "
                              "looking it up with the OAT. With --csv, the script then works offline "
                              "and needs no OAT")
+    parser.add_argument("--nickname", type=str, default=None,
+                        help=f"Nickname to give the device in nRF Cloud once it is onboarded, at most "
+                             f"{NICKNAME_MAX_LEN} characters. Cannot be used with --csv")
     parser.add_argument('--log-level', default='info',
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level')
@@ -127,6 +136,12 @@ def parse_args(in_args):
         if args.csv:
             message += '; they are required to look up the tenant ID unless you pass --tenant-id'
         parser.error(message)
+
+    if args.nickname is not None:
+        if args.csv:
+            parser.error('--nickname cannot be used with --csv, which does not onboard the device')
+        if len(args.nickname) > NICKNAME_MAX_LEN:
+            parser.error(f'--nickname must be at most {NICKNAME_MAX_LEN} characters')
 
     # Setup logging
     if hasattr(args, 'log_level'):
@@ -199,6 +214,23 @@ def onboard_device(org_token, org, project, onboarding_token):
     payload = {'onboardingToken': onboarding_token}
 
     return requests.post(req, json=payload, headers=hdr)
+
+def set_device_nickname(org_token, org, project, dev_id, nickname):
+    hdr = {
+        'Authorization': 'Bearer ' + org_token,
+        'Accept': 'application/json',
+        'User-Agent': USER_AGENT,
+    }
+
+    req = f"{MEMFAULT_API_URL}organizations/{org}/projects/{project}/devices/{quote(dev_id, safe='')}"
+
+    deadline = time.monotonic() + NICKNAME_TIMEOUT_SECS
+    while True:
+        response = requests.patch(req, json={'nickname': nickname}, headers=hdr)
+        if response.status_code != 404 or time.monotonic() >= deadline:
+            return response
+        logger.debug('Device not found yet, retrying...')
+        time.sleep(NICKNAME_RETRY_SECS)
 
 def main(in_args):
     args = parse_args(in_args)
@@ -280,6 +312,16 @@ def main(in_args):
             logger.error(f'Failed to onboard device: HTTP {onboard_response.status_code} - {onboard_response.text}')
             sys.exit(6)
         logger.info('[OK] Device onboarded successfully')
+
+        if args.nickname is not None:
+            logger.info('Setting device nickname...')
+            nickname_response = set_device_nickname(args.org_token, args.org, args.project,
+                                                    dev_id, args.nickname)
+            if not nickname_response.ok:
+                logger.error(f'Device is onboarded, but setting its nickname failed: '
+                             f'HTTP {nickname_response.status_code} - {nickname_response.text}')
+                sys.exit(8)
+            logger.info('[OK] Device nickname')
 
     except KeyboardInterrupt:
         logger.warning('Interrupted by user')

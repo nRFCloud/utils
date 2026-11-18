@@ -208,6 +208,51 @@ class TestOnboardDevice:
 
 
 # ---------------------------------------------------------------------------
+# set_device_nickname
+# ---------------------------------------------------------------------------
+
+class TestSetDeviceNickname:
+    @patch("nrfcloud_utils.nrf93_onboard.requests.patch")
+    def test_request_shape(self, mock_patch):
+        mock_patch.return_value = Mock(ok=True, status_code=200)
+        nrf93_onboard.set_device_nickname("my-oat", "my-org", "my-proj", TEST_UUID, "my device")
+        mock_patch.assert_called_once()
+        assert mock_patch.call_args.args[0] == (
+            f"https://api.memfault.com/api/v0/organizations/my-org/projects/my-proj/devices/{TEST_UUID}")
+        assert mock_patch.call_args.kwargs["json"] == {"nickname": "my device"}
+        headers = mock_patch.call_args.kwargs["headers"]
+        assert headers["Authorization"] == "Bearer my-oat"
+        assert headers["User-Agent"] == USER_AGENT
+
+    @patch("nrfcloud_utils.nrf93_onboard.time.sleep")
+    @patch("nrfcloud_utils.nrf93_onboard.requests.patch")
+    def test_waits_for_device_to_appear(self, mock_patch, mock_sleep):
+        mock_patch.side_effect = [Mock(ok=False, status_code=404), Mock(ok=False, status_code=404),
+                                  Mock(ok=True, status_code=200)]
+        response = nrf93_onboard.set_device_nickname("my-oat", "my-org", "my-proj", TEST_UUID, "n")
+        assert response.ok
+        assert mock_patch.call_count == 3
+        assert mock_sleep.call_count == 2
+
+    @patch("nrfcloud_utils.nrf93_onboard.time.sleep")
+    @patch("nrfcloud_utils.nrf93_onboard.requests.patch")
+    def test_gives_up_when_device_does_not_appear(self, mock_patch, mock_sleep):
+        mock_patch.return_value = Mock(ok=False, status_code=404)
+        with patch("nrfcloud_utils.nrf93_onboard.NICKNAME_TIMEOUT_SECS", 0):
+            response = nrf93_onboard.set_device_nickname("my-oat", "my-org", "my-proj", TEST_UUID, "n")
+        assert response.status_code == 404
+        mock_patch.assert_called_once()
+
+    @patch("nrfcloud_utils.nrf93_onboard.time.sleep")
+    @patch("nrfcloud_utils.nrf93_onboard.requests.patch")
+    def test_other_errors_are_not_retried(self, mock_patch, mock_sleep):
+        mock_patch.return_value = Mock(ok=False, status_code=403)
+        response = nrf93_onboard.set_device_nickname("my-oat", "my-org", "my-proj", TEST_UUID, "n")
+        assert response.status_code == 403
+        mock_patch.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # main() — exit codes
 # ---------------------------------------------------------------------------
 
@@ -224,14 +269,16 @@ def _base_patches():
         "fetch_tenant_id": Mock(return_value=TEST_TENANT_ID),
         "gen_registration_jwt": Mock(return_value=TEST_REGJWT),
         "onboard_device": Mock(return_value=Mock(ok=True)),
+        "set_device_nickname": Mock(return_value=Mock(ok=True)),
     }
 
 
 def _run_main_with_patches(patches, extra_args=""):
-    args = f"--port /dev/ttyACM0 --org-token test-oat --org my-org --project my-proj {extra_args}".split()
+    base = "--port /dev/ttyACM0 --org-token test-oat --org my-org --project my-proj".split()
+    extra = extra_args.split() if isinstance(extra_args, str) else extra_args
     with patch.multiple(MODULE, **patches):
         patches["ATCommandInterface"].return_value.at_command.return_value = True
-        nrf93_onboard.main(args)
+        nrf93_onboard.main(base + extra)
 
 
 class TestMainExitCodes:
@@ -339,6 +386,44 @@ class TestMainExitCodes:
         with patch.multiple(MODULE, **patches):
             with pytest.raises(SystemExit) as exc:
                 nrf93_onboard.main(f"--port /dev/ttyACM0 {mode_args}".split())
+        assert exc.value.code == 2
+        patches["Comms"].assert_not_called()
+
+    def test_nickname_set_after_onboarding(self):
+        patches = _base_patches()
+        _run_main_with_patches(patches, ["--nickname", "my device"])
+        patches["onboard_device"].assert_called_once()
+        patches["set_device_nickname"].assert_called_once_with(
+            "test-oat", "my-org", "my-proj", TEST_UUID, "my device")
+
+    def test_no_nickname_by_default(self):
+        patches = _base_patches()
+        _run_main_with_patches(patches)
+        patches["set_device_nickname"].assert_not_called()
+
+    def test_nickname_not_set_when_onboarding_fails(self):
+        patches = _base_patches()
+        patches["onboard_device"] = Mock(return_value=Mock(ok=False, status_code=403, text="Forbidden"))
+        with pytest.raises(SystemExit) as exc:
+            _run_main_with_patches(patches, ["--nickname", "my device"])
+        assert exc.value.code == 6
+        patches["set_device_nickname"].assert_not_called()
+
+    def test_nickname_fails_exit_8(self):
+        patches = _base_patches()
+        patches["set_device_nickname"] = Mock(return_value=Mock(ok=False, status_code=404, text="Not found"))
+        with pytest.raises(SystemExit) as exc:
+            _run_main_with_patches(patches, ["--nickname", "my device"])
+        assert exc.value.code == 8
+
+    @pytest.mark.parametrize("nickname_args", [
+        ["--nickname", "my device", "--csv", "devices.csv"],
+        ["--nickname", "x" * 129],
+    ])
+    def test_invalid_nickname_arguments(self, nickname_args):
+        patches = _base_patches()
+        with pytest.raises(SystemExit) as exc:
+            _run_main_with_patches(patches, nickname_args)
         assert exc.value.code == 2
         patches["Comms"].assert_not_called()
 
