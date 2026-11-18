@@ -146,11 +146,11 @@ The `subType`, `tags` and `fwTypes` columns of `onboard.csv` have no equivalent 
 | `attestationToken` | Identity attestation token (nRF9151, nRF9161) |
 | `onboardingToken` | Onboarding token, such as the registration JWT of an nRF93M1 (see [nRF93M1 device onboarding](#nrf93m1-device-onboarding)) |
 
-`gather_attestation_tokens` writes rows of `imei,uuid,attestation_token,timestamp` without a header row. Convert them before onboarding, using the column that matches the device ID your firmware uses (the UUID here):
+`gather_attestation_tokens` writes a `deviceId,attestationToken` CSV, with the device UUID as the device ID. Pass it to `device create` as it is:
 ```
-(echo deviceId,attestationToken; awk -F, '{print $2","$3}' attestation_tokens.csv) > onboard_tokens.csv
-nrfcloud --org-token $OAT --org <org> --project <project> device create --csv onboard_tokens.csv
+nrfcloud --org-token $OAT --org <org> --project <project> device create --csv attestation_tokens.csv
 ```
+See [Gather attestation tokens](#gather-attestation-tokens).
 
 ### Limits
 
@@ -428,14 +428,29 @@ create_device_credentials --ca *_ca.pem --ca-key *_prv.pem -c NO --cn my-unique-
 
 ## Gather attestation tokens
 
-Use the `gather_attestation_tokens` script to collect the IMEI, UUID, and attestation token from a connected device without requiring an internet connection.
+Use the `gather_attestation_tokens` script to collect the device UUID and attestation token from a connected device without requiring an internet connection.
 
-The collected data, along with the current date and time, is saved to a CSV file. By default, the file is named `attestation_tokens.csv`. If the file already exists, the script will:
+The collected data is saved to a CSV file that `nrfcloud device create` accepts:
+```
+deviceId,attestationToken
+<device_uuid>,<attestation_token>
+```
+By default, the file is named `attestation_tokens.csv`. If the file already exists, the script will:
 
 - Append new entries if the UUID is not already present.
-- Replace the row with updated information if the UUID is already in the file.
+- Replace the row with updated information if the UUID is already in the file. Use the `--keep` option to keep the existing row instead.
 
-**Note:** The generated CSV file can be converted for use with `nrfcloud device create` on an internet-connected computer. See [nRF Cloud device onboarding](#nrf-cloud-device-onboarding).
+A file holds up to 1000 devices, the most that `nrfcloud device create` accepts at once.
+
+On an internet-connected computer, onboard the collected devices as described in [nRF Cloud device onboarding](#nrf-cloud-device-onboarding):
+```
+nrfcloud --org-token $OAT --org <org> --project <project> device create --csv attestation_tokens.csv
+```
+
+**Note:** Earlier versions of this script wrote rows of `imei,uuid,attestation_token,timestamp` without a header row. The script does not add devices to such a file. Convert it first:
+```
+(echo deviceId,attestationToken; awk -F, '{print $2","$3}' old_tokens.csv) > attestation_tokens.csv
+```
 
 ### Limitation
 

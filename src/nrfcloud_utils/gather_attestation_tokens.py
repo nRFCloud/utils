@@ -5,15 +5,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 import os
 import sys
-import csv
 import argparse
 from nrfcloud_utils import modem_credentials_parser
-from nrfcloud_utils.cli_helpers import setup_logging
+from nrfcloud_utils.cli_helpers import setup_logging, save_device_create_csv
 from nrfcloud_utils.cli_helpers import CMD_TERM_DICT, CMD_TYPE_AUTO, CMD_TYPE_AT, CMD_TYPE_AT_SHELL, RTT_UNAVAILABLE_MSG, parser_add_comms_args
 from nrfcredstore.comms import Comms
 from nrfcredstore.exceptions import RTTUnavailableError
 from nrfcredstore.command_interface import ATCommandInterface
-from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,7 +24,7 @@ def get_parser():
                                      add_help=False)
     parser_add_comms_args(parser)
     parser.add_argument("--csv", type=str,
-                        help="Filepath to attestation token CSV file",
+                        help="Filepath to attestation token CSV file, for use with `nrfcloud device create`",
                         default="attestation_tokens.csv")
     parser.add_argument("-o", "--overwrite",
                         help="When saving attestation token CSV file, overwrite it",
@@ -50,46 +48,6 @@ def parse_args(in_args):
     args = parser.parse_args(in_args)
     setup_logging(level=args.log_level, use_color=not args.plain)
     return args
-
-def check_if_device_exists_in_csv(csv_filename, uuid, delete_duplicates):
-    row_count = 0
-    duplicate_rows = list()
-    if delete_duplicates:
-        keep_rows = list()
-
-    try:
-        with open(csv_filename) as csvfile:
-            csv_contents = csv.reader(csvfile, delimiter=',')
-
-            for row in csv_contents:
-                row_count += 1
-                # Second column is the UUID
-                if row[1] == uuid:
-                    # uuid found, save the row
-                    duplicate_rows.append(row)
-                else:
-                    if delete_duplicates:
-                        # Copy all non-duplicate rows if the delete flag is set
-                        keep_rows.append(row)
-
-            csvfile.close()
-    except OSError:
-        logger.error(f'Error opening (read) file {csv_filename}')
-
-    # Re-write the file without the duplicate rows
-    if delete_duplicates and len(duplicate_rows):
-        # Get new row count
-        row_count = len(keep_rows)
-        try:
-            with open(csv_filename, 'w', newline='\n') as csvfile:
-                csv_writer = csv.writer(csvfile, delimiter=',', lineterminator='\n',
-                                        quoting=csv.QUOTE_MINIMAL)
-                csv_writer.writerows(keep_rows)
-                csvfile.close()
-        except OSError:
-            logger.error(f'Error opening file (write) {csv_filename}')
-
-    return duplicate_rows, row_count
 
 def user_request_open_mode(filename, append):
     mode = 'a' if append else 'w'
@@ -115,33 +73,15 @@ def user_request_open_mode(filename, append):
 
     return mode
 
-def save_attestation_csv(csv_filename, append, replace, imei, uuid, attestation_token):
+def save_attestation_csv(csv_filename, append, replace, uuid, attestation_token):
+    """Save the device UUID and its attestation token to a CSV for `nrfcloud device create`."""
     mode = user_request_open_mode(csv_filename, append)
 
     if mode == None:
-        return
+        return True
 
-    row_count = 0
-
-    row = f'{imei},{uuid},{attestation_token},{datetime.now(timezone.utc).isoformat()}\n'
-
-    if mode == 'a':
-        duplicate_rows, row_count = check_if_device_exists_in_csv(csv_filename, uuid, replace)
-
-        if len(duplicate_rows):
-            if replace:
-                logger.warning(f'Removed existing data:\r\n\t{duplicate_rows}')
-            else:
-                logger.error('Device already exists in CSV, the following row was NOT added:')
-                logger.debug(row)
-                return
-
-    try:
-        with open(csv_filename, mode, newline='\n') as devinfo_file:
-            devinfo_file.write(row)
-        logger.info(f'Attestation CSV file {csv_filename} saved, row count: {row_count + 1}')
-    except OSError:
-        logger.error('Error opening file {}'.format(csv_filename))
+    return save_device_create_csv(csv_filename, 'attestationToken', uuid, attestation_token,
+                                  replace=replace, overwrite=(mode == 'w'))
 
 def error_exit(err_msg):
     if err_msg:
@@ -207,8 +147,9 @@ def main(in_args):
     logger.debug('Device UUID: ' + dev_uuid)
 
     if len(args.csv) > 0:
-        save_attestation_csv(args.csv, not args.overwrite, not args.keep, imei,
-                             dev_uuid, attest_tok)
+        if not save_attestation_csv(args.csv, not args.overwrite, not args.keep,
+                                    dev_uuid, attest_tok):
+            error_exit('Attestation token was not saved')
 
     logger.debug('Done.')
 

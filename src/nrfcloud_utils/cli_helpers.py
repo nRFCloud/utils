@@ -193,6 +193,57 @@ def check_if_device_exists_in_csv(csv_filename, dev_id, delete_duplicates):
 
     return duplicate_rows, row_count
 
+def save_device_create_csv(csv_filename, credential_header, dev_id, credential, replace=True, overwrite=False):
+    """
+    Add a device to a CSV file that `nrfcloud device create` accepts: a header row of
+    deviceId and one credential column, followed by one row for each device.
+
+    A device that is already in the file gets its row replaced, or keeps it if replace is
+    not set. Returns False if the file could not be updated.
+    """
+    header = ['deviceId', credential_header]
+    rows = []
+    if not overwrite and os.path.isfile(csv_filename):
+        try:
+            with open(csv_filename, newline='', encoding='utf-8-sig') as csvfile:
+                rows = [row for row in csv.reader(csvfile) if any(cell.strip() for cell in row)]
+        except OSError as e:
+            logger.error(f'Error reading file {csv_filename}: {e}')
+            return False
+
+    devices = []
+    if rows:
+        if [cell.strip() for cell in rows[0]] != header:
+            logger.error(f'{csv_filename} does not start with the header row {",".join(header)}')
+            return False
+
+        devices = rows[1:]
+        if any(row[0].strip() == dev_id for row in devices):
+            if not replace:
+                logger.warning(f'Device {dev_id} is already in {csv_filename}; keeping its existing row')
+                return True
+            logger.warning(f'Replacing device {dev_id} in {csv_filename}')
+            devices = [row for row in devices if row[0].strip() != dev_id]
+
+    if len(devices) >= MAX_CSV_ROWS:
+        logger.error(f'{csv_filename} is full; `nrfcloud device create` accepts '
+                     f'at most {MAX_CSV_ROWS} devices per file')
+        return False
+
+    devices.append([dev_id, credential])
+
+    try:
+        with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+            csv_writer = csv.writer(csvfile, lineterminator='\n')
+            csv_writer.writerow(header)
+            csv_writer.writerows(devices)
+    except OSError as e:
+        logger.error(f'Error writing file {csv_filename}: {e}')
+        return False
+
+    logger.info(f'CSV file {csv_filename} saved, device count: {len(devices)}')
+    return True
+
 def save_devinfo_csv(csv_filename, append, replace, dev_id, mfw_ver = None, imei = None):
     mode = user_request_open_mode(csv_filename, append)
 

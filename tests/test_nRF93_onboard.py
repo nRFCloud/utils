@@ -147,7 +147,7 @@ class TestSaveRegistrationJwtCsv:
         csv_file = tmp_path / "devices.csv"
         content = f"deviceId,onboardingToken\n{OTHER_UUID},jwt-2\n"
         csv_file.write_text(content)
-        with patch("nrfcloud_utils.nrf93_onboard.MAX_CSV_ROWS", 1):
+        with patch("nrfcloud_utils.cli_helpers.MAX_CSV_ROWS", 1):
             assert not nrf93_onboard.save_registration_jwt_csv(str(csv_file), TEST_UUID, "jwt-1")
             # a device that is already in the file can still get a new token
             assert nrf93_onboard.save_registration_jwt_csv(str(csv_file), OTHER_UUID, "new")
