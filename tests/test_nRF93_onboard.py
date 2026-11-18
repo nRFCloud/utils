@@ -114,6 +114,47 @@ class TestGenRegistrationJwt:
 
 
 # ---------------------------------------------------------------------------
+# save_registration_jwt_csv
+# ---------------------------------------------------------------------------
+
+OTHER_UUID = "b9902bbe-a0c3-1f03-bf00-7b02f8e5c103"
+
+
+class TestSaveRegistrationJwtCsv:
+    def test_collects_devices(self, tmp_path):
+        csv_file = tmp_path / "devices.csv"
+        assert nrf93_onboard.save_registration_jwt_csv(str(csv_file), TEST_UUID, "jwt-1")
+        assert nrf93_onboard.save_registration_jwt_csv(str(csv_file), OTHER_UUID, "jwt-2")
+        assert csv_file.read_text() == (
+            f"deviceId,onboardingToken\n{TEST_UUID},jwt-1\n{OTHER_UUID},jwt-2\n")
+
+    def test_replaces_token_of_known_device(self, tmp_path):
+        csv_file = tmp_path / "devices.csv"
+        # as edited by hand: no newline at the end of the file
+        csv_file.write_text(f"deviceId,onboardingToken\n{TEST_UUID},old\n{OTHER_UUID},jwt-2")
+        assert nrf93_onboard.save_registration_jwt_csv(str(csv_file), TEST_UUID, "new")
+        assert csv_file.read_text() == (
+            f"deviceId,onboardingToken\n{OTHER_UUID},jwt-2\n{TEST_UUID},new\n")
+
+    def test_rejects_other_csv(self, tmp_path):
+        csv_file = tmp_path / "onboard.csv"
+        content = 'my-device,,,APP|MODEM,"-----BEGIN CERTIFICATE-----"\n'
+        csv_file.write_text(content)
+        assert not nrf93_onboard.save_registration_jwt_csv(str(csv_file), TEST_UUID, "jwt-1")
+        assert csv_file.read_text() == content
+
+    def test_rejects_full_file(self, tmp_path):
+        csv_file = tmp_path / "devices.csv"
+        content = f"deviceId,onboardingToken\n{OTHER_UUID},jwt-2\n"
+        csv_file.write_text(content)
+        with patch("nrfcloud_utils.nrf93_onboard.MAX_CSV_ROWS", 1):
+            assert not nrf93_onboard.save_registration_jwt_csv(str(csv_file), TEST_UUID, "jwt-1")
+            # a device that is already in the file can still get a new token
+            assert nrf93_onboard.save_registration_jwt_csv(str(csv_file), OTHER_UUID, "new")
+        assert csv_file.read_text() == f"deviceId,onboardingToken\n{OTHER_UUID},new\n"
+
+
+# ---------------------------------------------------------------------------
 # fetch_tenant_id
 # ---------------------------------------------------------------------------
 
@@ -252,6 +293,54 @@ class TestMainExitCodes:
         _run_main_with_patches(patches)
         patches["onboard_device"].assert_called_once_with(
             "test-oat", "my-org", "my-proj", TEST_REGJWT)
+
+    def test_csv_collects_token_without_onboarding(self, tmp_path):
+        csv_file = tmp_path / "devices.csv"
+        patches = _base_patches()
+        _run_main_with_patches(patches, f"--csv {csv_file}")
+        patches["onboard_device"].assert_not_called()
+        assert csv_file.read_text() == f"deviceId,onboardingToken\n{TEST_UUID},{TEST_REGJWT}\n"
+
+    def test_csv_fails_exit_7(self, tmp_path):
+        csv_file = tmp_path / "devices.csv"
+        csv_file.write_text("deviceId,attestationToken\n")
+        patches = _base_patches()
+        with pytest.raises(SystemExit) as exc:
+            _run_main_with_patches(patches, f"--csv {csv_file}")
+        assert exc.value.code == 7
+        patches["onboard_device"].assert_not_called()
+
+    def test_csv_with_tenant_id_works_offline(self, tmp_path, monkeypatch):
+        for v in ("MEMFAULT_ORG_TOKEN", "MEMFAULT_ORG", "MEMFAULT_PROJECT"):
+            monkeypatch.delenv(v, raising=False)
+        csv_file = tmp_path / "devices.csv"
+        patches = _base_patches()
+        with patch.multiple(MODULE, **patches), patch(MODULE + ".requests") as mock_requests:
+            patches["ATCommandInterface"].return_value.at_command.return_value = True
+            nrf93_onboard.main(f"--port /dev/ttyACM0 --csv {csv_file} --tenant-id my-tenant".split())
+        patches["fetch_tenant_id"].assert_not_called()
+        assert mock_requests.mock_calls == []
+        assert patches["gen_registration_jwt"].call_args.args[1] == "my-tenant"
+        assert csv_file.read_text() == f"deviceId,onboardingToken\n{TEST_UUID},{TEST_REGJWT}\n"
+
+    def test_tenant_id_skips_lookup_when_onboarding(self):
+        patches = _base_patches()
+        _run_main_with_patches(patches, "--tenant-id my-tenant")
+        patches["fetch_tenant_id"].assert_not_called()
+        assert patches["gen_registration_jwt"].call_args.args[1] == "my-tenant"
+        patches["onboard_device"].assert_called_once()
+
+    @pytest.mark.parametrize("mode_args", ["--tenant-id my-tenant", "--csv devices.csv"])
+    def test_org_token_required_unless_offline(self, mode_args, monkeypatch):
+        # onboarding needs the OAT, and so does looking up the tenant ID
+        for v in ("MEMFAULT_ORG_TOKEN", "MEMFAULT_ORG", "MEMFAULT_PROJECT"):
+            monkeypatch.delenv(v, raising=False)
+        patches = _base_patches()
+        with patch.multiple(MODULE, **patches):
+            with pytest.raises(SystemExit) as exc:
+                nrf93_onboard.main(f"--port /dev/ttyACM0 {mode_args}".split())
+        assert exc.value.code == 2
+        patches["Comms"].assert_not_called()
 
     def test_missing_org_token_exits_with_error(self, monkeypatch):
         for v in ("MEMFAULT_ORG_TOKEN", "MEMFAULT_ORG", "MEMFAULT_PROJECT"):
