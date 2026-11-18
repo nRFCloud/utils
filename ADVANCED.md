@@ -1,6 +1,6 @@
 # nRF Cloud Utils
 
-These Python scripts are designed to assist users in provisioning devices with the necessary credentials to connect to nRF Cloud, creating FOTA jobs, and onboarding devices to their nRF Cloud accounts.
+These Python scripts are designed to assist users in provisioning devices with the necessary credentials to connect to nRF Cloud and onboarding devices to their nRF Cloud accounts.
 
 ## Table of contents
 
@@ -11,9 +11,7 @@ These Python scripts are designed to assist users in provisioning devices with t
 - [nRF93M1 device onboarding](#nrf93m1-device-onboarding)
 - [Modem credentials parser](#modem-credentials-parser)
 - [Create device credentials](#create-device-credentials)
-- [Claim and provision device](#claim-and-provision-device)
 - [Gather attestation tokens](#gather-attestation-tokens)
-- [Claim devices](#claim-devices)
 - [Creating FOTA updates](#creating-fota-updates)
 - [nRF Credential Store](#nrf-credential-store)
 
@@ -118,21 +116,54 @@ Omit `--coap` if the device connects to nRF Cloud using MQTT only.
 
 ## nRF Cloud device onboarding
 
-To onboard devices to nRF Cloud, use the onboarding CSV file produced by `device_credentials_installer` or `create_device_credentials`, as described in the [device onboarding quickstart](https://docs.nrfcloud.com/docs/best-practices/device-onboarding-quickstart#manually-provisioning-a-device-certificate).
+Onboard devices with the `nrfcloud device create` command from the [Memfault CLI](https://pypi.org/project/memfault-cli/). Onboarding claims the device for your nRF Cloud project and registers its public key. The credentials are then provisioned to the device automatically, so there are no separate claim or provisioning steps.
 
-The CSV file has one row for each device, in the following format:
+Install the CLI (version 1.12.0 or later). It installs both the `memfault` and the `nrfcloud` commands:
 ```
-<device_id>,<subtype>,<tags>,<fw_types>,"<device_cert_pem>"
+pip3 install memfault-cli
 ```
-Only the device ID and the device certificate are required, for example `my-device-id,,,,"-----BEGIN CERTIFICATE-----..."`.
-To onboard several devices at once, use a file with one row for each device (see `--append` in [Device credentials installer](#device-credentials-installer)).
-You can also upload the same CSV file in the nRF Cloud portal, from **Devices** > **Add devices**.
+
+The command authenticates with an organization auth token (OAT) that has the `device:write` permission. Create one under **Admin** > **Organization Auth Tokens** in the nRF Cloud app. You also need your organization slug and project slug.
+
+### After `device_credentials_installer`
+
+`device_credentials_installer` and `create_device_credentials` write an onboarding CSV file (`onboard.csv` by default). Pass it to `device create`:
+```
+nrfcloud --org-token $OAT --org <org> --project <project> device create --csv onboard.csv --res results.csv
+```
+The command uploads the devices, waits for the result, and prints `OK` or the error for each device. `--res` also writes a `Device ID,Result` CSV.
+
+The `subType`, `tags` and `fwTypes` columns of `onboard.csv` have no equivalent in the new API and are ignored. Use cohorts and device attributes in the nRF Cloud app instead.
+
+### Other credential types
+
+`--csv` also accepts a CSV with a header row of `deviceId` and exactly one of these columns:
+
+| Column | Credential |
+| --- | --- |
+| `certificate` | Device certificate PEM |
+| `attestationToken` | Identity attestation token (nRF9151, nRF9161) |
+| `onboardingToken` | Onboarding token |
+
+`gather_attestation_tokens` writes rows of `imei,uuid,attestation_token,timestamp` without a header row. Convert them before onboarding, using the column that matches the device ID your firmware uses (the UUID here):
+```
+(echo deviceId,attestationToken; awk -F, '{print $2","$3}' attestation_tokens.csv) > onboard_tokens.csv
+nrfcloud --org-token $OAT --org <org> --project <project> device create --csv onboard_tokens.csv
+```
+
+### Limits
+
+- A single command creates at most 1000 devices. Split larger files.
+- Identity operations are currently supported only in an organization's default project.
+- A device that already belongs to another project must be deleted from that project first. Deleting a device releases its claim.
+
+See [Device onboarding](https://docs.nrfcloud.com/docs/nrfcloud/device-onboarding) in the nRF Cloud documentation.
 
 ## nRF93M1 device onboarding
 
 The `nrf93_onboard` script onboards an nRF93M1 device to nRF Cloud using a registration token JWT generated directly on the device. It connects over serial, retrieves the device UUID and identity key via AT commands, fetches the nRF Cloud tenant ID of your organization, calls `AT%REGJWT` on the device to produce the JWT, and registers the device with the nRF Cloud API.
 
-The script authenticates with an organization auth token (OAT) that has the `device:write` permission, not with the legacy nRF Cloud API key. It needs the OAT and your organization slug, plus a project slug that defaults to `nrf-project`. Each can be given as an option or as an environment variable:
+The script authenticates with an organization auth token (OAT) that has the `device:write` permission. It needs the OAT and your organization slug, plus a project slug that defaults to `nrf-project`. Each can be given as an option or as an environment variable:
 
 | Option | Environment variable |
 | --- | --- |
@@ -369,45 +400,6 @@ To create credentials to build into the firmware with nRF Cloud CoAP support, us
 create_device_credentials --ca *_ca.pem --ca-key *_prv.pem -c NO --cn my-unique-device-id -p dev_credentials --embed-save --coap
 ```
 
-## Claim and provision device
-
-This script uses the [nRF Cloud Identity and Provisioning API](https://api.provisioning.nrfcloud.com/v1/) to perform remote device provisioning tasks.
-
-### Limitation
-
-- This script is **not supported for nRF9160 devices.**
-- This service is only compatible with nRF91x1 devices running modem firmware >= 2.0.0.
-- Since this process takes some time, it is not recommended in a production setting.
-- For a production setting, it's better to use `gather_attestation_tokens` (see below).
-
-After claiming and provisioning, this script will onboard the device to your nRF Cloud account.
-The target device must have the Provisioning feature enabled. A good reference on how to integrate this is the [nRF Device Provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning) sample.
-
-When not using provisioning tags (with the `--provisioning-tags` argument), this script creates device credentials for use with nRF Cloud and so requires a CA certificate and the associated private key as an input.
-
-Use the `create_ca_cert` script to create a self-signed CA certificate and keys.
-Your legacy nRF Cloud REST API key is also a required parameter. It can be found on your [legacy nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
-Use `--help` for additional parameter information.
-
-### Examples
-
-#### Device certificate created locally from CSR received over the air:
-
-It's recommended to use the [nRF Device Provisioning](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_provisioning) sample for this.
-
-```
-claim_and_provision_device --api-key $API_KEY --ca=./ca.pem --ca-key=ca_prv_key.pem
-```
-Query the device for its attestation token over USB, claim the device with the REST API, then provision over the air up to receiving the CSR.
-Create the device certificate locally, then send back to the device over the air.
-
-#### Claim device and use a provisioning tag to fully provision and onboard it
-
-```
-claim_and_provision_device --api-key $API_KEY --provisioning-tags "nrf-cloud-onboarding"
-```
-Like before, but use a built-in provisioning tag so the device certificate is created by the cloud and then sent to the device over the air.
-
 ## Gather attestation tokens
 
 Use the `gather_attestation_tokens` script to collect the IMEI, UUID, and attestation token from a connected device without requiring an internet connection.
@@ -417,7 +409,7 @@ The collected data, along with the current date and time, is saved to a CSV file
 - Append new entries if the UUID is not already present.
 - Replace the row with updated information if the UUID is already in the file.
 
-**Note:** The generated CSV file can later be used with the `claim_devices` script on an internet-connected computer.
+**Note:** The generated CSV file can be converted for use with `nrfcloud device create` on an internet-connected computer. See [nRF Cloud device onboarding](#nrf-cloud-device-onboarding).
 
 ### Limitation
 
@@ -431,79 +423,18 @@ The collected data, along with the current date and time, is saved to a CSV file
     gather_attestation_tokens
     ```
 
-## Claim devices
-
-Use the `claim_devices` script to claim devices by sending the contents of a CSV file to the nRF Cloud REST API, along with a specified set of provisioning tags. By default, the script looks for a file named `attestation_tokens.csv`. If you want to use a different file, you can specify it using the `--csv` option followed by the file name.
-
-### Output
-
-The script will display:
-- The total number of devices successfully claimed.
-- The total number of devices attempted.
-
-### Examples
-
-* #### Claim devices using the default CSV file and a specific provisioning configuration
-    ```bash
-    claim_devices --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
-    ```
-
-* #### Claim devices using a custom CSV file
-    ```bash
-    claim_devices --csv custom_tokens.csv --provisioning-tags "nrf-cloud-onboarding" --api-key $API_KEY
-    ```
-
 ## Creating FOTA updates
 
-Use the `nrf_cloud_device_mgmt` script to create FOTA (Firmware Over-The-Air) update jobs for your devices via nRF Cloud.
+Create and activate FOTA updates with the [Memfault CLI](https://pypi.org/project/memfault-cli/), using an OAT. Upload the firmware as a Release with `upload-ota-payload` (or `upload-zchunk-ota-payload`), then activate it on a cohort with `deploy-release`:
+```
+memfault --org-token $OAT --org <org> --project <project> \
+    upload-ota-payload --software-type <type> --software-version <version> <file>
+memfault --org-token $OAT --org <org> --project <project> \
+    deploy-release --release-version <version> --cohort <cohort> --rollout-percent 10
+```
+Run each command with `--help` for all options, including modem (multi-component) and delta updates.
 
-### Prerequisites
-
-* On boarded device to nRF Cloud. Follow the steps outlined in the [Device credentials installer](#device-credentials-installer) and [nRF Cloud device onboarding](#nrf-cloud-device-onboarding) sections, which include generating device credentials, programming them to the device, and completing the onboarding process.
-* Enable FOTA in your project by referring to the following design examples: [nRF Cloud REST FOTA Sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_rest_fota) and [nRF Cloud Multi-Service Sample](https://github.com/nrfconnect/sdk-nrf/tree/main/samples/cellular/nrf_cloud_multi_service).
-* A **legacy nRF Cloud API key** is required. You can find it on your [legacy nRF Cloud User Account page](https://app.nrfcloud.com/#/account).
-
-### Execution modes
-
-The script can run in two modes:
-
-1.  **Non-interactive:** Executes immediately without prompts if all required information is provided via command-line arguments. This requires:
-    * `--api-key <your_api_key>`
-    * `--name <job_name>` (A descriptive name for the FOTA job)
-    * `--desc <job_description>` (A description for the FOTA job)
-    * `--bundle-id <firmware_bundle_id>` (The ID of the firmware bundle previously uploaded to nRF Cloud)
-    * *And* one of the following target arguments:
-        * `--tag <tag_name>` (Targets all devices associated with this tag)
-        * `--dev-id <device_id>` (Targets a single specific device ID)
-
-2.  **Interactive:** If any of the required arguments for non-interactive mode (excluding `--api-key`) are omitted, the script will prompt you step-by-step to enter the necessary information (job name, description, bundle selection, target device/tag selection).
-
-### Applying the FOTA job
-
-* **Default Behavior:** By default, the script automatically attempts to apply the created FOTA job to the target device(s).
-* **Manual Application:** To create the job definition without immediately applying it, add the `--defer-apply` flag. You can then manually trigger the update later using the [ApplyFOTAJob](https://api.nrfcloud.com/v1#tag/FOTA-Jobs/operation/ApplyFOTAJob) API endpoint or directly from the [Firmware Updates dashboard](https://app.nrfcloud.com/#/updates-dashboard) on nRF Cloud.
-
-### Output
-
-* If the FOTA update job is created successfully, the script will print the `job id`.
-* This `job id` can be used to manage or query the job status using other nRF Cloud FOTA REST API endpoints, such as [FetchFOTAJob](https://api.nrfcloud.com/v1#operation/FetchFOTAJob).
-
-### Examples
-
-* #### Create and apply a FOTA job non-interactively for a specific device
-    ```bash
-    nrf_cloud_device_mgmt --api-key $API_KEY --name "MyModemUpdateV2" --desc "Update modem firmware to v2.0" --bundle-id "fw-modem-v2.0-bundle-id" --dev-id "nrf-XXXXXXXXXXXXXX"
-    ```
-
-* #### Create (but do not apply) a FOTA job non-interactively for all devices with a specific tag
-    ```bash
-    nrf_cloud_device_mgmt --api-key $API_KEY --name "MyAppUpdateV1.1" --desc "App core update v1.1 for beta testers" --bundle-id "fw-app-v1.1-bundle-id" --tag "beta-testers" --defer-apply
-    ```
-
-* #### Create a FOTA job interactively (will prompt for details)
-    ```bash
-    nrf_cloud_device_mgmt --api-key $API_KEY
-    ```
+Devices check for updates when they connect to nRF Cloud. Activating a Release does not notify devices that are already connected. See [Over-the-air updates](https://docs.nrfcloud.com/docs/nrfcloud/fota-transition) in the nRF Cloud documentation.
 
 ## nRF Credential Store
 

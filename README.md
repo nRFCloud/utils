@@ -6,7 +6,7 @@
 
 nRF Cloud Utils is a script collection to make it easier to interface with nRF Cloud. They also include [nrfcredstore](https://github.com/NordicSemiconductor/nrfcredstore) to interface with nRF91 Series devices.
 
-The scripts in this repository mainly use endpoints in the [nRF Cloud API](https://api.nrfcloud.com/v1) and the [nRF Cloud Provisioning API](https://api.provisioning.nrfcloud.com/v1/).
+The scripts in this repository mainly help with device credentials. Onboarding uses the [nRF Cloud API](https://api.nrfcloud.com/v1) through the Memfault CLI.
 
 See also the official [nRF Cloud documentation](https://docs.nordicsemi.com/bundle/nrf-cloud/page/index.html).
 
@@ -28,14 +28,12 @@ Run the following command to use this package as a dependency:
 ## Requirements
 
 1. Create an account in [nrfcloud.com](https://nrfcloud.com).
-2. For the scripts that use the legacy nRF Cloud API (`claim_devices`, `claim_and_provision_device`, and `nrf_cloud_device_mgmt`), retrieve your **legacy nRF Cloud API key**. Open the legacy nRF Cloud app (the **Legacy App** link at the bottom of the nRF Cloud side navigation, or [app.nrfcloud.com](https://app.nrfcloud.com/#/account) directly), then go to **User Account** > **Current Team Details**. If you are part of multiple teams, each team has its own API key.
+2. To onboard devices, install the [Memfault CLI](https://pypi.org/project/memfault-cli/) (`pip3 install memfault-cli`, version 1.12.0 or later) and create an **organization auth token (OAT)** with the `device:write` permission, under **Admin** > **Organization Auth Tokens** in the nRF Cloud app. See [nRF Cloud device onboarding](ADVANCED.md#nrf-cloud-device-onboarding).
 
-    The `nrf93_onboard` script uses an organization auth token (OAT) instead. See [nRF93M1 device onboarding](ADVANCED.md#nrf93m1-device-onboarding).
-
-    :warning:**The User API key shown under My Profile in the new nRF Cloud app is a different key. These scripts reject it with `401 Unauthorized`.**
+    The `nrf93_onboard` script uses an OAT too. See [nRF93M1 device onboarding](ADVANCED.md#nrf93m1-device-onboarding).
 
     > [!NOTE]
-    > The scripts in this repository use the legacy nRF Cloud APIs. For nRF9151 and nRF9161 devices, the recommended path is [Secure Device Onboarding](https://docs.nrfcloud.com/docs/nrfcloud/secure-device-onboarding) in the new nRF Cloud app, which needs no local CA and no legacy API key. If you can't open the legacy app or its User Account page, contact [Nordic support](https://devzone.nordicsemi.com).
+    > For nRF9151 and nRF9161 devices, [Secure Device Onboarding](https://docs.nrfcloud.com/docs/nrfcloud/secure-device-onboarding) in the nRF Cloud app is also available, and needs no local CA.
 3. Depending on your goal, you'll need to configure your nRF Connect SDK project with the following libraries:
 
 * **For basic device registration:** Enable the [AT Host library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/modem/at_host.html). Refer to the [AT Client sample](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/samples/cellular/at_client/README.html) in the nRF Connect SDK for an implementation example.
@@ -84,7 +82,11 @@ See [Devices without a modem](https://github.com/nRFCloud/utils/blob/main/ADVANC
 Upon success, you can find an `onboard.csv` file with information about your device. This file is needed to register the certificate with your account.
 If you encounter a `No device found` error, you might need to specify the serial port using the `--port` option.
 
-Onboard the device to your account with `onboard.csv`, as described in the [device onboarding quickstart](https://docs.nrfcloud.com/docs/best-practices/device-onboarding-quickstart#manually-provisioning-a-device-certificate).
+Onboard the device to your account with `onboard.csv`, using the `nrfcloud` command from the Memfault CLI:
+
+    nrfcloud --org-token $OAT --org <org> --project <project> device create --csv onboard.csv
+
+See [nRF Cloud device onboarding](ADVANCED.md#nrf-cloud-device-onboarding) for details.
 
 It is possible to install credentials on many devices in a row using the `--append` option and onboard them all at once with the resulting `onboard.csv`.
 
@@ -92,7 +94,7 @@ Congratulations! You have successfully registered your device to nRF Cloud, you 
 
 ## Advanced usage
 
-For a more detailed overview of the scripts and their capabilities, refer to the [Advanced Usage Guide](https://github.com/nRFCloud/utils/blob/main/ADVANCED.md). This guide provides in-depth instructions on leveraging advanced features, including the use of the Provisioning Service for remote provisioning of devices, as an alternative to local provisioning.
+For a more detailed overview of the scripts and their capabilities, refer to the [Advanced Usage Guide](https://github.com/nRFCloud/utils/blob/main/ADVANCED.md). This guide provides in-depth instructions on leveraging advanced features.
 
 ## Development installation
 
