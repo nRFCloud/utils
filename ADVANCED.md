@@ -86,13 +86,18 @@ device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --id-i
 
 Devices without a Nordic cellular modem have no AT interface, so use the `--cmd-type` option to select the shell that the device firmware provides:
 
-* `nrf_cloud_cred_shell` (recommended) - The device generates its private key and CSR itself, and the script installs the signed device certificate. The private key never leaves the device.
-  The firmware must include the [nRF Cloud credentials keygen library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/networking/nrf_cloud_credentials_keygen.html) with its shell enabled (nRF Connect SDK v3.5.0 or later).
+* `tls_cred_shell` (recommended) - The script uses the Zephyr [TLS Credentials Shell](https://docs.zephyrproject.org/latest/services/connectivity/networking/api/tls_credentials_shell.html).
+  The device generates its private key and CSR itself (`cred keygen` and `cred csr`), and the script installs the signed device certificate. The private key never leaves the device.
+  The firmware must enable the TLS Credentials Shell (`CONFIG_TLS_CREDENTIALS_SHELL`) with key generation (`CONFIG_TLS_CREDENTIALS_KEYGEN`).
+  With the `--verify` option, the script compares the public key of the device (`cred pubkey`) with the installed device certificate.
+
+  With `--local-cert` or `--local-cert-file`, the script instead generates the private key and device certificate on the host and installs them through the same shell. This also works with firmware that has no key generation.
+  Because the private key exists on the host, this is less secure. Delete it from the host after installation.
+* `nrf_cloud_cred_shell` (deprecated) - For firmware that has no key generation in the TLS Credentials Shell, but includes the [nRF Cloud credentials keygen library](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/libraries/networking/nrf_cloud_credentials_keygen.html) with its shell enabled (nRF Connect SDK v3.5.0 or later).
+  The device generates its private key and CSR itself, as with `tls_cred_shell`.
   To use the `--verify` option, the firmware must also enable the `CONFIG_NRF_CLOUD_CREDENTIALS_KEYGEN_VERIFY` Kconfig option.
   Do not use `--local-cert` or `--local-cert-file` with this command type.
-* `tls_cred_shell` - The script generates the private key and device certificate on the host and installs them through the Zephyr [TLS Credentials Shell](https://docs.zephyrproject.org/latest/services/connectivity/networking/api/tls_credentials_shell.html).
-  This command type requires `--local-cert` or `--local-cert-file`, as the TLS Credentials Shell cannot generate a CSR.
-  Because the private key exists on the host, this is less secure. Delete it from the host after installation.
+  This command type will be removed. Use `tls_cred_shell` with newer firmware.
 
 These devices have no modem UUID or IMEI to read the device ID from, so pass the device ID that the firmware uses with `--id-str`.
 If you omit it, the script generates a random UUID, which the firmware does not know about.
@@ -102,7 +107,7 @@ If you omit it, the script generates a random UUID, which the firmware does not 
 For provisioning with on-device key generation, use the following command:
 
 ```
-device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap --cmd-type nrf_cloud_cred_shell --id-str <device_id>
+device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap --cmd-type tls_cred_shell --id-str <device_id>
 ```
 
 #### Host-generated key

@@ -72,7 +72,7 @@ device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap
 For a device without a modem, pass the device ID that the firmware uses and let the device generate its key, using the following command:
 
 ```
-device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap --cmd-type nrf_cloud_cred_shell --id-str <device_id>
+device_credentials_installer -d --ca *_ca.pem --ca-key *_prv.pem --verify --coap --cmd-type tls_cred_shell --id-str <device_id>
 ```
 See [Devices without a modem](https://github.com/nRFCloud/utils/blob/main/ADVANCED.md#devices-without-a-modem) for the firmware requirements.
 
